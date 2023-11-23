@@ -94,7 +94,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
-import android.os.PowerManager;
 import android.os.RemoteException;
 import android.platform.test.annotations.Presubmit;
 import android.util.Pair;
@@ -121,6 +120,7 @@ import com.android.server.testing.shadows.ShadowApplicationPackageManager;
 import com.android.server.testing.shadows.ShadowBackupDataInput;
 import com.android.server.testing.shadows.ShadowBackupDataOutput;
 import com.android.server.testing.shadows.ShadowEventLog;
+import com.android.server.testing.shadows.ShadowSystemServiceRegistry;
 
 import com.google.common.truth.IterableSubject;
 
@@ -131,6 +131,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -164,10 +165,11 @@ import java.util.stream.Stream;
             ShadowBackupDataInput.class,
             ShadowBackupDataOutput.class,
             ShadowEventLog.class,
-            ShadowQueuedWork.class
+            ShadowQueuedWork.class,
+            ShadowSystemServiceRegistry.class
         })
 @Presubmit
-public class KeyValueBackupTaskTest {
+public class KeyValueBackupTaskTest  {
     private static final PackageData PACKAGE_1 = keyValuePackage(1);
     private static final PackageData PACKAGE_2 = keyValuePackage(2);
     private static final String BACKUP_AGENT_SHARED_PREFS_SYNCHRONIZER_CLASS =
@@ -184,7 +186,7 @@ public class KeyValueBackupTaskTest {
     private TransportData mTransport;
     private ShadowLooper mShadowBackupLooper;
     private Handler mBackupHandler;
-    private PowerManager.WakeLock mWakeLock;
+    private UserBackupManagerService.BackupWakeLock mWakeLock;
     private KeyValueBackupReporter mReporter;
     private PackageManager mPackageManager;
     private ShadowPackageManager mShadowPackageManager;
@@ -226,8 +228,9 @@ public class KeyValueBackupTaskTest {
         // Needed to be able to use a real BMS instead of a mock
         setUpBinderCallerAndApplicationAsSystem(mApplication);
         mBackupManagerService =
-                spy(createUserBackupManagerServiceAndRunTasks(
-                        USER_ID, mContext, mBaseStateDir, mDataDir, mTransportManager));
+                spy(
+                        createUserBackupManagerServiceAndRunTasks(
+                                USER_ID, mContext, mBaseStateDir, mDataDir, mTransportManager));
         setUpBackupManagerServiceBasics(
                 mBackupManagerService,
                 mApplication,
@@ -335,9 +338,7 @@ public class KeyValueBackupTaskTest {
                 .isEqualTo("packageState".getBytes());
     }
 
-    /**
-     * Do not update backup token if the backup queue was empty
-     */
+    /** Do not update backup token if the backup queue was empty */
     @Test
     public void testRunTask_whenQueueEmptyOnFirstBackup_doesNotUpdateCurrentToken()
             throws Exception {
@@ -713,7 +714,7 @@ public class KeyValueBackupTaskTest {
                     // Verify has set work source and hasn't unset yet.
                     verify(mBackupManagerService)
                             .setWorkSource(
-                                    argThat(workSource -> workSource.get(0) == PACKAGE_1.uid));
+                                    argThat(workSource -> workSource.getUid(0) == PACKAGE_1.uid));
                     verify(mBackupManagerService, never()).setWorkSource(null);
                 });
         KeyValueBackupTask task = createKeyValueBackupTask(transportMock, PACKAGE_1);
@@ -725,8 +726,8 @@ public class KeyValueBackupTaskTest {
     }
 
     /**
-     * Agent unavailable means {@link UserBackupManagerService#bindToAgentSynchronous(ApplicationInfo,
-     * int)} returns {@code null}.
+     * Agent unavailable means {@link
+     * UserBackupManagerService#bindToAgentSynchronous(ApplicationInfo, int)} returns {@code null}.
      *
      * @see #setUpAgent(PackageData)
      */
@@ -759,8 +760,8 @@ public class KeyValueBackupTaskTest {
 
         runTask(task);
 
-        assertThat(Files.readAllBytes(getStateFile(mTransport, PACKAGE_1))).isEqualTo(
-                "newState".getBytes());
+        assertThat(Files.readAllBytes(getStateFile(mTransport, PACKAGE_1)))
+                .isEqualTo("newState".getBytes());
     }
 
     @Test
@@ -795,7 +796,8 @@ public class KeyValueBackupTaskTest {
     }
 
     @Test
-    public void testRunTask_whenNonIncrementalAndBindToAgentThrowsSecurityException() throws Exception {
+    public void testRunTask_whenNonIncrementalAndBindToAgentThrowsSecurityException()
+            throws Exception {
         TransportMock transportMock = setUpInitializedTransport(mTransport);
         setUpAgent(PACKAGE_1);
         doThrow(SecurityException.class)
@@ -1665,7 +1667,7 @@ public class KeyValueBackupTaskTest {
         runTask(task);
 
         verify(mReporter).onPackageBackupTransportFailure(PACKAGE_1.packageName);
-        verify(mReporter).onTransportNotInitialized();
+        verify(mReporter).onTransportNotInitialized(mTransport.transportName);
         verify(mReporter).onBackupFinished(BackupManager.ERROR_TRANSPORT_ABORTED);
     }
 
@@ -1682,7 +1684,7 @@ public class KeyValueBackupTaskTest {
         runTask(task);
 
         verify(mReporter).onPackageBackupTransportFailure(PM_PACKAGE.packageName);
-        verify(mReporter).onTransportNotInitialized();
+        verify(mReporter).onTransportNotInitialized(mTransport.transportName);
         verify(mReporter).onBackupFinished(BackupManager.ERROR_TRANSPORT_ABORTED);
     }
 
@@ -1771,8 +1773,9 @@ public class KeyValueBackupTaskTest {
         TransportMock transportMock = setUpInitializedTransport(mTransport);
         when(transportMock.transport.performBackup(any(), any(), anyInt()))
                 .thenReturn(BackupTransport.TRANSPORT_NOT_INITIALIZED);
-        // First one is in startTask(), second is the one we want.
+        // First one is in startTask(), second is in finishTask(), the third is the one we want.
         when(transportMock.transport.name())
+                .thenReturn(mTransport.transportName)
                 .thenReturn(mTransport.transportName)
                 .thenThrow(DeadObjectException.class);
         setUpAgentWithData(PACKAGE_1);
@@ -2321,9 +2324,7 @@ public class KeyValueBackupTaskTest {
         expectThrows(IllegalArgumentException.class, () -> task.handleCancel(false));
     }
 
-    /**
-     * Do not update backup token if no data was moved.
-     */
+    /** Do not update backup token if no data was moved. */
     @Test
     public void testRunTask_whenNoDataToBackupOnFirstBackup_doesNotUpdateCurrentToken()
             throws Exception {
@@ -2337,6 +2338,85 @@ public class KeyValueBackupTaskTest {
         runTask(task);
 
         assertThat(mBackupManagerService.getCurrentToken()).isEqualTo(0L);
+    }
+
+    /** Do not inform transport of an empty backup if the app hasn't backed up before */
+    @Test
+    public void testRunTask_whenNoDataToBackupOnFirstBackup_doesNotTellTransportOfBackup()
+            throws Exception {
+        TransportMock transportMock = setUpInitializedTransport(mTransport);
+        mBackupManagerService.setCurrentToken(0L);
+        when(transportMock.transport.getCurrentRestoreSet()).thenReturn(1234L);
+        setUpAgent(PACKAGE_1);
+        KeyValueBackupTask task = createKeyValueBackupTask(transportMock, true, PACKAGE_1);
+
+        runTask(task);
+
+        verify(transportMock.transport, never())
+                .performBackup(
+                        argThat(packageInfo(PACKAGE_1)), any(ParcelFileDescriptor.class), anyInt());
+    }
+
+    /** Let the transport know if there are no changes for a KV backed-up package. */
+    @Test
+    public void testRunTask_whenBackupHasCompletedAndThenNoDataChanges_transportGetsNotified()
+            throws Exception {
+        TransportMock transportMock = setUpInitializedTransport(mTransport);
+        when(transportMock.transport.getCurrentRestoreSet()).thenReturn(1234L);
+        when(transportMock.transport.isAppEligibleForBackup(
+                        argThat(packageInfo(PACKAGE_1)), eq(false)))
+                .thenReturn(true);
+        when(transportMock.transport.isAppEligibleForBackup(
+                        argThat(packageInfo(PACKAGE_2)), eq(false)))
+                .thenReturn(true);
+        setUpAgentWithData(PACKAGE_1);
+        setUpAgentWithData(PACKAGE_2);
+
+        PackageInfo endSentinel = new PackageInfo();
+        endSentinel.packageName = KeyValueBackupTask.NO_DATA_END_SENTINEL;
+
+        // Perform First Backup run, which should backup both packages
+        KeyValueBackupTask task = createKeyValueBackupTask(transportMock, PACKAGE_1, PACKAGE_2);
+        runTask(task);
+        InOrder order = Mockito.inOrder(transportMock.transport);
+        order.verify(transportMock.transport)
+                .performBackup(
+                        argThat(packageInfo(PACKAGE_1)),
+                        any(),
+                        eq(BackupTransport.FLAG_NON_INCREMENTAL));
+        order.verify(transportMock.transport).finishBackup();
+        order.verify(transportMock.transport)
+                .performBackup(
+                        argThat(packageInfo(PACKAGE_2)),
+                        any(),
+                        eq(BackupTransport.FLAG_NON_INCREMENTAL));
+        order.verify(transportMock.transport).finishBackup();
+
+        // Run again with new data for package 1, but nothing new for package 2
+        task = createKeyValueBackupTask(transportMock, PACKAGE_1);
+        runTask(task);
+
+        // Now for the second run we performed one incremental backup (package 1) and
+        // made one "no change" call (package 2) before sending the end sentinel.
+        order.verify(transportMock.transport)
+                .performBackup(
+                        argThat(packageInfo(PACKAGE_1)),
+                        any(),
+                        eq(BackupTransport.FLAG_INCREMENTAL));
+        order.verify(transportMock.transport).finishBackup();
+        order.verify(transportMock.transport)
+                .performBackup(
+                        argThat(packageInfo(PACKAGE_2)),
+                        any(),
+                        eq(BackupTransport.FLAG_DATA_NOT_CHANGED));
+        order.verify(transportMock.transport).finishBackup();
+        order.verify(transportMock.transport)
+                .performBackup(
+                        argThat(packageInfo(endSentinel)),
+                        any(),
+                        eq(BackupTransport.FLAG_DATA_NOT_CHANGED));
+        order.verify(transportMock.transport).finishBackup();
+        order.verifyNoMoreInteractions();
     }
 
     private void runTask(KeyValueBackupTask task) {
@@ -2574,6 +2654,20 @@ public class KeyValueBackupTaskTest {
         // returns null. So we guard against that by checking for null.
         return packageInfo ->
                 packageInfo != null && packageData.packageName.equals(packageInfo.packageName);
+    }
+
+    /** Matches {@link PackageInfo} whose package name is {@code packageData.packageName}. */
+    private static ArgumentMatcher<PackageInfo> packageInfo(PackageInfo packageData) {
+        // We have to test for packageInfo nulity because of Mockito's own stubbing with argThat().
+        // E.g. if you do:
+        //
+        //   1. when(object.method(argThat(str -> str.equals("foo")))).thenReturn(0)
+        //   2. when(object.method(argThat(str -> str.equals("bar")))).thenReturn(2)
+        //
+        // The second line will throw NPE because it will call lambda 1 with null, since argThat()
+        // returns null. So we guard against that by checking for null.
+        return packageInfo ->
+                packageInfo != null && packageInfo.packageName.equals(packageInfo.packageName);
     }
 
     /** Matches {@link ApplicationInfo} whose package name is {@code packageData.packageName}. */

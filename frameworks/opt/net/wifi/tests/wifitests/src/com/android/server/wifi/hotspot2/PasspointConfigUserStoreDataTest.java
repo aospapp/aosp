@@ -16,8 +16,14 @@
 
 package com.android.server.wifi.hotspot2;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static android.net.wifi.WifiConfiguration.METERED_OVERRIDE_METERED;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.Credential;
@@ -29,9 +35,11 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
-import com.android.server.wifi.SIMAccessor;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.WifiCarrierInfoManager;
 import com.android.server.wifi.WifiConfigStore;
 import com.android.server.wifi.WifiKeyStore;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -56,11 +64,10 @@ import java.util.Map;
  * Unit tests for {@link com.android.server.wifi.hotspot2.PasspointConfigUserStoreData}.
  */
 @SmallTest
-public class PasspointConfigUserStoreDataTest {
+public class PasspointConfigUserStoreDataTest extends WifiBaseTest {
     private static final String TEST_CA_CERTIFICATE_ALIAS = "CaCert";
     private static final String TEST_CA_CERTIFICATE_ALIAS_2 = "CaCert_2";
-    private static final String TEST_CLIENT_CERTIFICATE_ALIAS = "ClientCert";
-    private static final String TEST_CLIENT_PRIVATE_KEY_ALIAS = "ClientPrivateKey";
+    private static final String TEST_CLIENT_PRIVATE_KEY_AND_CERT_ALIAS = "ClientPrivateKeyAndCert";
     private static final String TEST_REMEDIATION_CA_CERTIFICATE_ALIAS = "CaCert_3";
     private static final String TEST_CREATOR_PACKAGE = "com.android.test";
     private static final long TEST_PROVIDER_ID = 1;
@@ -70,7 +77,7 @@ public class PasspointConfigUserStoreDataTest {
     private static final boolean TEST_SHARED = false;
 
     @Mock WifiKeyStore mKeyStore;
-    @Mock SIMAccessor mSimAccessor;
+    @Mock WifiCarrierInfoManager mWifiCarrierInfoManager;
     @Mock PasspointConfigUserStoreData.DataSource mDataSource;
     PasspointConfigUserStoreData mConfigStoreData;
 
@@ -78,7 +85,8 @@ public class PasspointConfigUserStoreDataTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mConfigStoreData = new PasspointConfigUserStoreData(mKeyStore, mSimAccessor, mDataSource);
+        mConfigStoreData = new PasspointConfigUserStoreData(mKeyStore, mWifiCarrierInfoManager,
+                mDataSource);
     }
 
     /**
@@ -213,7 +221,7 @@ public class PasspointConfigUserStoreDataTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mConfigStoreData.serializeData(out);
+        mConfigStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
         out.flush();
         return outputStream.toByteArray();
     }
@@ -228,7 +236,9 @@ public class PasspointConfigUserStoreDataTest {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mConfigStoreData.deserializeData(in, in.getDepth());
+        mConfigStoreData.deserializeData(in, in.getDepth(),
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
     }
 
     /**
@@ -241,16 +251,23 @@ public class PasspointConfigUserStoreDataTest {
     public void serializeAndDeserializeUserStoreData() throws Exception {
         // Setup expected data.
         List<PasspointProvider> providerList = new ArrayList<>();
-        providerList.add(new PasspointProvider(createFullPasspointConfiguration(),
-                mKeyStore, mSimAccessor, TEST_PROVIDER_ID, TEST_CREATOR_UID, TEST_CREATOR_PACKAGE,
-                Arrays.asList(TEST_CA_CERTIFICATE_ALIAS), TEST_CLIENT_CERTIFICATE_ALIAS,
-                TEST_CLIENT_PRIVATE_KEY_ALIAS, null, TEST_HAS_EVER_CONNECTED, TEST_SHARED));
-        providerList.add(new PasspointProvider(createFullPasspointConfiguration(),
-                mKeyStore, mSimAccessor, TEST_PROVIDER_ID_2, TEST_CREATOR_UID, TEST_CREATOR_PACKAGE,
+        PasspointProvider provider1 = new PasspointProvider(createFullPasspointConfiguration(),
+                mKeyStore, mWifiCarrierInfoManager, TEST_PROVIDER_ID, TEST_CREATOR_UID,
+                TEST_CREATOR_PACKAGE, false, Arrays.asList(TEST_CA_CERTIFICATE_ALIAS),
+                TEST_CLIENT_PRIVATE_KEY_AND_CERT_ALIAS, null,
+                TEST_HAS_EVER_CONNECTED, TEST_SHARED);
+        PasspointProvider provider2 = new PasspointProvider(createFullPasspointConfiguration(),
+                mKeyStore, mWifiCarrierInfoManager, TEST_PROVIDER_ID_2, TEST_CREATOR_UID,
+                TEST_CREATOR_PACKAGE, true,
                 Arrays.asList(TEST_CA_CERTIFICATE_ALIAS, TEST_CA_CERTIFICATE_ALIAS_2),
-                TEST_CLIENT_CERTIFICATE_ALIAS,
-                TEST_CLIENT_PRIVATE_KEY_ALIAS, TEST_REMEDIATION_CA_CERTIFICATE_ALIAS,
-                TEST_HAS_EVER_CONNECTED, TEST_SHARED));
+                TEST_CLIENT_PRIVATE_KEY_AND_CERT_ALIAS, TEST_REMEDIATION_CA_CERTIFICATE_ALIAS,
+                TEST_HAS_EVER_CONNECTED, TEST_SHARED);
+        provider2.setAutojoinEnabled(false);
+        provider2.setMacRandomizationEnabled(false);
+        provider2.setMeteredOverride(METERED_OVERRIDE_METERED);
+        provider2.setTrusted(false);
+        providerList.add(provider1);
+        providerList.add(provider2);
 
         // Serialize data for user store.
         when(mDataSource.getProviders()).thenReturn(providerList);

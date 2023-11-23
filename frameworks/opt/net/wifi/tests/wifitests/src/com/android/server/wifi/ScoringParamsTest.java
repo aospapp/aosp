@@ -19,27 +19,20 @@ package com.android.server.wifi;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.database.ContentObserver;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
-import android.os.Handler;
-import android.provider.Settings;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.internal.R;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
@@ -48,10 +41,11 @@ import org.mockito.Spy;
  * Unit tests for {@link com.android.server.wifi.ScoringParams}.
  */
 @SmallTest
-public class ScoringParamsTest {
+public class ScoringParamsTest extends WifiBaseTest {
 
     private static final String EXPECTED_DEFAULTS =
-            "rssi2=-83:-80:-73:-60,rssi5=-80:-77:-70:-57,pps=0:1:100,horizon=15,nud=8,expid=0";
+            "rssi2=-83:-80:-73:-60,rssi5=-80:-77:-70:-57,rssi6=-80:-77:-70:-57,"
+            + "pps=0:1:100,horizon=15,nud=8,expid=0";
 
     private ScoringParams mScoringParams;
 
@@ -88,6 +82,7 @@ public class ScoringParamsTest {
         mScoringParams = new ScoringParams();
         checkThresholds(2412);
         checkThresholds(5020);
+        checkThresholds(5935);
         assertEquals(15, mScoringParams.getHorizonSeconds());
     }
 
@@ -144,6 +139,7 @@ public class ScoringParamsTest {
         assertFalse(mScoringParams.update("rssi2=-86"));
         assertFalse(mScoringParams.update("rssi2=-99:-88:-77:-66:-55"));
         assertFalse(mScoringParams.update("rssi5=one:two:three:four"));
+        assertFalse(mScoringParams.update("rssi6=one:two:three:four"));
         assertFalse(mScoringParams.update("nud=-1"));
         assertFalse(mScoringParams.update("nud=11"));
         assertFalse(mScoringParams.update("pps=1:2:3:4"));
@@ -173,7 +169,7 @@ public class ScoringParamsTest {
         String before = mScoringParams.toString();
         assertFalse("Must be negative", mScoringParams.update("rssi2=0:1:2:3"));
         assertFalse("Must be ordered", mScoringParams.update("rssi5=-88:-89:-66:-55"));
-        assertFalse("Must be not too negative", mScoringParams.update("rssi5=-128:-77:-66:-55"));
+        assertFalse("Must be not too negative", mScoringParams.update("rssi6=-128:-77:-66:-55"));
         String what = "rssi5=" + WifiInfo.INVALID_RSSI + ":-77:-66:-55";
         assertFalse(what, mScoringParams.update(what));
         assertEquals(before, mScoringParams.toString());
@@ -258,6 +254,7 @@ public class ScoringParamsTest {
      */
     int mBad2GHz, mEntry2GHz, mSufficient2GHz, mGood2GHz;
     int mBad5GHz, mEntry5GHz, mSufficient5GHz, mGood5GHz;
+    int mBad6GHz, mEntry6GHz, mSufficient6GHz, mGood6GHz;
 
     @Mock Context mContext;
     @Spy private MockResources mResources = new MockResources();
@@ -289,6 +286,14 @@ public class ScoringParamsTest {
                 R.integer.config_wifi_framework_wifi_score_low_rssi_threshold_5GHz, -60);
         mGood5GHz = setupIntegerResource(
                 R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_5GHz, -50);
+        mBad6GHz = setupIntegerResource(
+                R.integer.config_wifiFrameworkScoreBadRssiThreshold6ghz, -80);
+        mEntry6GHz = setupIntegerResource(
+                R.integer.config_wifiFrameworkScoreEntryRssiThreshold6ghz, -70);
+        mSufficient6GHz = setupIntegerResource(
+                R.integer.config_wifiFrameworkScoreLowRssiThreshold6ghz, -60);
+        mGood6GHz = setupIntegerResource(
+                R.integer.config_wifiFrameworkScoreGoodRssiThreshold6ghz, -50);
     }
 
     /**
@@ -300,67 +305,20 @@ public class ScoringParamsTest {
 
         assertEquals(mBad2GHz, mScoringParams.getExitRssi(2412));
         assertEquals(mEntry2GHz, mScoringParams.getEntryRssi(2480));
-        assertEquals(mSufficient2GHz, mScoringParams.getSufficientRssi(2400));
-        assertEquals(mGood2GHz, mScoringParams.getGoodRssi(2499));
-        assertEquals(mGood2GHz, mScoringParams.getGoodRssi(ScoringParams.BAND2));
+        assertEquals(mSufficient2GHz, mScoringParams.getSufficientRssi(2457));
+        assertEquals(mGood2GHz, mScoringParams.getGoodRssi(2442));
+        assertEquals(mGood2GHz, mScoringParams.getGoodRssi(ScanResult.BAND_24_GHZ_START_FREQ_MHZ));
 
-        assertEquals(mBad5GHz, mScoringParams.getExitRssi(5000));
-        assertEquals(mEntry5GHz, mScoringParams.getEntryRssi(5010));
-        assertEquals(mSufficient5GHz, mScoringParams.getSufficientRssi(5100));
-        assertEquals(mGood5GHz, mScoringParams.getGoodRssi(5678));
-        assertEquals(mGood5GHz, mScoringParams.getGoodRssi(ScoringParams.BAND5));
-    }
+        assertEquals(mBad5GHz, mScoringParams.getExitRssi(5200));
+        assertEquals(mEntry5GHz, mScoringParams.getEntryRssi(5220));
+        assertEquals(mSufficient5GHz, mScoringParams.getSufficientRssi(5300));
+        assertEquals(mGood5GHz, mScoringParams.getGoodRssi(5745));
+        assertEquals(mGood5GHz, mScoringParams.getGoodRssi(ScanResult.BAND_5_GHZ_START_FREQ_MHZ));
 
-    /**
-     * Additional mocks for handling Settings
-     */
-    @Mock FrameworkFacade mFrameworkFacade;
-    @Mock Handler mHandler;
-
-    /**
-     * Test getting updates from Settings
-     *
-     * Exercises the ContentObserver notification path
-     */
-    @Test
-    public void testFullConstructorWithUpdatesFromSettings() throws Exception {
-        ArgumentCaptor<ContentObserver> captor = ArgumentCaptor.forClass(ContentObserver.class);
-        when(mFrameworkFacade.getStringSetting(mContext, Settings.Global.WIFI_SCORE_PARAMS))
-                .thenReturn(null);
-        mScoringParams = new ScoringParams(mContext, mFrameworkFacade, mHandler);
-        verify(mFrameworkFacade)
-                .registerContentObserver(eq(mContext), any(), anyBoolean(), captor.capture());
-
-        String before = mScoringParams.toString();
-        String changed = before.replace('8', '9');
-        assertFalse(changed.equals(before));
-
-        when(mFrameworkFacade.getStringSetting(mContext, Settings.Global.WIFI_SCORE_PARAMS))
-                .thenReturn(changed);
-        captor.getValue().onChange(/*selfChange*/ false);
-        assertEquals(changed, mScoringParams.toString());
-
-        when(mFrameworkFacade.getStringSetting(mContext, Settings.Global.WIFI_SCORE_PARAMS))
-                .thenReturn("");
-        captor.getValue().onChange(/*selfChange*/ false);
-        assertEquals(before, mScoringParams.toString());
-    }
-
-    @Test
-    public void testBadSettings() throws Exception {
-        ArgumentCaptor<ContentObserver> captor = ArgumentCaptor.forClass(ContentObserver.class);
-        when(mFrameworkFacade.getStringSetting(mContext, Settings.Global.WIFI_SCORE_PARAMS))
-                .thenReturn(null);
-        mScoringParams = new ScoringParams(mContext, mFrameworkFacade, mHandler);
-        verify(mFrameworkFacade)
-                .registerContentObserver(eq(mContext), any(), anyBoolean(), captor.capture());
-
-        String before = mScoringParams.toString();
-        String garbage = "what??";
-
-        when(mFrameworkFacade.getStringSetting(mContext, Settings.Global.WIFI_SCORE_PARAMS))
-                .thenReturn(garbage);
-        captor.getValue().onChange(/*selfChange*/ false);
-        assertEquals(before, mScoringParams.toString());
+        assertEquals(mBad6GHz, mScoringParams.getExitRssi(5965));
+        assertEquals(mEntry6GHz, mScoringParams.getEntryRssi(6095));
+        assertEquals(mSufficient6GHz, mScoringParams.getSufficientRssi(6255));
+        assertEquals(mGood6GHz, mScoringParams.getGoodRssi(6275));
+        assertEquals(mGood6GHz, mScoringParams.getGoodRssi(ScanResult.BAND_6_GHZ_START_FREQ_MHZ));
     }
 }

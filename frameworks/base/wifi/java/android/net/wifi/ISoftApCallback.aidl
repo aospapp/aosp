@@ -15,6 +15,10 @@
  */
 
 package android.net.wifi;
+import android.net.wifi.SoftApCapability;
+import android.net.wifi.SoftApInfo;
+
+import android.net.wifi.WifiClient;
 
 /**
  * Interface for Soft AP callback.
@@ -36,9 +40,32 @@ oneway interface ISoftApCallback
     void onStateChanged(int state, int failureReason);
 
     /**
-     * Service to manager callback providing number of connected clients.
+     * Service to manager callback providing connected client's information.
      *
-     * @param numClients number of connected clients
+     * @param clients the currently connected clients
      */
-    void onNumClientsChanged(int numClients);
+    void onConnectedClientsChanged(in List<WifiClient> clients);
+
+    /**
+     * Service to manager callback providing information of softap.
+     *
+     * @param softApInfo is the softap information. {@link SoftApInfo}
+     */
+    void onInfoChanged(in SoftApInfo softApInfo);
+
+
+    /**
+     * Service to manager callback providing capability of softap.
+     *
+     * @param capability is the softap capability. {@link SoftApCapability}
+     */
+    void onCapabilityChanged(in SoftApCapability capability);
+
+    /**
+     * Service to manager callback providing blocked client of softap with specific reason code.
+     *
+     * @param client the currently blocked client.
+     * @param blockedReason one of blocked reason from {@link WifiManager.SapClientBlockedReason}
+     */
+    void onBlockedClientConnecting(in WifiClient client, int blockedReason);
 }

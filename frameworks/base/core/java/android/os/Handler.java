@@ -18,7 +18,7 @@ package android.os;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.util.Log;
 import android.util.Printer;
 
@@ -28,15 +28,14 @@ import java.lang.reflect.Modifier;
  * A Handler allows you to send and process {@link Message} and Runnable
  * objects associated with a thread's {@link MessageQueue}.  Each Handler
  * instance is associated with a single thread and that thread's message
- * queue.  When you create a new Handler, it is bound to the thread /
- * message queue of the thread that is creating it -- from that point on,
- * it will deliver messages and runnables to that message queue and execute
- * them as they come out of the message queue.
- * 
+ * queue. When you create a new Handler it is bound to a {@link Looper}.
+ * It will deliver messages and runnables to that Looper's message
+ * queue and execute them on that Looper's thread.
+ *
  * <p>There are two main uses for a Handler: (1) to schedule messages and
  * runnables to be executed at some point in the future; and (2) to enqueue
  * an action to be performed on a different thread than your own.
- * 
+ *
  * <p>Scheduling messages is accomplished with the
  * {@link #post}, {@link #postAtTime(Runnable, long)},
  * {@link #postDelayed}, {@link #sendEmptyMessage},
@@ -114,7 +113,18 @@ public class Handler {
      *
      * If this thread does not have a looper, this handler won't be able to receive messages
      * so an exception is thrown.
+     *
+     * @deprecated Implicitly choosing a Looper during Handler construction can lead to bugs
+     *   where operations are silently lost (if the Handler is not expecting new tasks and quits),
+     *   crashes (if a handler is sometimes created on a thread without a Looper active), or race
+     *   conditions, where the thread a handler is associated with is not what the author
+     *   anticipated. Instead, use an {@link java.util.concurrent.Executor} or specify the Looper
+     *   explicitly, using {@link Looper#getMainLooper}, {link android.view.View#getHandler}, or
+     *   similar. If the implicit thread local behavior is required for compatibility, use
+     *   {@code new Handler(Looper.myLooper())} to make it clear to readers.
+     *
      */
+    @Deprecated
     public Handler() {
         this(null, false);
     }
@@ -128,7 +138,17 @@ public class Handler {
      * so an exception is thrown.
      *
      * @param callback The callback interface in which to handle messages, or null.
+     *
+     * @deprecated Implicitly choosing a Looper during Handler construction can lead to bugs
+     *   where operations are silently lost (if the Handler is not expecting new tasks and quits),
+     *   crashes (if a handler is sometimes created on a thread without a Looper active), or race
+     *   conditions, where the thread a handler is associated with is not what the author
+     *   anticipated. Instead, use an {@link java.util.concurrent.Executor} or specify the Looper
+     *   explicitly, using {@link Looper#getMainLooper}, {link android.view.View#getHandler}, or
+     *   similar. If the implicit thread local behavior is required for compatibility, use
+     *   {@code new Handler(Looper.myLooper(), callback)} to make it clear to readers.
      */
+    @Deprecated
     public Handler(@Nullable Callback callback) {
         this(callback, false);
     }
@@ -295,6 +315,10 @@ public class Handler {
     /** {@hide} */
     @NonNull
     public String getTraceName(@NonNull Message message) {
+        if (message.callback instanceof TraceNameSupplier) {
+            return ((TraceNameSupplier) message.callback).getTraceName();
+        }
+
         final StringBuilder sb = new StringBuilder();
         sb.append(getClass().getName()).append(": ");
         if (message.callback != null) {
@@ -772,6 +796,17 @@ public class Handler {
     }
 
     /**
+     * Remove any pending posts of messages with code 'what' and whose obj is
+     * 'object' that are in the message queue.  If <var>object</var> is null,
+     * all messages will be removed.
+     *
+     *@hide
+     */
+    public final void removeEqualMessages(int what, @Nullable Object object) {
+        mQueue.removeEqualMessages(this, what, object);
+    }
+
+    /**
      * Remove any pending posts of callbacks and sent messages whose
      * <var>obj</var> is <var>token</var>.  If <var>token</var> is null,
      * all callbacks and messages will be removed.
@@ -780,6 +815,16 @@ public class Handler {
         mQueue.removeCallbacksAndMessages(this, token);
     }
 
+    /**
+     * Remove any pending posts of callbacks and sent messages whose
+     * <var>obj</var> is <var>token</var>.  If <var>token</var> is null,
+     * all callbacks and messages will be removed.
+     *
+     *@hide
+     */
+    public final void removeCallbacksAndEqualMessages(@Nullable Object token) {
+        mQueue.removeCallbacksAndEqualMessages(this, token);
+    }
     /**
      * Check if there are any pending posts of messages with code 'what' in
      * the message queue.
@@ -802,6 +847,16 @@ public class Handler {
      */
     public final boolean hasMessages(int what, @Nullable Object object) {
         return mQueue.hasMessages(this, what, object);
+    }
+
+    /**
+     * Check if there are any pending posts of messages with code 'what' and
+     * whose obj is 'object' in the message queue.
+     *
+     *@hide
+     */
+    public final boolean hasEqualMessages(int what, @Nullable Object object) {
+        return mQueue.hasEqualMessages(this, what, object);
     }
 
     /**

@@ -16,13 +16,14 @@
 
 package android.net;
 
-import static android.os.Process.CLAT_UID;
-
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.IntDef;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.annotation.SystemApi;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import android.util.Slog;
 import android.util.SparseBooleanArray;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -32,10 +33,13 @@ import libcore.util.EmptyArray;
 
 import java.io.CharArrayWriter;
 import java.io.PrintWriter;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Collection of active network statistics. Can contain summary details across
@@ -47,60 +51,161 @@ import java.util.Objects;
  * @hide
  */
 // @NotThreadSafe
-public class NetworkStats implements Parcelable {
+@SystemApi
+public final class NetworkStats implements Parcelable {
     private static final String TAG = "NetworkStats";
-    /** {@link #iface} value when interface details unavailable. */
-    public static final String IFACE_ALL = null;
+
+    /**
+     * {@link #iface} value when interface details unavailable.
+     * @hide
+     */
+    @Nullable public static final String IFACE_ALL = null;
+
+    /**
+     * Virtual network interface for video telephony. This is for VT data usage counting
+     * purpose.
+     */
+    public static final String IFACE_VT = "vt_data0";
+
     /** {@link #uid} value when UID details unavailable. */
     public static final int UID_ALL = -1;
-    /** {@link #tag} value matching any tag. */
+    /** Special UID value for data usage by tethering. */
+    public static final int UID_TETHERING = -5;
+
+    /**
+     * {@link #tag} value matching any tag.
+     * @hide
+     */
     // TODO: Rename TAG_ALL to TAG_ANY.
     public static final int TAG_ALL = -1;
-    /** {@link #set} value for all sets combined, not including debug sets. */
+    /**
+     * {@link #set} value for all sets combined, not including debug sets.
+     * @hide
+     */
     public static final int SET_ALL = -1;
     /** {@link #set} value where background data is accounted. */
     public static final int SET_DEFAULT = 0;
     /** {@link #set} value where foreground data is accounted. */
     public static final int SET_FOREGROUND = 1;
-    /** All {@link #set} value greater than SET_DEBUG_START are debug {@link #set} values. */
+    /**
+     * All {@link #set} value greater than SET_DEBUG_START are debug {@link #set} values.
+     * @hide
+     */
     public static final int SET_DEBUG_START = 1000;
-    /** Debug {@link #set} value when the VPN stats are moved in. */
+    /**
+     * Debug {@link #set} value when the VPN stats are moved in.
+     * @hide
+     */
     public static final int SET_DBG_VPN_IN = 1001;
-    /** Debug {@link #set} value when the VPN stats are moved out of a vpn UID. */
+    /**
+     * Debug {@link #set} value when the VPN stats are moved out of a vpn UID.
+     * @hide
+     */
     public static final int SET_DBG_VPN_OUT = 1002;
 
-    /** Include all interfaces when filtering */
-    public static final String[] INTERFACES_ALL = null;
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "SET_" }, value = {
+            SET_ALL,
+            SET_DEFAULT,
+            SET_FOREGROUND,
+            SET_DEBUG_START,
+            SET_DBG_VPN_IN,
+            SET_DBG_VPN_OUT
+    })
+    public @interface State {
+    }
+
+    /**
+     * Include all interfaces when filtering
+     * @hide
+     */
+    public @Nullable static final String[] INTERFACES_ALL = null;
 
     /** {@link #tag} value for total data across all tags. */
     // TODO: Rename TAG_NONE to TAG_ALL.
     public static final int TAG_NONE = 0;
 
-    /** {@link #metered} value to account for all metered states. */
+    /**
+     * {@link #metered} value to account for all metered states.
+     * @hide
+     */
     public static final int METERED_ALL = -1;
     /** {@link #metered} value where native, unmetered data is accounted. */
     public static final int METERED_NO = 0;
     /** {@link #metered} value where metered data is accounted. */
     public static final int METERED_YES = 1;
 
-    /** {@link #roaming} value to account for all roaming states. */
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "METERED_" }, value = {
+            METERED_ALL,
+            METERED_NO,
+            METERED_YES
+    })
+    public @interface Meteredness {
+    }
+
+
+    /**
+     * {@link #roaming} value to account for all roaming states.
+     * @hide
+     */
     public static final int ROAMING_ALL = -1;
     /** {@link #roaming} value where native, non-roaming data is accounted. */
     public static final int ROAMING_NO = 0;
     /** {@link #roaming} value where roaming data is accounted. */
     public static final int ROAMING_YES = 1;
 
-    /** {@link #onDefaultNetwork} value to account for all default network states. */
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "ROAMING_" }, value = {
+            ROAMING_ALL,
+            ROAMING_NO,
+            ROAMING_YES
+    })
+    public @interface Roaming {
+    }
+
+    /**
+     * {@link #onDefaultNetwork} value to account for all default network states.
+     * @hide
+     */
     public static final int DEFAULT_NETWORK_ALL = -1;
     /** {@link #onDefaultNetwork} value to account for usage while not the default network. */
     public static final int DEFAULT_NETWORK_NO = 0;
     /** {@link #onDefaultNetwork} value to account for usage while the default network. */
     public static final int DEFAULT_NETWORK_YES = 1;
 
-    /** Denotes a request for stats at the interface level. */
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "DEFAULT_NETWORK_" }, value = {
+            DEFAULT_NETWORK_ALL,
+            DEFAULT_NETWORK_NO,
+            DEFAULT_NETWORK_YES
+    })
+    public @interface DefaultNetwork {
+    }
+
+    /**
+     * Denotes a request for stats at the interface level.
+     * @hide
+     */
     public static final int STATS_PER_IFACE = 0;
-    /** Denotes a request for stats at the interface and UID level. */
+    /**
+     * Denotes a request for stats at the interface and UID level.
+     * @hide
+     */
     public static final int STATS_PER_UID = 1;
+
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "STATS_PER_" }, value = {
+            STATS_PER_IFACE,
+            STATS_PER_UID
+    })
+    public @interface StatsType {
+    }
 
     private static final String CLATD_INTERFACE_PREFIX = "v4-";
     // Delta between IPv4 header (20b) and IPv6 header (40b).
@@ -143,62 +248,115 @@ public class NetworkStats implements Parcelable {
     @UnsupportedAppUsage
     private long[] operations;
 
+    /**
+     * Basic element of network statistics. Contains the number of packets and number of bytes
+     * transferred on both directions in a given set of conditions. See
+     * {@link Entry#Entry(String, int, int, int, int, int, int, long, long, long, long, long)}.
+     *
+     * @hide
+     */
+    @SystemApi
     public static class Entry {
+        /** @hide */
         @UnsupportedAppUsage
         public String iface;
+        /** @hide */
         @UnsupportedAppUsage
         public int uid;
+        /** @hide */
         @UnsupportedAppUsage
         public int set;
+        /** @hide */
         @UnsupportedAppUsage
         public int tag;
         /**
          * Note that this is only populated w/ the default value when read from /proc or written
          * to disk. We merge in the correct value when reporting this value to clients of
          * getSummary().
+         * @hide
          */
         public int metered;
         /**
          * Note that this is only populated w/ the default value when read from /proc or written
          * to disk. We merge in the correct value when reporting this value to clients of
          * getSummary().
+         * @hide
          */
         public int roaming;
         /**
          * Note that this is only populated w/ the default value when read from /proc or written
          * to disk. We merge in the correct value when reporting this value to clients of
          * getSummary().
+         * @hide
          */
         public int defaultNetwork;
+        /** @hide */
         @UnsupportedAppUsage
         public long rxBytes;
+        /** @hide */
         @UnsupportedAppUsage
         public long rxPackets;
+        /** @hide */
         @UnsupportedAppUsage
         public long txBytes;
+        /** @hide */
         @UnsupportedAppUsage
         public long txPackets;
+        /** @hide */
+        @UnsupportedAppUsage
         public long operations;
 
+        /** @hide */
         @UnsupportedAppUsage
         public Entry() {
             this(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, 0L, 0L, 0L, 0L, 0L);
         }
 
+        /** @hide */
         public Entry(long rxBytes, long rxPackets, long txBytes, long txPackets, long operations) {
             this(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, rxBytes, rxPackets, txBytes, txPackets,
                     operations);
         }
 
+        /** @hide */
         public Entry(String iface, int uid, int set, int tag, long rxBytes, long rxPackets,
                 long txBytes, long txPackets, long operations) {
             this(iface, uid, set, tag, METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO,
                     rxBytes, rxPackets, txBytes, txPackets, operations);
         }
 
-        public Entry(String iface, int uid, int set, int tag, int metered, int roaming,
-                 int defaultNetwork, long rxBytes, long rxPackets, long txBytes, long txPackets,
-                 long operations) {
+        /**
+         * Construct a {@link Entry} object by giving statistics of packet and byte transferred on
+         * both direction, and associated with a set of given conditions.
+         *
+         * @param iface interface name of this {@link Entry}. Or null if not specified.
+         * @param uid uid of this {@link Entry}. {@link #UID_TETHERING} if this {@link Entry} is
+         *            for tethering. Or {@link #UID_ALL} if this {@link NetworkStats} is only
+         *            counting iface stats.
+         * @param set usage state of this {@link Entry}. Should be one of the following
+         *            values: {@link #SET_DEFAULT}, {@link #SET_FOREGROUND}.
+         * @param tag tag of this {@link Entry}.
+         * @param metered metered state of this {@link Entry}. Should be one of the following
+         *                values: {link #METERED_YES}, {link #METERED_NO}.
+         * @param roaming roaming state of this {@link Entry}. Should be one of the following
+         *                values: {link #ROAMING_YES}, {link #ROAMING_NO}.
+         * @param defaultNetwork default network status of this {@link Entry}. Should be one
+         *                       of the following values: {link #DEFAULT_NETWORK_YES},
+         *                       {link #DEFAULT_NETWORK_NO}.
+         * @param rxBytes Number of bytes received for this {@link Entry}. Statistics should
+         *                represent the contents of IP packets, including IP headers.
+         * @param rxPackets Number of packets received for this {@link Entry}. Statistics should
+         *                  represent the contents of IP packets, including IP headers.
+         * @param txBytes Number of bytes transmitted for this {@link Entry}. Statistics should
+         *                represent the contents of IP packets, including IP headers.
+         * @param txPackets Number of bytes transmitted for this {@link Entry}. Statistics should
+         *                  represent the contents of IP packets, including IP headers.
+         * @param operations count of network operations performed for this {@link Entry}. This can
+         *                   be used to derive bytes-per-operation.
+         */
+        public Entry(@Nullable String iface, int uid, @State int set, int tag,
+                @Meteredness int metered, @Roaming int roaming, @DefaultNetwork int defaultNetwork,
+                long rxBytes, long rxPackets, long txBytes, long txPackets, long operations) {
             this.iface = iface;
             this.uid = uid;
             this.set = set;
@@ -213,15 +371,18 @@ public class NetworkStats implements Parcelable {
             this.operations = operations;
         }
 
+        /** @hide */
         public boolean isNegative() {
             return rxBytes < 0 || rxPackets < 0 || txBytes < 0 || txPackets < 0 || operations < 0;
         }
 
+        /** @hide */
         public boolean isEmpty() {
             return rxBytes == 0 && rxPackets == 0 && txBytes == 0 && txPackets == 0
                     && operations == 0;
         }
 
+        /** @hide */
         public void add(Entry another) {
             this.rxBytes += another.rxBytes;
             this.rxPackets += another.rxPackets;
@@ -248,6 +409,7 @@ public class NetworkStats implements Parcelable {
             return builder.toString();
         }
 
+        /** @hide */
         @Override
         public boolean equals(Object o) {
             if (o instanceof Entry) {
@@ -261,13 +423,13 @@ public class NetworkStats implements Parcelable {
             return false;
         }
 
+        /** @hide */
         @Override
         public int hashCode() {
             return Objects.hash(uid, set, tag, metered, roaming, defaultNetwork, iface);
         }
     }
 
-    @UnsupportedAppUsage
     public NetworkStats(long elapsedRealtime, int initialSize) {
         this.elapsedRealtime = elapsedRealtime;
         this.size = 0;
@@ -291,6 +453,7 @@ public class NetworkStats implements Parcelable {
         }
     }
 
+    /** @hide */
     @UnsupportedAppUsage
     public NetworkStats(Parcel parcel) {
         elapsedRealtime = parcel.readLong();
@@ -311,7 +474,7 @@ public class NetworkStats implements Parcelable {
     }
 
     @Override
-    public void writeToParcel(Parcel dest, int flags) {
+    public void writeToParcel(@NonNull Parcel dest, int flags) {
         dest.writeLong(elapsedRealtime);
         dest.writeInt(size);
         dest.writeInt(capacity);
@@ -329,19 +492,23 @@ public class NetworkStats implements Parcelable {
         dest.writeLongArray(operations);
     }
 
+    /**
+     * @hide
+     */
     @Override
     public NetworkStats clone() {
         final NetworkStats clone = new NetworkStats(elapsedRealtime, size);
         NetworkStats.Entry entry = null;
         for (int i = 0; i < size; i++) {
             entry = getValues(i, entry);
-            clone.addValues(entry);
+            clone.insertEntry(entry);
         }
         return clone;
     }
 
     /**
      * Clear all data stored in this object.
+     * @hide
      */
     public void clear() {
         this.capacity = 0;
@@ -359,25 +526,28 @@ public class NetworkStats implements Parcelable {
         this.operations = EmptyArray.LONG;
     }
 
+    /** @hide */
     @VisibleForTesting
-    public NetworkStats addIfaceValues(
+    public NetworkStats insertEntry(
             String iface, long rxBytes, long rxPackets, long txBytes, long txPackets) {
-        return addValues(
+        return insertEntry(
                 iface, UID_ALL, SET_DEFAULT, TAG_NONE, rxBytes, rxPackets, txBytes, txPackets, 0L);
     }
 
+    /** @hide */
     @VisibleForTesting
-    public NetworkStats addValues(String iface, int uid, int set, int tag, long rxBytes,
+    public NetworkStats insertEntry(String iface, int uid, int set, int tag, long rxBytes,
             long rxPackets, long txBytes, long txPackets, long operations) {
-        return addValues(new Entry(
+        return insertEntry(new Entry(
                 iface, uid, set, tag, rxBytes, rxPackets, txBytes, txPackets, operations));
     }
 
+    /** @hide */
     @VisibleForTesting
-    public NetworkStats addValues(String iface, int uid, int set, int tag, int metered, int roaming,
-            int defaultNetwork, long rxBytes, long rxPackets, long txBytes, long txPackets,
-            long operations) {
-        return addValues(new Entry(
+    public NetworkStats insertEntry(String iface, int uid, int set, int tag, int metered,
+            int roaming, int defaultNetwork, long rxBytes, long rxPackets, long txBytes,
+            long txPackets, long operations) {
+        return insertEntry(new Entry(
                 iface, uid, set, tag, metered, roaming, defaultNetwork, rxBytes, rxPackets,
                 txBytes, txPackets, operations));
     }
@@ -385,8 +555,9 @@ public class NetworkStats implements Parcelable {
     /**
      * Add new stats entry, copying from given {@link Entry}. The {@link Entry}
      * object can be recycled across multiple calls.
+     * @hide
      */
-    public NetworkStats addValues(Entry entry) {
+    public NetworkStats insertEntry(Entry entry) {
         if (size >= capacity) {
             final int newLength = Math.max(size, 10) * 3 / 2;
             iface = Arrays.copyOf(iface, newLength);
@@ -427,6 +598,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return specific stats entry.
+     * @hide
      */
     @UnsupportedAppUsage
     public Entry getValues(int i, Entry recycle) {
@@ -466,10 +638,12 @@ public class NetworkStats implements Parcelable {
         operations[dest] = operations[src];
     }
 
+    /** @hide */
     public long getElapsedRealtime() {
         return elapsedRealtime;
     }
 
+    /** @hide */
     public void setElapsedRealtime(long time) {
         elapsedRealtime = time;
     }
@@ -477,21 +651,25 @@ public class NetworkStats implements Parcelable {
     /**
      * Return age of this {@link NetworkStats} object with respect to
      * {@link SystemClock#elapsedRealtime()}.
+     * @hide
      */
     public long getElapsedRealtimeAge() {
         return SystemClock.elapsedRealtime() - elapsedRealtime;
     }
 
+    /** @hide */
     @UnsupportedAppUsage
     public int size() {
         return size;
     }
 
+    /** @hide */
     @VisibleForTesting
     public int internalSize() {
         return capacity;
     }
 
+    /** @hide */
     @Deprecated
     public NetworkStats combineValues(String iface, int uid, int tag, long rxBytes, long rxPackets,
             long txBytes, long txPackets, long operations) {
@@ -500,6 +678,7 @@ public class NetworkStats implements Parcelable {
                 txPackets, operations);
     }
 
+    /** @hide */
     public NetworkStats combineValues(String iface, int uid, int set, int tag,
             long rxBytes, long rxPackets, long txBytes, long txPackets, long operations) {
         return combineValues(new Entry(
@@ -508,16 +687,20 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Combine given values with an existing row, or create a new row if
-     * {@link #findIndex(String, int, int, int, int)} is unable to find match. Can
-     * also be used to subtract values from existing rows.
+     * {@link #findIndex(String, int, int, int, int, int, int)} is unable to find match. Can
+     * also be used to subtract values from existing rows. This method mutates the referencing
+     * {@link NetworkStats} object.
+     *
+     * @param entry the {@link Entry} to combine.
+     * @return a reference to this mutated {@link NetworkStats} object.
+     * @hide
      */
-    @UnsupportedAppUsage
-    public NetworkStats combineValues(Entry entry) {
+    public @NonNull NetworkStats combineValues(@NonNull Entry entry) {
         final int i = findIndex(entry.iface, entry.uid, entry.set, entry.tag, entry.metered,
                 entry.roaming, entry.defaultNetwork);
         if (i == -1) {
             // only create new entry when positive contribution
-            addValues(entry);
+            insertEntry(entry);
         } else {
             rxBytes[i] += entry.rxBytes;
             rxPackets[i] += entry.rxPackets;
@@ -529,10 +712,33 @@ public class NetworkStats implements Parcelable {
     }
 
     /**
-     * Combine all values from another {@link NetworkStats} into this object.
+     * Add given values with an existing row, or create a new row if
+     * {@link #findIndex(String, int, int, int, int, int, int)} is unable to find match. Can
+     * also be used to subtract values from existing rows.
+     *
+     * @param entry the {@link Entry} to add.
+     * @return a new constructed {@link NetworkStats} object that contains the result.
      */
-    @UnsupportedAppUsage
-    public void combineAllValues(NetworkStats another) {
+    public @NonNull NetworkStats addEntry(@NonNull Entry entry) {
+        return this.clone().combineValues(entry);
+    }
+
+    /**
+     * Add the given {@link NetworkStats} objects.
+     *
+     * @return the sum of two objects.
+     */
+    public @NonNull NetworkStats add(@NonNull NetworkStats another) {
+        final NetworkStats ret = this.clone();
+        ret.combineAllValues(another);
+        return ret;
+    }
+
+    /**
+     * Combine all values from another {@link NetworkStats} into this object.
+     * @hide
+     */
+    public void combineAllValues(@NonNull NetworkStats another) {
         NetworkStats.Entry entry = null;
         for (int i = 0; i < another.size; i++) {
             entry = another.getValues(i, entry);
@@ -542,6 +748,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Find first stats index that matches the requested parameters.
+     * @hide
      */
     public int findIndex(String iface, int uid, int set, int tag, int metered, int roaming,
             int defaultNetwork) {
@@ -559,6 +766,7 @@ public class NetworkStats implements Parcelable {
     /**
      * Find first stats index that matches the requested parameters, starting
      * search around the hinted index as an optimization.
+     * @hide
      */
     @VisibleForTesting
     public int findIndexHinted(String iface, int uid, int set, int tag, int metered, int roaming,
@@ -588,6 +796,7 @@ public class NetworkStats implements Parcelable {
      * Splice in {@link #operations} from the given {@link NetworkStats} based
      * on matching {@link #uid} and {@link #tag} rows. Ignores {@link #iface},
      * since operation counts are at data layer.
+     * @hide
      */
     public void spliceOperationsFrom(NetworkStats stats) {
         for (int i = 0; i < size; i++) {
@@ -603,6 +812,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return list of unique interfaces known by this data structure.
+     * @hide
      */
     public String[] getUniqueIfaces() {
         final HashSet<String> ifaces = new HashSet<String>();
@@ -616,6 +826,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return list of unique UIDs known by this data structure.
+     * @hide
      */
     @UnsupportedAppUsage
     public int[] getUniqueUids() {
@@ -635,6 +846,7 @@ public class NetworkStats implements Parcelable {
     /**
      * Return total bytes represented by this snapshot object, usually used when
      * checking if a {@link #subtract(NetworkStats)} delta passes a threshold.
+     * @hide
      */
     @UnsupportedAppUsage
     public long getTotalBytes() {
@@ -644,6 +856,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return total of all fields represented by this snapshot object.
+     * @hide
      */
     @UnsupportedAppUsage
     public Entry getTotal(Entry recycle) {
@@ -653,6 +866,7 @@ public class NetworkStats implements Parcelable {
     /**
      * Return total of all fields represented by this snapshot object matching
      * the requested {@link #uid}.
+     * @hide
      */
     @UnsupportedAppUsage
     public Entry getTotal(Entry recycle, int limitUid) {
@@ -662,11 +876,13 @@ public class NetworkStats implements Parcelable {
     /**
      * Return total of all fields represented by this snapshot object matching
      * the requested {@link #iface}.
+     * @hide
      */
     public Entry getTotal(Entry recycle, HashSet<String> limitIface) {
         return getTotal(recycle, limitIface, UID_ALL, false);
     }
 
+    /** @hide */
     @UnsupportedAppUsage
     public Entry getTotalIncludingTags(Entry recycle) {
         return getTotal(recycle, null, UID_ALL, true);
@@ -716,6 +932,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Fast path for battery stats.
+     * @hide
      */
     public long getTotalPackets() {
         long total = 0;
@@ -728,9 +945,12 @@ public class NetworkStats implements Parcelable {
     /**
      * Subtract the given {@link NetworkStats}, effectively leaving the delta
      * between two snapshots in time. Assumes that statistics rows collect over
-     * time, and that none of them have disappeared.
+     * time, and that none of them have disappeared. This method does not mutate
+     * the referencing object.
+     *
+     * @return the delta between two objects.
      */
-    public NetworkStats subtract(NetworkStats right) {
+    public @NonNull NetworkStats subtract(@NonNull NetworkStats right) {
         return subtract(this, right, null, null);
     }
 
@@ -741,6 +961,7 @@ public class NetworkStats implements Parcelable {
      * <p>
      * If counters have rolled backwards, they are clamped to {@code 0} and
      * reported to the given {@link NonMonotonicObserver}.
+     * @hide
      */
     public static <C> NetworkStats subtract(NetworkStats left, NetworkStats right,
             NonMonotonicObserver<C> observer, C cookie) {
@@ -758,6 +979,7 @@ public class NetworkStats implements Parcelable {
      * If <var>recycle</var> is supplied, this NetworkStats object will be
      * reused (and returned) as the result if it is large enough to contain
      * the data.
+     * @hide
      */
     public static <C> NetworkStats subtract(NetworkStats left, NetworkStats right,
             NonMonotonicObserver<C> observer, C cookie, NetworkStats recycle) {
@@ -816,79 +1038,61 @@ public class NetworkStats implements Parcelable {
                 entry.operations = Math.max(entry.operations, 0);
             }
 
-            result.addValues(entry);
+            result.insertEntry(entry);
         }
 
         return result;
     }
 
     /**
-     * Calculate and apply adjustments to captured statistics for 464xlat traffic counted twice.
+     * Calculate and apply adjustments to captured statistics for 464xlat traffic.
      *
-     * <p>This mutates both base and stacked traffic stats, to account respectively for
-     * double-counted traffic and IPv4/IPv6 header size difference.
+     * <p>This mutates stacked traffic stats, to account for IPv4/IPv6 header size difference.
      *
-     * <p>For 464xlat traffic, xt_qtaguid sees every IPv4 packet twice, once as a native IPv4
-     * packet on the stacked interface, and once as translated to an IPv6 packet on the
-     * base interface. For correct stats accounting on the base interface, if using xt_qtaguid,
-     * every rx 464xlat packet needs to be subtracted from the root UID on the base interface
-     * (http://b/12249687, http:/b/33681750), and every tx 464xlat packet which was counted onto
-     * clat uid should be ignored.
+     * <p>UID stats, which are only accounted on the stacked interface, need to be increased
+     * by 20 bytes/packet to account for translation overhead.
      *
-     * As for eBPF, the per uid stats is collected by different hook, the rx packets on base
-     * interface will not be counted. Thus, the adjustment on root uid is not needed. However, the
-     * tx traffic counted in the same way xt_qtaguid does, so the traffic on clat uid still
-     * needs to be ignored.
+     * <p>The potential additional overhead of 8 bytes/packet for ip fragments is ignored.
+     *
+     * <p>Interface stats need to sum traffic on both stacked and base interface because:
+     *   - eBPF offloaded packets appear only on the stacked interface
+     *   - Non-offloaded ingress packets appear only on the stacked interface
+     *     (due to iptables raw PREROUTING drop rules)
+     *   - Non-offloaded egress packets appear only on the stacked interface
+     *     (due to ignoring traffic from clat daemon by uid match)
+     * (and of course the 20 bytes/packet overhead needs to be applied to stacked interface stats)
      *
      * <p>This method will behave fine if {@code stackedIfaces} is an non-synchronized but add-only
      * {@code ConcurrentHashMap}
      * @param baseTraffic Traffic on the base interfaces. Will be mutated.
      * @param stackedTraffic Stats with traffic stacked on top of our ifaces. Will also be mutated.
      * @param stackedIfaces Mapping ipv6if -> ipv4if interface where traffic is counted on both.
-     * @param useBpfStats True if eBPF is in use.
+     * @hide
      */
     public static void apply464xlatAdjustments(NetworkStats baseTraffic,
-            NetworkStats stackedTraffic, Map<String, String> stackedIfaces, boolean useBpfStats) {
-        // Total 464xlat traffic to subtract from uid 0 on all base interfaces.
-        // stackedIfaces may grow afterwards, but NetworkStats will just be resized automatically.
-        final NetworkStats adjustments = new NetworkStats(0, stackedIfaces.size());
-
+            NetworkStats stackedTraffic, Map<String, String> stackedIfaces) {
         // For recycling
         Entry entry = null;
-        Entry adjust = new NetworkStats.Entry(IFACE_ALL, 0, 0, 0, 0, 0, 0, 0L, 0L, 0L, 0L, 0L);
-
         for (int i = 0; i < stackedTraffic.size; i++) {
             entry = stackedTraffic.getValues(i, entry);
-            if (entry.iface == null || !entry.iface.startsWith(CLATD_INTERFACE_PREFIX)) {
-                continue;
-            }
-            final String baseIface = stackedIfaces.get(entry.iface);
-            if (baseIface == null) {
-                continue;
-            }
-            // Subtract xt_qtaguid 464lat rx traffic seen for the root UID on the current base
-            // interface. As for eBPF, the per uid stats is collected by different hook, the rx
-            // packets on base interface will not be counted.
-            adjust.iface = baseIface;
-            if (!useBpfStats) {
-                adjust.rxBytes = -(entry.rxBytes + entry.rxPackets * IPV4V6_HEADER_DELTA);
-                adjust.rxPackets = -entry.rxPackets;
-            }
-            adjustments.combineValues(adjust);
+            if (entry == null) continue;
+            if (entry.iface == null) continue;
+            if (!entry.iface.startsWith(CLATD_INTERFACE_PREFIX)) continue;
 
             // For 464xlat traffic, per uid stats only counts the bytes of the native IPv4 packet
             // sent on the stacked interface with prefix "v4-" and drops the IPv6 header size after
             // unwrapping. To account correctly for on-the-wire traffic, add the 20 additional bytes
             // difference for all packets (http://b/12249687, http:/b/33681750).
+            //
+            // Note: this doesn't account for LRO/GRO/GSO/TSO (ie. >mtu) traffic correctly, nor
+            // does it correctly account for the 8 extra bytes in the IPv6 fragmentation header.
+            //
+            // While the ebpf code path does try to simulate proper post segmentation packet
+            // counts, we have nothing of the sort of xt_qtaguid stats.
             entry.rxBytes += entry.rxPackets * IPV4V6_HEADER_DELTA;
             entry.txBytes += entry.txPackets * IPV4V6_HEADER_DELTA;
             stackedTraffic.setValues(i, entry);
         }
-
-        // Traffic on clat uid is v6 tx traffic that is already counted with app uid on the stacked
-        // v4 interface, so it needs to be removed to avoid double-counting.
-        baseTraffic.removeUids(new int[] {CLAT_UID});
-        baseTraffic.combineAllValues(adjustments);
     }
 
     /**
@@ -898,14 +1102,16 @@ public class NetworkStats implements Parcelable {
      * {@link #apply464xlatAdjustments(NetworkStats, NetworkStats, Map)} with {@code this} as
      * base and stacked traffic.
      * @param stackedIfaces Mapping ipv6if -> ipv4if interface where traffic is counted on both.
+     * @hide
      */
-    public void apply464xlatAdjustments(Map<String, String> stackedIfaces, boolean useBpfStats) {
-        apply464xlatAdjustments(this, this, stackedIfaces, useBpfStats);
+    public void apply464xlatAdjustments(Map<String, String> stackedIfaces) {
+        apply464xlatAdjustments(this, this, stackedIfaces);
     }
 
     /**
      * Return total statistics grouped by {@link #iface}; doesn't mutate the
      * original structure.
+     * @hide
      */
     public NetworkStats groupedByIface() {
         final NetworkStats stats = new NetworkStats(elapsedRealtime, 10);
@@ -937,6 +1143,7 @@ public class NetworkStats implements Parcelable {
     /**
      * Return total statistics grouped by {@link #uid}; doesn't mutate the
      * original structure.
+     * @hide
      */
     public NetworkStats groupedByUid() {
         final NetworkStats stats = new NetworkStats(elapsedRealtime, 10);
@@ -967,17 +1174,24 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Remove all rows that match one of specified UIDs.
+     * This mutates the original structure in place.
+     * @hide
      */
     public void removeUids(int[] uids) {
-        int nextOutputEntry = 0;
-        for (int i = 0; i < size; i++) {
-            if (!ArrayUtils.contains(uids, uid[i])) {
-                maybeCopyEntry(nextOutputEntry, i);
-                nextOutputEntry++;
-            }
-        }
+        filter(e -> !ArrayUtils.contains(uids, e.uid));
+    }
 
-        size = nextOutputEntry;
+    /**
+     * Remove all rows that match one of specified UIDs.
+     * @return the result object.
+     * @hide
+     */
+    @NonNull
+    public NetworkStats removeEmptyEntries() {
+        final NetworkStats ret = this.clone();
+        ret.filter(e -> e.rxBytes != 0 || e.rxPackets != 0 || e.txBytes != 0 || e.txPackets != 0
+                || e.operations != 0);
+        return ret;
     }
 
     /**
@@ -988,31 +1202,44 @@ public class NetworkStats implements Parcelable {
      * @param limitUid UID to filter for, or {@link #UID_ALL}.
      * @param limitIfaces Interfaces to filter for, or {@link #INTERFACES_ALL}.
      * @param limitTag Tag to filter for, or {@link #TAG_ALL}.
+     * @hide
      */
     public void filter(int limitUid, String[] limitIfaces, int limitTag) {
         if (limitUid == UID_ALL && limitTag == TAG_ALL && limitIfaces == INTERFACES_ALL) {
             return;
         }
+        filter(e -> (limitUid == UID_ALL || limitUid == e.uid)
+                && (limitTag == TAG_ALL || limitTag == e.tag)
+                && (limitIfaces == INTERFACES_ALL
+                    || ArrayUtils.contains(limitIfaces, e.iface)));
+    }
 
+    /**
+     * Only keep entries with {@link #set} value less than {@link #SET_DEBUG_START}.
+     *
+     * <p>This mutates the original structure in place.
+     * @hide
+     */
+    public void filterDebugEntries() {
+        filter(e -> e.set < SET_DEBUG_START);
+    }
+
+    private void filter(Predicate<Entry> predicate) {
         Entry entry = new Entry();
         int nextOutputEntry = 0;
         for (int i = 0; i < size; i++) {
             entry = getValues(i, entry);
-            final boolean matches =
-                    (limitUid == UID_ALL || limitUid == entry.uid)
-                    && (limitTag == TAG_ALL || limitTag == entry.tag)
-                    && (limitIfaces == INTERFACES_ALL
-                            || ArrayUtils.contains(limitIfaces, entry.iface));
-
-            if (matches) {
-                setValues(nextOutputEntry, entry);
+            if (predicate.test(entry)) {
+                if (nextOutputEntry != i) {
+                    setValues(nextOutputEntry, entry);
+                }
                 nextOutputEntry++;
             }
         }
-
         size = nextOutputEntry;
     }
 
+    /** @hide */
     public void dump(String prefix, PrintWriter pw) {
         pw.print(prefix);
         pw.print("NetworkStats: elapsedRealtime="); pw.println(elapsedRealtime);
@@ -1036,6 +1263,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return text description of {@link #set} value.
+     * @hide
      */
     public static String setToString(int set) {
         switch (set) {
@@ -1056,6 +1284,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return text description of {@link #set} value.
+     * @hide
      */
     public static String setToCheckinString(int set) {
         switch (set) {
@@ -1076,6 +1305,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * @return true if the querySet matches the dataSet.
+     * @hide
      */
     public static boolean setMatches(int querySet, int dataSet) {
         if (querySet == dataSet) {
@@ -1087,6 +1317,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return text description of {@link #tag} value.
+     * @hide
      */
     public static String tagToString(int tag) {
         return "0x" + Integer.toHexString(tag);
@@ -1094,6 +1325,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return text description of {@link #metered} value.
+     * @hide
      */
     public static String meteredToString(int metered) {
         switch (metered) {
@@ -1110,6 +1342,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return text description of {@link #roaming} value.
+     * @hide
      */
     public static String roamingToString(int roaming) {
         switch (roaming) {
@@ -1126,6 +1359,7 @@ public class NetworkStats implements Parcelable {
 
     /**
      * Return text description of {@link #defaultNetwork} value.
+     * @hide
      */
     public static String defaultNetworkToString(int defaultNetwork) {
         switch (defaultNetwork) {
@@ -1140,6 +1374,7 @@ public class NetworkStats implements Parcelable {
         }
     }
 
+    /** @hide */
     @Override
     public String toString() {
         final CharArrayWriter writer = new CharArrayWriter();
@@ -1152,8 +1387,7 @@ public class NetworkStats implements Parcelable {
         return 0;
     }
 
-    @UnsupportedAppUsage
-    public static final @android.annotation.NonNull Creator<NetworkStats> CREATOR = new Creator<NetworkStats>() {
+    public static final @NonNull Creator<NetworkStats> CREATOR = new Creator<NetworkStats>() {
         @Override
         public NetworkStats createFromParcel(Parcel in) {
             return new NetworkStats(in);
@@ -1165,6 +1399,7 @@ public class NetworkStats implements Parcelable {
         }
     };
 
+    /** @hide */
     public interface NonMonotonicObserver<C> {
         public void foundNonMonotonic(
                 NetworkStats left, int leftIndex, NetworkStats right, int rightIndex, C cookie);
@@ -1175,133 +1410,222 @@ public class NetworkStats implements Parcelable {
     /**
      * VPN accounting. Move some VPN's underlying traffic to other UIDs that use tun0 iface.
      *
-     * This method should only be called on delta NetworkStats. Do not call this method on a
-     * snapshot {@link NetworkStats} object because the tunUid and/or the underlyingIface may
-     * change over time.
+     * <p>This method should only be called on delta NetworkStats. Do not call this method on a
+     * snapshot {@link NetworkStats} object because the tunUid and/or the underlyingIface may change
+     * over time.
      *
-     * This method performs adjustments for one active VPN package and one VPN iface at a time.
-     *
-     * It is possible for the VPN software to use multiple underlying networks. This method
-     * only migrates traffic for the primary underlying network.
+     * <p>This method performs adjustments for one active VPN package and one VPN iface at a time.
      *
      * @param tunUid uid of the VPN application
      * @param tunIface iface of the vpn tunnel
-     * @param underlyingIface the primary underlying network iface used by the VPN application
-     * @return true if it successfully adjusts the accounting for VPN, false otherwise
+     * @param underlyingIfaces underlying network ifaces used by the VPN application
+     * @hide
      */
-    public boolean migrateTun(int tunUid, String tunIface, String underlyingIface) {
-        Entry tunIfaceTotal = new Entry();
-        Entry underlyingIfaceTotal = new Entry();
+    public void migrateTun(int tunUid, @NonNull String tunIface,
+            @NonNull String[] underlyingIfaces) {
+        // Combined usage by all apps using VPN.
+        final Entry tunIfaceTotal = new Entry();
+        // Usage by VPN, grouped by its {@code underlyingIfaces}.
+        final Entry[] perInterfaceTotal = new Entry[underlyingIfaces.length];
+        // Usage by VPN, summed across all its {@code underlyingIfaces}.
+        final Entry underlyingIfacesTotal = new Entry();
 
-        tunAdjustmentInit(tunUid, tunIface, underlyingIface, tunIfaceTotal, underlyingIfaceTotal);
+        for (int i = 0; i < perInterfaceTotal.length; i++) {
+            perInterfaceTotal[i] = new Entry();
+        }
 
-        // If tunIface < underlyingIface, it leaves the overhead traffic in the VPN app.
-        // If tunIface > underlyingIface, the VPN app doesn't get credit for data compression.
+        tunAdjustmentInit(tunUid, tunIface, underlyingIfaces, tunIfaceTotal, perInterfaceTotal,
+                underlyingIfacesTotal);
+
+        // If tunIface < underlyingIfacesTotal, it leaves the overhead traffic in the VPN app.
+        // If tunIface > underlyingIfacesTotal, the VPN app doesn't get credit for data compression.
         // Negative stats should be avoided.
-        Entry pool = tunGetPool(tunIfaceTotal, underlyingIfaceTotal);
-        if (pool.isEmpty()) {
-            return true;
-        }
-        Entry moved =
-                addTrafficToApplications(tunUid, tunIface, underlyingIface, tunIfaceTotal, pool);
-        deductTrafficFromVpnApp(tunUid, underlyingIface, moved);
-
-        if (!moved.isEmpty()) {
-            Slog.wtf(TAG, "Failed to deduct underlying network traffic from VPN package. Moved="
-                    + moved);
-            return false;
-        }
-        return true;
+        final Entry[] moved =
+                addTrafficToApplications(tunUid, tunIface, underlyingIfaces, tunIfaceTotal,
+                        perInterfaceTotal, underlyingIfacesTotal);
+        deductTrafficFromVpnApp(tunUid, underlyingIfaces, moved);
     }
 
     /**
      * Initializes the data used by the migrateTun() method.
      *
-     * This is the first pass iteration which does the following work:
-     * (1) Adds up all the traffic through the tunUid's underlyingIface
-     *     (both foreground and background).
-     * (2) Adds up all the traffic through tun0 excluding traffic from the vpn app itself.
+     * <p>This is the first pass iteration which does the following work:
+     *
+     * <ul>
+     *   <li>Adds up all the traffic through the tunUid's underlyingIfaces (both foreground and
+     *       background).
+     *   <li>Adds up all the traffic through tun0 excluding traffic from the vpn app itself.
+     * </ul>
+     *
+     * @param tunUid uid of the VPN application
+     * @param tunIface iface of the vpn tunnel
+     * @param underlyingIfaces underlying network ifaces used by the VPN application
+     * @param tunIfaceTotal output parameter; combined data usage by all apps using VPN
+     * @param perInterfaceTotal output parameter; data usage by VPN app, grouped by its {@code
+     *     underlyingIfaces}
+     * @param underlyingIfacesTotal output parameter; data usage by VPN, summed across all of its
+     *     {@code underlyingIfaces}
      */
-    private void tunAdjustmentInit(int tunUid, String tunIface, String underlyingIface,
-            Entry tunIfaceTotal, Entry underlyingIfaceTotal) {
-        Entry recycle = new Entry();
+    private void tunAdjustmentInit(int tunUid, @NonNull String tunIface,
+            @NonNull String[] underlyingIfaces, @NonNull Entry tunIfaceTotal,
+            @NonNull Entry[] perInterfaceTotal, @NonNull Entry underlyingIfacesTotal) {
+        final Entry recycle = new Entry();
         for (int i = 0; i < size; i++) {
             getValues(i, recycle);
             if (recycle.uid == UID_ALL) {
                 throw new IllegalStateException(
                         "Cannot adjust VPN accounting on an iface aggregated NetworkStats.");
-            } if (recycle.set == SET_DBG_VPN_IN || recycle.set == SET_DBG_VPN_OUT) {
+            }
+            if (recycle.set == SET_DBG_VPN_IN || recycle.set == SET_DBG_VPN_OUT) {
                 throw new IllegalStateException(
                         "Cannot adjust VPN accounting on a NetworkStats containing SET_DBG_VPN_*");
             }
-
-            if (recycle.uid == tunUid && recycle.tag == TAG_NONE
-                    && Objects.equals(underlyingIface, recycle.iface)) {
-                underlyingIfaceTotal.add(recycle);
+            if (recycle.tag != TAG_NONE) {
+                // TODO(b/123666283): Take all tags for tunUid into account.
+                continue;
             }
 
-            if (recycle.uid != tunUid && recycle.tag == TAG_NONE
-                    && Objects.equals(tunIface, recycle.iface)) {
+            if (recycle.uid == tunUid) {
+                // Add up traffic through tunUid's underlying interfaces.
+                for (int j = 0; j < underlyingIfaces.length; j++) {
+                    if (Objects.equals(underlyingIfaces[j], recycle.iface)) {
+                        perInterfaceTotal[j].add(recycle);
+                        underlyingIfacesTotal.add(recycle);
+                        break;
+                    }
+                }
+            } else if (tunIface.equals(recycle.iface)) {
                 // Add up all tunIface traffic excluding traffic from the vpn app itself.
                 tunIfaceTotal.add(recycle);
             }
         }
     }
 
-    private static Entry tunGetPool(Entry tunIfaceTotal, Entry underlyingIfaceTotal) {
-        Entry pool = new Entry();
-        pool.rxBytes = Math.min(tunIfaceTotal.rxBytes, underlyingIfaceTotal.rxBytes);
-        pool.rxPackets = Math.min(tunIfaceTotal.rxPackets, underlyingIfaceTotal.rxPackets);
-        pool.txBytes = Math.min(tunIfaceTotal.txBytes, underlyingIfaceTotal.txBytes);
-        pool.txPackets = Math.min(tunIfaceTotal.txPackets, underlyingIfaceTotal.txPackets);
-        pool.operations = Math.min(tunIfaceTotal.operations, underlyingIfaceTotal.operations);
-        return pool;
-    }
+    /**
+     * Distributes traffic across apps that are using given {@code tunIface}, and returns the total
+     * traffic that should be moved off of {@code tunUid} grouped by {@code underlyingIfaces}.
+     *
+     * @param tunUid uid of the VPN application
+     * @param tunIface iface of the vpn tunnel
+     * @param underlyingIfaces underlying network ifaces used by the VPN application
+     * @param tunIfaceTotal combined data usage across all apps using {@code tunIface}
+     * @param perInterfaceTotal data usage by VPN app, grouped by its {@code underlyingIfaces}
+     * @param underlyingIfacesTotal data usage by VPN, summed across all of its {@code
+     *     underlyingIfaces}
+     */
+    private Entry[] addTrafficToApplications(int tunUid, @NonNull String tunIface,
+            @NonNull String[] underlyingIfaces, @NonNull Entry tunIfaceTotal,
+            @NonNull Entry[] perInterfaceTotal, @NonNull Entry underlyingIfacesTotal) {
+        // Traffic that should be moved off of each underlying interface for tunUid (see
+        // deductTrafficFromVpnApp below).
+        final Entry[] moved = new Entry[underlyingIfaces.length];
+        for (int i = 0; i < underlyingIfaces.length; i++) {
+            moved[i] = new Entry();
+        }
 
-    private Entry addTrafficToApplications(int tunUid, String tunIface, String underlyingIface,
-            Entry tunIfaceTotal, Entry pool) {
-        Entry moved = new Entry();
-        Entry tmpEntry = new Entry();
-        tmpEntry.iface = underlyingIface;
-        for (int i = 0; i < size; i++) {
-            // the vpn app is excluded from the redistribution but all moved traffic will be
-            // deducted from the vpn app (see deductTrafficFromVpnApp below).
-            if (Objects.equals(iface[i], tunIface) && uid[i] != tunUid) {
-                if (tunIfaceTotal.rxBytes > 0) {
-                    tmpEntry.rxBytes = pool.rxBytes * rxBytes[i] / tunIfaceTotal.rxBytes;
-                } else {
-                    tmpEntry.rxBytes = 0;
-                }
-                if (tunIfaceTotal.rxPackets > 0) {
-                    tmpEntry.rxPackets = pool.rxPackets * rxPackets[i] / tunIfaceTotal.rxPackets;
-                } else {
-                    tmpEntry.rxPackets = 0;
-                }
-                if (tunIfaceTotal.txBytes > 0) {
-                    tmpEntry.txBytes = pool.txBytes * txBytes[i] / tunIfaceTotal.txBytes;
-                } else {
-                    tmpEntry.txBytes = 0;
-                }
-                if (tunIfaceTotal.txPackets > 0) {
-                    tmpEntry.txPackets = pool.txPackets * txPackets[i] / tunIfaceTotal.txPackets;
-                } else {
-                    tmpEntry.txPackets = 0;
-                }
-                if (tunIfaceTotal.operations > 0) {
-                    tmpEntry.operations =
-                            pool.operations * operations[i] / tunIfaceTotal.operations;
-                } else {
-                    tmpEntry.operations = 0;
-                }
-                tmpEntry.uid = uid[i];
-                tmpEntry.tag = tag[i];
+        final Entry tmpEntry = new Entry();
+        final int origSize = size;
+        for (int i = 0; i < origSize; i++) {
+            if (!Objects.equals(iface[i], tunIface)) {
+                // Consider only entries that go onto the VPN interface.
+                continue;
+            }
+            if (uid[i] == tunUid) {
+                // Exclude VPN app from the redistribution, as it can choose to create packet
+                // streams by writing to itself.
+                continue;
+            }
+            tmpEntry.uid = uid[i];
+            tmpEntry.tag = tag[i];
+            tmpEntry.metered = metered[i];
+            tmpEntry.roaming = roaming[i];
+            tmpEntry.defaultNetwork = defaultNetwork[i];
+
+            // In a first pass, compute this entry's total share of data across all
+            // underlyingIfaces. This is computed on the basis of the share of this entry's usage
+            // over tunIface.
+            // TODO: Consider refactoring first pass into a separate helper method.
+            long totalRxBytes = 0;
+            if (tunIfaceTotal.rxBytes > 0) {
+                // Note - The multiplication below should not overflow since NetworkStatsService
+                // processes this every time device has transmitted/received amount equivalent to
+                // global threshold alert (~ 2MB) across all interfaces.
+                final long rxBytesAcrossUnderlyingIfaces =
+                        underlyingIfacesTotal.rxBytes * rxBytes[i] / tunIfaceTotal.rxBytes;
+                // app must not be blamed for more than it consumed on tunIface
+                totalRxBytes = Math.min(rxBytes[i], rxBytesAcrossUnderlyingIfaces);
+            }
+            long totalRxPackets = 0;
+            if (tunIfaceTotal.rxPackets > 0) {
+                final long rxPacketsAcrossUnderlyingIfaces =
+                        underlyingIfacesTotal.rxPackets * rxPackets[i] / tunIfaceTotal.rxPackets;
+                totalRxPackets = Math.min(rxPackets[i], rxPacketsAcrossUnderlyingIfaces);
+            }
+            long totalTxBytes = 0;
+            if (tunIfaceTotal.txBytes > 0) {
+                final long txBytesAcrossUnderlyingIfaces =
+                        underlyingIfacesTotal.txBytes * txBytes[i] / tunIfaceTotal.txBytes;
+                totalTxBytes = Math.min(txBytes[i], txBytesAcrossUnderlyingIfaces);
+            }
+            long totalTxPackets = 0;
+            if (tunIfaceTotal.txPackets > 0) {
+                final long txPacketsAcrossUnderlyingIfaces =
+                        underlyingIfacesTotal.txPackets * txPackets[i] / tunIfaceTotal.txPackets;
+                totalTxPackets = Math.min(txPackets[i], txPacketsAcrossUnderlyingIfaces);
+            }
+            long totalOperations = 0;
+            if (tunIfaceTotal.operations > 0) {
+                final long operationsAcrossUnderlyingIfaces =
+                        underlyingIfacesTotal.operations * operations[i] / tunIfaceTotal.operations;
+                totalOperations = Math.min(operations[i], operationsAcrossUnderlyingIfaces);
+            }
+            // In a second pass, distribute these values across interfaces in the proportion that
+            // each interface represents of the total traffic of the underlying interfaces.
+            for (int j = 0; j < underlyingIfaces.length; j++) {
+                tmpEntry.iface = underlyingIfaces[j];
+                tmpEntry.rxBytes = 0;
+                // Reset 'set' to correct value since it gets updated when adding debug info below.
                 tmpEntry.set = set[i];
-                tmpEntry.metered = metered[i];
-                tmpEntry.roaming = roaming[i];
-                tmpEntry.defaultNetwork = defaultNetwork[i];
+                if (underlyingIfacesTotal.rxBytes > 0) {
+                    tmpEntry.rxBytes =
+                            totalRxBytes
+                                    * perInterfaceTotal[j].rxBytes
+                                    / underlyingIfacesTotal.rxBytes;
+                }
+                tmpEntry.rxPackets = 0;
+                if (underlyingIfacesTotal.rxPackets > 0) {
+                    tmpEntry.rxPackets =
+                            totalRxPackets
+                                    * perInterfaceTotal[j].rxPackets
+                                    / underlyingIfacesTotal.rxPackets;
+                }
+                tmpEntry.txBytes = 0;
+                if (underlyingIfacesTotal.txBytes > 0) {
+                    tmpEntry.txBytes =
+                            totalTxBytes
+                                    * perInterfaceTotal[j].txBytes
+                                    / underlyingIfacesTotal.txBytes;
+                }
+                tmpEntry.txPackets = 0;
+                if (underlyingIfacesTotal.txPackets > 0) {
+                    tmpEntry.txPackets =
+                            totalTxPackets
+                                    * perInterfaceTotal[j].txPackets
+                                    / underlyingIfacesTotal.txPackets;
+                }
+                tmpEntry.operations = 0;
+                if (underlyingIfacesTotal.operations > 0) {
+                    tmpEntry.operations =
+                            totalOperations
+                                    * perInterfaceTotal[j].operations
+                                    / underlyingIfacesTotal.operations;
+                }
+                // tmpEntry now contains the migrated data of the i-th entry for the j-th underlying
+                // interface. Add that data usage to this object.
                 combineValues(tmpEntry);
                 if (tag[i] == TAG_NONE) {
-                    moved.add(tmpEntry);
+                    // Add the migrated data to moved so it is deducted from the VPN app later.
+                    moved[j].add(tmpEntry);
                     // Add debug info
                     tmpEntry.set = SET_DBG_VPN_IN;
                     combineValues(tmpEntry);
@@ -1311,38 +1635,45 @@ public class NetworkStats implements Parcelable {
         return moved;
     }
 
-    private void deductTrafficFromVpnApp(int tunUid, String underlyingIface, Entry moved) {
-        // Add debug info
-        moved.uid = tunUid;
-        moved.set = SET_DBG_VPN_OUT;
-        moved.tag = TAG_NONE;
-        moved.iface = underlyingIface;
-        moved.metered = METERED_ALL;
-        moved.roaming = ROAMING_ALL;
-        moved.defaultNetwork = DEFAULT_NETWORK_ALL;
-        combineValues(moved);
+    private void deductTrafficFromVpnApp(
+            int tunUid,
+            @NonNull String[] underlyingIfaces,
+            @NonNull Entry[] moved) {
+        for (int i = 0; i < underlyingIfaces.length; i++) {
+            moved[i].uid = tunUid;
+            // Add debug info
+            moved[i].set = SET_DBG_VPN_OUT;
+            moved[i].tag = TAG_NONE;
+            moved[i].iface = underlyingIfaces[i];
+            moved[i].metered = METERED_ALL;
+            moved[i].roaming = ROAMING_ALL;
+            moved[i].defaultNetwork = DEFAULT_NETWORK_ALL;
+            combineValues(moved[i]);
 
-        // Caveat: if the vpn software uses tag, the total tagged traffic may be greater than
-        // the TAG_NONE traffic.
-        //
-        // Relies on the fact that the underlying traffic only has state ROAMING_NO and METERED_NO,
-        // which should be the case as it comes directly from the /proc file. We only blend in the
-        // roaming data after applying these adjustments, by checking the NetworkIdentity of the
-        // underlying iface.
-        int idxVpnBackground = findIndex(underlyingIface, tunUid, SET_DEFAULT, TAG_NONE,
-                METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO);
-        if (idxVpnBackground != -1) {
-            tunSubtract(idxVpnBackground, this, moved);
-        }
+            // Caveat: if the vpn software uses tag, the total tagged traffic may be greater than
+            // the TAG_NONE traffic.
+            //
+            // Relies on the fact that the underlying traffic only has state ROAMING_NO and
+            // METERED_NO, which should be the case as it comes directly from the /proc file.
+            // We only blend in the roaming data after applying these adjustments, by checking the
+            // NetworkIdentity of the underlying iface.
+            final int idxVpnBackground = findIndex(underlyingIfaces[i], tunUid, SET_DEFAULT,
+                            TAG_NONE, METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO);
+            if (idxVpnBackground != -1) {
+                // Note - tunSubtract also updates moved[i]; whatever traffic that's left is removed
+                // from foreground usage.
+                tunSubtract(idxVpnBackground, this, moved[i]);
+            }
 
-        int idxVpnForeground = findIndex(underlyingIface, tunUid, SET_FOREGROUND, TAG_NONE,
-                METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO);
-        if (idxVpnForeground != -1) {
-            tunSubtract(idxVpnForeground, this, moved);
+            final int idxVpnForeground = findIndex(underlyingIfaces[i], tunUid, SET_FOREGROUND,
+                            TAG_NONE, METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO);
+            if (idxVpnForeground != -1) {
+                tunSubtract(idxVpnForeground, this, moved[i]);
+            }
         }
     }
 
-    private static void tunSubtract(int i, NetworkStats left, Entry right) {
+    private static void tunSubtract(int i, @NonNull NetworkStats left, @NonNull Entry right) {
         long rxBytes = Math.min(left.rxBytes[i], right.rxBytes);
         left.rxBytes[i] -= rxBytes;
         right.rxBytes -= rxBytes;

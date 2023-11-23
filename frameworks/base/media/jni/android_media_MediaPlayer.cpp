@@ -23,7 +23,7 @@
 #include <media/AudioResamplerPublic.h>
 #include <media/IMediaHTTPService.h>
 #include <media/MediaPlayerInterface.h>
-#include <media/MediaAnalyticsItem.h>
+#include <media/MediaMetricsItem.h>
 #include <media/stagefright/foundation/ByteUtils.h>  // for FOURCC definition
 #include <stdio.h>
 #include <assert.h>
@@ -682,7 +682,7 @@ android_media_MediaPlayer_native_getMetrics(JNIEnv *env, jobject thiz)
         return (jobject) NULL;
     }
 
-    std::unique_ptr<MediaAnalyticsItem> item(MediaAnalyticsItem::create());
+    std::unique_ptr<mediametrics::Item> item(mediametrics::Item::create());
     item->readFromParcel(p);
     jobject mybundle = MediaMetricsJNI::writeMetricsToBundle(env, item.get(), NULL);
 
@@ -1436,6 +1436,7 @@ static int register_android_media_MediaPlayer(JNIEnv *env)
 }
 extern int register_android_media_ImageReader(JNIEnv *env);
 extern int register_android_media_ImageWriter(JNIEnv *env);
+extern int register_android_media_JetPlayer(JNIEnv *env);
 extern int register_android_media_Crypto(JNIEnv *env);
 extern int register_android_media_Drm(JNIEnv *env);
 extern int register_android_media_Descrambler(JNIEnv *env);
@@ -1446,13 +1447,13 @@ extern int register_android_media_MediaHTTPConnection(JNIEnv *env);
 extern int register_android_media_MediaMetadataRetriever(JNIEnv *env);
 extern int register_android_media_MediaMuxer(JNIEnv *env);
 extern int register_android_media_MediaRecorder(JNIEnv *env);
-extern int register_android_media_MediaScanner(JNIEnv *env);
 extern int register_android_media_MediaSync(JNIEnv *env);
 extern int register_android_media_ResampleInputStream(JNIEnv *env);
 extern int register_android_media_MediaProfiles(JNIEnv *env);
 extern int register_android_mtp_MtpDatabase(JNIEnv *env);
 extern int register_android_mtp_MtpDevice(JNIEnv *env);
 extern int register_android_mtp_MtpServer(JNIEnv *env);
+extern int register_android_media_MediaTranscodeManager(JNIEnv *env);
 
 jint JNI_OnLoad(JavaVM* vm, void* /* reserved */)
 {
@@ -1475,6 +1476,11 @@ jint JNI_OnLoad(JavaVM* vm, void* /* reserved */)
         goto bail;
     }
 
+    if (register_android_media_JetPlayer(env) < 0) {
+        ALOGE("ERROR: JetPlayer native registration failed");
+        goto bail;
+    }
+
     if (register_android_media_MediaPlayer(env) < 0) {
         ALOGE("ERROR: MediaPlayer native registration failed\n");
         goto bail;
@@ -1482,11 +1488,6 @@ jint JNI_OnLoad(JavaVM* vm, void* /* reserved */)
 
     if (register_android_media_MediaRecorder(env) < 0) {
         ALOGE("ERROR: MediaRecorder native registration failed\n");
-        goto bail;
-    }
-
-    if (register_android_media_MediaScanner(env) < 0) {
-        ALOGE("ERROR: MediaScanner native registration failed\n");
         goto bail;
     }
 
@@ -1562,6 +1563,11 @@ jint JNI_OnLoad(JavaVM* vm, void* /* reserved */)
 
     if (register_android_media_MediaHTTPConnection(env) < 0) {
         ALOGE("ERROR: MediaHTTPConnection native registration failed");
+        goto bail;
+    }
+
+    if (register_android_media_MediaTranscodeManager(env) < 0) {
+        ALOGE("ERROR: MediaTranscodeManager native registration failed");
         goto bail;
     }
 

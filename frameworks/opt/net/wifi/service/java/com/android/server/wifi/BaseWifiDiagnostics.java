@@ -1,6 +1,8 @@
 
 package com.android.server.wifi;
 
+import android.annotation.NonNull;
+
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
@@ -23,7 +25,11 @@ public class BaseWifiDiagnostics {
         mWifiNative = wifiNative;
     }
 
-    public synchronized void startLogging(boolean verboseEnabled) {
+    /**
+     * start wifi HAL dependent logging features
+     * @param ifaceName requesting to start logging
+     */
+    public synchronized void startLogging(@NonNull String ifaceName) {
         mFirmwareVersion = mWifiNative.getFirmwareVersion();
         mDriverVersion = mWifiNative.getDriverVersion();
         mSupportedFeatureSet = mWifiNative.getSupportedLoggerFeatureSet();
@@ -33,7 +39,11 @@ public class BaseWifiDiagnostics {
 
     public synchronized void stopPacketLog() { }
 
-    public synchronized void stopLogging() { }
+    /**
+     * stop wifi HAL dependent logging features
+     * @param ifaceName requesting to stop logging
+     */
+    public synchronized void stopLogging(@NonNull String ifaceName) { }
 
     /**
      * Inform the diagnostics module of a connection event.
@@ -64,4 +74,11 @@ public class BaseWifiDiagnostics {
         pw.println("Driver Version is: " + mDriverVersion);
         pw.println("Supported Feature set: " + mSupportedFeatureSet);
     }
+
+    /** enables/disables wifi verbose logging */
+    public synchronized void enableVerboseLogging(boolean verboseEnabled) { }
+
+    /** enables packet fate monitoring */
+    public void startPktFateMonitoring(@NonNull String ifaceName) {}
+
 }

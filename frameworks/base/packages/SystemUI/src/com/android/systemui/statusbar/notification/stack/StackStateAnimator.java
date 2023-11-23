@@ -28,6 +28,7 @@ import com.android.systemui.Interpolators;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.NotificationShelf;
 import com.android.systemui.statusbar.StatusBarIconView;
+import com.android.systemui.statusbar.notification.collection.NotificationEntry;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.row.ExpandableView;
 
@@ -55,6 +56,7 @@ public class StackStateAnimator {
     public static final int ANIMATION_DURATION_PULSE_APPEAR =
             KeyguardSliceView.DEFAULT_ANIM_DURATION;
     public static final int ANIMATION_DURATION_BLOCKING_HELPER_FADE = 240;
+    public static final int ANIMATION_DURATION_PRIORITY_CHANGE = 500;
     public static final int ANIMATION_DELAY_PER_ELEMENT_INTERRUPTING = 80;
     public static final int ANIMATION_DELAY_PER_ELEMENT_MANUAL = 32;
     public static final int ANIMATION_DELAY_PER_ELEMENT_GO_TO_FULL_SHADE = 48;
@@ -103,7 +105,7 @@ public class StackStateAnimator {
             }
 
             @Override
-            public AnimatorListenerAdapter getAnimationFinishListener() {
+            public AnimatorListenerAdapter getAnimationFinishListener(Property property) {
                 return getGlobalAnimationFinishedListener();
             }
 
@@ -174,8 +176,7 @@ public class StackStateAnimator {
                         || viewState.zTranslation != child.getTranslationZ()
                         || viewState.alpha != child.getAlpha()
                         || viewState.height != child.getActualHeight()
-                        || viewState.clipTopAmount != child.getClipTopAmount()
-                        || viewState.dark != child.isDark())) {
+                        || viewState.clipTopAmount != child.getClipTopAmount())) {
             mAnimationProperties.delay = mCurrentAdditionalDelay
                     + calculateChildAnimationDelay(viewState, animationStaggerCount);
         }
@@ -452,7 +453,12 @@ public class StackStateAnimator {
                     if (row.isDismissed()) {
                         needsAnimation = false;
                     }
-                    StatusBarIconView icon = row.getEntry().icon;
+                    NotificationEntry entry = row.getEntry();
+                    StatusBarIconView icon = entry.getIcons().getStatusBarIcon();
+                    final StatusBarIconView centeredIcon = entry.getIcons().getCenteredIcon();
+                    if (centeredIcon != null && centeredIcon.getParent() != null) {
+                        icon = centeredIcon;
+                    }
                     if (icon.getParent() != null) {
                         icon.getLocationOnScreen(mTmpLocation);
                         float iconPosition = mTmpLocation[0] - icon.getTranslationX()

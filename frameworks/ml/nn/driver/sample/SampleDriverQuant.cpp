@@ -16,68 +16,75 @@
 
 #define LOG_TAG "SampleDriverQuant"
 
-#include "SampleDriver.h"
-
-#include "HalInterfaces.h"
-#include "Utils.h"
-#include "ValidateHal.h"
-
 #include <android-base/logging.h>
 #include <hidl/LegacySupport.h>
+
 #include <thread>
+#include <vector>
+
+#include "HalInterfaces.h"
+#include "SampleDriverPartial.h"
+#include "Utils.h"
+#include "ValidateHal.h"
 
 namespace android {
 namespace nn {
 namespace sample_driver {
 
-class SampleDriverQuant : public SampleDriver {
-public:
-    SampleDriverQuant() : SampleDriver("sample-quant") {}
-    Return<void> getCapabilities_1_2(getCapabilities_1_2_cb cb) override;
-    Return<void> getSupportedOperations_1_2(const V1_2::Model& model,
-                                            getSupportedOperations_1_2_cb cb) override;
+using namespace hal;
+
+class SampleDriverQuant : public SampleDriverPartial {
+   public:
+    SampleDriverQuant() : SampleDriverPartial("nnapi-sample_quant") {}
+    Return<void> getCapabilities_1_3(getCapabilities_1_3_cb cb) override;
+
+   private:
+    std::vector<bool> getSupportedOperationsImpl(const V1_3::Model& model) const override;
 };
 
-Return<void> SampleDriverQuant::getCapabilities_1_2(getCapabilities_1_2_cb cb) {
+Return<void> SampleDriverQuant::getCapabilities_1_3(getCapabilities_1_3_cb cb) {
     android::nn::initVLogMask();
     VLOG(DRIVER) << "getCapabilities()";
 
     Capabilities capabilities = {
             .relaxedFloat32toFloat16PerformanceScalar = {.execTime = 50.0f, .powerUsage = 1.0f},
             .relaxedFloat32toFloat16PerformanceTensor = {.execTime = 50.0f, .powerUsage = 1.0f},
-            .operandPerformance = nonExtensionOperandPerformance({50.0f, 1.0f})};
+            .operandPerformance = nonExtensionOperandPerformance<HalVersion::V1_3>({50.0f, 1.0f}),
+            .ifPerformance = {.execTime = 50.0f, .powerUsage = 1.0f},
+            .whilePerformance = {.execTime = 50.0f, .powerUsage = 1.0f}};
 
     cb(ErrorStatus::NONE, capabilities);
     return Void();
 }
 
-Return<void> SampleDriverQuant::getSupportedOperations_1_2(const V1_2::Model& model,
-                                                           getSupportedOperations_1_2_cb cb) {
-    VLOG(DRIVER) << "getSupportedOperations()";
-    if (validateModel(model)) {
-        const size_t count = model.operations.size();
-        std::vector<bool> supported(count);
-        for (size_t i = 0; i < count; i++) {
-            const Operation& operation = model.operations[i];
-            if (operation.inputs.size() > 0) {
-                const Operand& firstOperand = model.operands[operation.inputs[0]];
-                supported[i] = firstOperand.type == OperandType::TENSOR_QUANT8_ASYMM;
-            }
-        }
-        cb(ErrorStatus::NONE, supported);
-    } else {
-        std::vector<bool> supported;
-        cb(ErrorStatus::INVALID_ARGUMENT, supported);
-    }
-    return Void();
+static bool isQuantized(OperandType opType) {
+    return opType == OperandType::TENSOR_QUANT8_ASYMM ||
+           opType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED;
 }
 
-} // namespace sample_driver
-} // namespace nn
-} // namespace android
+std::vector<bool> SampleDriverQuant::getSupportedOperationsImpl(const V1_3::Model& model) const {
+    const size_t count = model.main.operations.size();
+    std::vector<bool> supported(count);
+    for (size_t i = 0; i < count; i++) {
+        const Operation& operation = model.main.operations[i];
+        if (operation.inputs.size() > 0) {
+            const Operand& firstOperand = model.main.operands[operation.inputs[0]];
+            supported[i] = isQuantized(firstOperand.type);
+            if (operation.type == OperationType::SELECT) {
+                const Operand& secondOperand = model.main.operands[operation.inputs[1]];
+                supported[i] = isQuantized(secondOperand.type);
+            }
+        }
+    }
+    return supported;
+}
 
-using android::nn::sample_driver::SampleDriverQuant;
+}  // namespace sample_driver
+}  // namespace nn
+}  // namespace android
+
 using android::sp;
+using android::nn::sample_driver::SampleDriverQuant;
 
 int main() {
     sp<SampleDriverQuant> driver(new SampleDriverQuant());

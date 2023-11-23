@@ -163,11 +163,11 @@ template <typename ObjectType>
 VintfInfo getVintfInfo(const std::shared_ptr<const ObjectType>& object,
                        const FqInstance& fqInstance, vintf::TransportArch ta, VintfInfo value) {
     bool found = false;
-    (void)object->forEachInstanceOfVersion(fqInstance.getPackage(), fqInstance.getVersion(),
-                                           [&](const auto& instance) {
-                                               found = match(instance, fqInstance, ta);
-                                               return !found; // continue if not found
-                                           });
+    (void)object->forEachHidlInstanceOfVersion(fqInstance.getPackage(), fqInstance.getVersion(),
+                                               [&](const auto& instance) {
+                                                   found = match(instance, fqInstance, ta);
+                                                   return !found; // continue if not found
+                                               });
     return found ? value : VINTF_INFO_EMPTY;
 }
 
@@ -206,9 +206,12 @@ VintfInfo ListCommand::getVintfInfo(const std::string& fqInstanceName,
 static bool scanBinderContext(pid_t pid,
         const std::string &contextName,
         std::function<void(const std::string&)> eachLine) {
-    std::ifstream ifs("/d/binder/proc/" + std::to_string(pid));
+    std::ifstream ifs("/dev/binderfs/binder_logs/proc/" + std::to_string(pid));
     if (!ifs.is_open()) {
-        return false;
+        ifs.open("/d/binder/proc/" + std::to_string(pid));
+        if (!ifs.is_open()) {
+            return false;
+        }
     }
 
     static const std::regex kContextLine("^context (\\w+)$");
@@ -403,7 +406,7 @@ bool ListCommand::addEntryWithInstance(const TableEntry& entry,
         return false;
     }
 
-    if (fqInstance.getPackage() == gIBaseFqName.package()) {
+    if (fqInstance.getPackage() == "android.hidl.base") {
         return true; // always remove IBase from manifest
     }
 
@@ -453,7 +456,7 @@ bool ListCommand::addEntryWithoutInstance(const TableEntry& entry,
     }
 
     bool found = false;
-    (void)manifest->forEachInstanceOfVersion(package, version, [&found](const auto&) {
+    (void)manifest->forEachHidlInstanceOfVersion(package, version, [&found](const auto&) {
         found = true;
         return false; // break
     });
@@ -797,9 +800,9 @@ Status ListCommand::fetchManifestHals() {
 
         std::map<std::string, TableEntry> entries;
 
-        manifest->forEachInstance([&] (const vintf::ManifestInstance& manifestInstance) {
+        manifest->forEachHidlInstance([&] (const vintf::ManifestInstance& manifestInstance) {
             TableEntry entry{
-                .interfaceName = manifestInstance.getFqInstance().string(),
+                .interfaceName = manifestInstance.description(),
                 .transport = manifestInstance.transport(),
                 .arch = manifestInstance.arch(),
                 // TODO(b/71555570): Device manifest does not distinguish HALs from vendor or ODM.
@@ -975,7 +978,8 @@ void ListCommand::registerAllOptions() {
        "    - DM: if the HAL is in the device manifest\n"
        "    - DC: if the HAL is in the device compatibility matrix\n"
        "    - FM: if the HAL is in the framework manifest\n"
-       "    - FC: if the HAL is in the framework compatibility matrix"});
+       "    - FC: if the HAL is in the framework compatibility matrix\n"
+       "    - X: if the HAL is in none of the above lists"});
     mOptions.push_back({'S', "service-status", no_argument, v++, [](ListCommand* thiz, const char*) {
         thiz->mSelectedColumns.push_back(TableColumnType::SERVICE_STATUS);
         return OK;

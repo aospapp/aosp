@@ -51,18 +51,8 @@ public class RemoteLayoutlibCallbackAdapter implements RemoteLayoutlibCallback {
     }
 
     @Override
-    public boolean supports(int ideFeature) {
-        return mDelegate.supports(ideFeature);
-    }
-
-    @Override
     public Object loadView(String name, Class[] constructorSignature, Object[] constructorArgs) {
         throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    @Override
-    public String getNamespace() {
-        return mDelegate.getNamespace();
     }
 
     @Override

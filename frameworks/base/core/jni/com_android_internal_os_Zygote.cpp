@@ -31,6 +31,8 @@
 // sys/mount.h has to come before linux/fs.h due to redefinition of MS_RDONLY, MS_BIND, etc
 #include <sys/mount.h>
 #include <linux/fs.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include <array>
 #include <atomic>
@@ -40,22 +42,22 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 #include <android/fdsan.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <grp.h>
 #include <inttypes.h>
-#include <link.h>
 #include <malloc.h>
 #include <mntent.h>
 #include <paths.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/capability.h>
 #include <sys/cdefs.h>
 #include <sys/eventfd.h>
-#include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
@@ -63,35 +65,36 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
-#include <android-base/file.h>
 #include <android-base/stringprintf.h>
-#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
-#include <bionic_malloc.h>
-#include <cutils/ashmem.h>
+#include <bionic/malloc.h>
 #include <cutils/fs.h>
 #include <cutils/multiuser.h>
+#include <cutils/sockets.h>
 #include <private/android_filesystem_config.h>
-#include <utils/String8.h>
-#include <utils/Trace.h>
-#include <selinux/android.h>
-#include <seccomp_policy.h>
-#include <stats_event_list.h>
 #include <processgroup/processgroup.h>
 #include <processgroup/sched_policy.h>
+#include <seccomp_policy.h>
+#include <selinux/android.h>
+#include <stats_socket.h>
+#include <utils/String8.h>
+#include <utils/Trace.h>
 
-#include "core_jni_helpers.h"
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include "core_jni_helpers.h"
 #include "fd_utils.h"
+#include "filesystem_utils.h"
 
 #include "nativebridge/native_bridge.h"
 
@@ -103,6 +106,7 @@ namespace {
 using namespace std::placeholders;
 
 using android::String8;
+using android::base::ReadFileToString;
 using android::base::StringAppendF;
 using android::base::StringPrintf;
 using android::base::WriteStringToFile;
@@ -116,29 +120,25 @@ typedef const std::function<void(std::string)>& fail_fn_t;
 
 static pid_t gSystemServerPid = 0;
 
-static constexpr const char* kZygoteClassName = "com/android/internal/os/Zygote";
+static constexpr const char* kVoldAppDataIsolation = "persist.sys.vold_app_data_isolation_enabled";
+static constexpr const char* kPropFuse = "persist.sys.fuse";
+static const char kZygoteClassName[] = "com/android/internal/os/Zygote";
 static jclass gZygoteClass;
 static jmethodID gCallPostForkSystemServerHooks;
 static jmethodID gCallPostForkChildHooks;
 
-static constexpr const char* kZygoteInitClassName = "com/android/internal/os/ZygoteInit";
-static jclass gZygoteInitClass;
-static jmethodID gCreateSystemServerClassLoader;
-
 static bool gIsSecurityEnforced = true;
+
+/**
+ * True if the app process is running in its mount namespace.
+ */
+static bool gInAppMountNamespace = false;
 
 /**
  * The maximum number of characters (not including a null terminator) that a
  * process name may contain.
  */
 static constexpr size_t MAX_NAME_LENGTH = 15;
-
-/**
- * The prefix string for environmental variables storing socket FDs created by
- * init.
- */
-
-static constexpr std::string_view ANDROID_SOCKET_PREFIX("ANDROID_SOCKET_");
 
 /**
  * The file descriptor for the Zygote socket opened by init.
@@ -164,10 +164,32 @@ static std::atomic_uint32_t gUsapPoolCount = 0;
 static int gUsapPoolEventFD = -1;
 
 /**
+ * The socket file descriptor used to send notifications to the
+ * system_server.
+ */
+static int gSystemServerSocketFd = -1;
+
+static constexpr int DEFAULT_DATA_DIR_PERMISSION = 0751;
+
+static constexpr const uint64_t UPPER_HALF_WORD_MASK = 0xFFFF'FFFF'0000'0000;
+static constexpr const uint64_t LOWER_HALF_WORD_MASK = 0x0000'0000'FFFF'FFFF;
+
+static constexpr const char* kCurProfileDirPath = "/data/misc/profiles/cur";
+
+/**
  * The maximum value that the gUSAPPoolSizeMax variable may take.  This value
  * is a mirror of ZygoteServer.USAP_POOL_SIZE_MAX_LIMIT
  */
 static constexpr int USAP_POOL_SIZE_MAX_LIMIT = 100;
+
+/** The numeric value for the maximum priority a process may possess. */
+static constexpr int PROCESS_PRIORITY_MAX = -20;
+
+/** The numeric value for the minimum priority a process may possess. */
+static constexpr int PROCESS_PRIORITY_MIN = 19;
+
+/** The numeric value for the normal priority a process should have. */
+static constexpr int PROCESS_PRIORITY_DEFAULT = 0;
 
 /**
  * A helper class containing accounting information for USAPs.
@@ -289,6 +311,7 @@ static std::array<UsapTableEntry, USAP_POOL_SIZE_MAX_LIMIT> gUsapTable;
 static FileDescriptorTable* gOpenFdTable = nullptr;
 
 // Must match values in com.android.internal.os.Zygote.
+// The order of entries here must be kept in sync with ExternalStorageViews array values.
 enum MountExternalKind {
   MOUNT_EXTERNAL_NONE = 0,
   MOUNT_EXTERNAL_DEFAULT = 1,
@@ -297,13 +320,55 @@ enum MountExternalKind {
   MOUNT_EXTERNAL_LEGACY = 4,
   MOUNT_EXTERNAL_INSTALLER = 5,
   MOUNT_EXTERNAL_FULL = 6,
+  MOUNT_EXTERNAL_PASS_THROUGH = 7,
+  MOUNT_EXTERNAL_ANDROID_WRITABLE = 8,
+  MOUNT_EXTERNAL_COUNT = 9
+};
+
+// The order of entries here must be kept in sync with MountExternalKind enum values.
+static const std::array<const std::string, MOUNT_EXTERNAL_COUNT> ExternalStorageViews = {
+  "",                     // MOUNT_EXTERNAL_NONE
+  "/mnt/runtime/default", // MOUNT_EXTERNAL_DEFAULT
+  "/mnt/runtime/read",    // MOUNT_EXTERNAL_READ
+  "/mnt/runtime/write",   // MOUNT_EXTERNAL_WRITE
+  "/mnt/runtime/write",   // MOUNT_EXTERNAL_LEGACY
+  "/mnt/runtime/write",   // MOUNT_EXTERNAL_INSTALLER
+  "/mnt/runtime/full",    // MOUNT_EXTERNAL_FULL
+  "/mnt/runtime/full",    // MOUNT_EXTERNAL_PASS_THROUGH (only used w/ FUSE)
+  "/mnt/runtime/full",    // MOUNT_EXTERNAL_ANDROID_WRITABLE (only used w/ FUSE)
 };
 
 // Must match values in com.android.internal.os.Zygote.
 enum RuntimeFlags : uint32_t {
-  DEBUG_ENABLE_JDWP = 1,
-  PROFILE_FROM_SHELL = 1 << 15,
+    DEBUG_ENABLE_JDWP = 1,
+    PROFILE_FROM_SHELL = 1 << 15,
+    MEMORY_TAG_LEVEL_MASK = (1 << 19) | (1 << 20),
+    MEMORY_TAG_LEVEL_TBI = 1 << 19,
+    GWP_ASAN_LEVEL_MASK = (1 << 21) | (1 << 22),
+    GWP_ASAN_LEVEL_NEVER = 0 << 21,
+    GWP_ASAN_LEVEL_LOTTERY = 1 << 21,
+    GWP_ASAN_LEVEL_ALWAYS = 2 << 21,
 };
+
+enum UnsolicitedZygoteMessageTypes : uint32_t {
+    UNSOLICITED_ZYGOTE_MESSAGE_TYPE_RESERVED = 0,
+    UNSOLICITED_ZYGOTE_MESSAGE_TYPE_SIGCHLD = 1,
+};
+
+struct UnsolicitedZygoteMessageSigChld {
+    struct {
+        UnsolicitedZygoteMessageTypes type;
+    } header;
+    struct {
+        pid_t pid;
+        uid_t uid;
+        int status;
+    } payload;
+};
+
+// Keep sync with services/core/java/com/android/server/am/ProcessList.java
+static constexpr struct sockaddr_un kSystemServerSockAddr =
+        {.sun_family = AF_LOCAL, .sun_path = "/data/system/unsolzygotesocket"};
 
 // Forward declaration so we don't have to move the signal handler.
 static bool RemoveUsapTableEntry(pid_t usap_pid);
@@ -314,74 +379,107 @@ static void RuntimeAbort(JNIEnv* env, int line, const char* msg) {
   env->FatalError(oss.str().c_str());
 }
 
+// Create the socket which is going to be used to send unsolicited message
+// to system_server, the socket will be closed post forking a child process.
+// It's expected to be called at each zygote's initialization.
+static void initUnsolSocketToSystemServer() {
+    gSystemServerSocketFd = socket(AF_LOCAL, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+    if (gSystemServerSocketFd >= 0) {
+        ALOGV("Zygote:systemServerSocketFD = %d", gSystemServerSocketFd);
+    } else {
+        ALOGE("Unable to create socket file descriptor to connect to system_server");
+    }
+}
+
+static void sendSigChildStatus(const pid_t pid, const uid_t uid, const int status) {
+    int socketFd = gSystemServerSocketFd;
+    if (socketFd >= 0) {
+        // fill the message buffer
+        struct UnsolicitedZygoteMessageSigChld data =
+                {.header = {.type = UNSOLICITED_ZYGOTE_MESSAGE_TYPE_SIGCHLD},
+                 .payload = {.pid = pid, .uid = uid, .status = status}};
+        if (TEMP_FAILURE_RETRY(
+                    sendto(socketFd, &data, sizeof(data), 0,
+                           reinterpret_cast<const struct sockaddr*>(&kSystemServerSockAddr),
+                           sizeof(kSystemServerSockAddr))) == -1) {
+            async_safe_format_log(ANDROID_LOG_ERROR, LOG_TAG,
+                                  "Zygote failed to write to system_server FD: %s",
+                                  strerror(errno));
+        }
+    }
+}
+
 // This signal handler is for zygote mode, since the zygote must reap its children
-static void SigChldHandler(int /*signal_number*/) {
-  pid_t pid;
-  int status;
-  int64_t usaps_removed = 0;
+static void SigChldHandler(int /*signal_number*/, siginfo_t* info, void* /*ucontext*/) {
+    pid_t pid;
+    int status;
+    int64_t usaps_removed = 0;
 
-  // It's necessary to save and restore the errno during this function.
-  // Since errno is stored per thread, changing it here modifies the errno
-  // on the thread on which this signal handler executes. If a signal occurs
-  // between a call and an errno check, it's possible to get the errno set
-  // here.
-  // See b/23572286 for extra information.
-  int saved_errno = errno;
+    // It's necessary to save and restore the errno during this function.
+    // Since errno is stored per thread, changing it here modifies the errno
+    // on the thread on which this signal handler executes. If a signal occurs
+    // between a call and an errno check, it's possible to get the errno set
+    // here.
+    // See b/23572286 for extra information.
+    int saved_errno = errno;
 
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-     // Log process-death status that we care about.
-    if (WIFEXITED(status)) {
-      async_safe_format_log(ANDROID_LOG_INFO, LOG_TAG,
-                            "Process %d exited cleanly (%d)", pid, WEXITSTATUS(status));
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        // Notify system_server that we received a SIGCHLD
+        sendSigChildStatus(pid, info->si_uid, status);
+        // Log process-death status that we care about.
+        if (WIFEXITED(status)) {
+            async_safe_format_log(ANDROID_LOG_INFO, LOG_TAG, "Process %d exited cleanly (%d)", pid,
+                                  WEXITSTATUS(status));
 
-      // Check to see if the PID is in the USAP pool and remove it if it is.
-      if (RemoveUsapTableEntry(pid)) {
-        ++usaps_removed;
-      }
-    } else if (WIFSIGNALED(status)) {
-      async_safe_format_log(ANDROID_LOG_INFO, LOG_TAG,
-                            "Process %d exited due to signal %d (%s)%s", pid,
-                            WTERMSIG(status), strsignal(WTERMSIG(status)),
-                            WCOREDUMP(status) ? "; core dumped" : "");
+            // Check to see if the PID is in the USAP pool and remove it if it is.
+            if (RemoveUsapTableEntry(pid)) {
+                ++usaps_removed;
+            }
+        } else if (WIFSIGNALED(status)) {
+            async_safe_format_log(ANDROID_LOG_INFO, LOG_TAG,
+                                  "Process %d exited due to signal %d (%s)%s", pid,
+                                  WTERMSIG(status), strsignal(WTERMSIG(status)),
+                                  WCOREDUMP(status) ? "; core dumped" : "");
 
-      // If the process exited due to a signal other than SIGTERM, check to see
-      // if the PID is in the USAP pool and remove it if it is.  If the process
-      // was closed by the Zygote using SIGTERM then the USAP pool entry will
-      // have already been removed (see nativeEmptyUsapPool()).
-      if (WTERMSIG(status) != SIGTERM && RemoveUsapTableEntry(pid)) {
-        ++usaps_removed;
-      }
+            // If the process exited due to a signal other than SIGTERM, check to see
+            // if the PID is in the USAP pool and remove it if it is.  If the process
+            // was closed by the Zygote using SIGTERM then the USAP pool entry will
+            // have already been removed (see nativeEmptyUsapPool()).
+            if (WTERMSIG(status) != SIGTERM && RemoveUsapTableEntry(pid)) {
+                ++usaps_removed;
+            }
+        }
+
+        // If the just-crashed process is the system_server, bring down zygote
+        // so that it is restarted by init and system server will be restarted
+        // from there.
+        if (pid == gSystemServerPid) {
+            async_safe_format_log(ANDROID_LOG_ERROR, LOG_TAG,
+                                  "Exit zygote because system server (pid %d) has terminated", pid);
+            kill(getpid(), SIGKILL);
+        }
     }
 
-    // If the just-crashed process is the system_server, bring down zygote
-    // so that it is restarted by init and system server will be restarted
-    // from there.
-    if (pid == gSystemServerPid) {
-      async_safe_format_log(ANDROID_LOG_ERROR, LOG_TAG,
-                            "Exit zygote because system server (pid %d) has terminated", pid);
-      kill(getpid(), SIGKILL);
+    // Note that we shouldn't consider ECHILD an error because
+    // the secondary zygote might have no children left to wait for.
+    if (pid < 0 && errno != ECHILD) {
+        async_safe_format_log(ANDROID_LOG_WARN, LOG_TAG, "Zygote SIGCHLD error in waitpid: %s",
+                              strerror(errno));
     }
-  }
 
-  // Note that we shouldn't consider ECHILD an error because
-  // the secondary zygote might have no children left to wait for.
-  if (pid < 0 && errno != ECHILD) {
-    async_safe_format_log(ANDROID_LOG_WARN, LOG_TAG,
-                          "Zygote SIGCHLD error in waitpid: %s", strerror(errno));
-  }
-
-  if (usaps_removed > 0) {
-    if (TEMP_FAILURE_RETRY(write(gUsapPoolEventFD, &usaps_removed, sizeof(usaps_removed))) == -1) {
-      // If this write fails something went terribly wrong.  We will now kill
-      // the zygote and let the system bring it back up.
-      async_safe_format_log(ANDROID_LOG_ERROR, LOG_TAG,
-                            "Zygote failed to write to USAP pool event FD: %s",
-                            strerror(errno));
-      kill(getpid(), SIGKILL);
+    if (usaps_removed > 0) {
+        if (TEMP_FAILURE_RETRY(write(gUsapPoolEventFD, &usaps_removed, sizeof(usaps_removed))) ==
+            -1) {
+            // If this write fails something went terribly wrong.  We will now kill
+            // the zygote and let the system bring it back up.
+            async_safe_format_log(ANDROID_LOG_ERROR, LOG_TAG,
+                                  "Zygote failed to write to USAP pool event FD: %s",
+                                  strerror(errno));
+            kill(getpid(), SIGKILL);
+        }
     }
-  }
 
-  errno = saved_errno;
+    errno = saved_errno;
 }
 
 // Configures the SIGCHLD/SIGHUP handlers for the zygote process. This is
@@ -402,12 +500,11 @@ static void SigChldHandler(int /*signal_number*/) {
 // This ends up being called repeatedly before each fork(), but there's
 // no real harm in that.
 static void SetSignalHandlers() {
-  struct sigaction sig_chld = {};
-  sig_chld.sa_handler = SigChldHandler;
+    struct sigaction sig_chld = {.sa_flags = SA_SIGINFO, .sa_sigaction = SigChldHandler};
 
-  if (sigaction(SIGCHLD, &sig_chld, nullptr) < 0) {
-    ALOGW("Error setting SIGCHLD handler: %s", strerror(errno));
-  }
+    if (sigaction(SIGCHLD, &sig_chld, nullptr) < 0) {
+        ALOGW("Error setting SIGCHLD handler: %s", strerror(errno));
+    }
 
   struct sigaction sig_hup = {};
   sig_hup.sa_handler = SIG_IGN;
@@ -429,8 +526,16 @@ static void UnsetChldSignalHandler() {
 
 // Calls POSIX setgroups() using the int[] object as an argument.
 // A nullptr argument is tolerated.
-static void SetGids(JNIEnv* env, jintArray managed_gids, fail_fn_t fail_fn) {
+static void SetGids(JNIEnv* env, jintArray managed_gids, jboolean is_child_zygote,
+                    fail_fn_t fail_fn) {
   if (managed_gids == nullptr) {
+    if (is_child_zygote) {
+      // For child zygotes like webview and app zygote, we want to clear out
+      // any supplemental groups the parent zygote had.
+      if (setgroups(0, NULL) == -1) {
+        fail_fn(CREATE_ERROR("Failed to remove supplementary groups for child zygote"));
+      }
+    }
     return;
   }
 
@@ -442,6 +547,17 @@ static void SetGids(JNIEnv* env, jintArray managed_gids, fail_fn_t fail_fn) {
   if (setgroups(gids.size(), reinterpret_cast<const gid_t*>(&gids[0])) == -1) {
     fail_fn(CREATE_ERROR("setgroups failed: %s, gids.size=%zu", strerror(errno), gids.size()));
   }
+}
+
+static void ensureInAppMountNamespace(fail_fn_t fail_fn) {
+  if (gInAppMountNamespace) {
+    // In app mount namespace already
+    return;
+  }
+  if (unshare(CLONE_NEWNS) == -1) {
+    fail_fn(CREATE_ERROR("Failed to unshare(): %s", strerror(errno)));
+  }
+  gInAppMountNamespace = true;
 }
 
 // Sets the resource limits via setrlimit(2) for the values in the
@@ -593,11 +709,25 @@ static void SetCapabilities(uint64_t permitted, uint64_t effective, uint64_t inh
   }
 }
 
-static void SetSchedulerPolicy(fail_fn_t fail_fn) {
-  errno = -set_sched_policy(0, SP_DEFAULT);
-  if (errno != 0) {
-    fail_fn(CREATE_ERROR("set_sched_policy(0, SP_DEFAULT) failed: %s", strerror(errno)));
+static void SetSchedulerPolicy(fail_fn_t fail_fn, bool is_top_app) {
+  SchedPolicy policy = is_top_app ? SP_TOP_APP : SP_DEFAULT;
+
+  if (is_top_app && cpusets_enabled()) {
+    errno = -set_cpuset_policy(0, policy);
+    if (errno != 0) {
+      fail_fn(CREATE_ERROR("set_cpuset_policy(0, %d) failed: %s", policy, strerror(errno)));
+    }
   }
+
+  errno = -set_sched_policy(0, policy);
+  if (errno != 0) {
+    fail_fn(CREATE_ERROR("set_sched_policy(0, %d) failed: %s", policy, strerror(errno)));
+  }
+
+  // We are going to lose the permission to set scheduler policy during the specialization, so make
+  // sure that we don't cache the fd of cgroup path that may cause sepolicy violation by writing
+  // value to the cached fd directly when creating new thread.
+  DropTaskProfilesResourceCaching();
 }
 
 static int UnmountTree(const char* path) {
@@ -630,6 +760,42 @@ static int UnmountTree(const char* path) {
   return 0;
 }
 
+static void PrepareDir(const std::string& dir, mode_t mode, uid_t uid, gid_t gid,
+                      fail_fn_t fail_fn) {
+  if (fs_prepare_dir(dir.c_str(), mode, uid, gid) != 0) {
+    fail_fn(CREATE_ERROR("fs_prepare_dir failed on %s: %s",
+                         dir.c_str(), strerror(errno)));
+  }
+}
+
+static void PrepareDirIfNotPresent(const std::string& dir, mode_t mode, uid_t uid, gid_t gid,
+                      fail_fn_t fail_fn) {
+  struct stat sb;
+  if (TEMP_FAILURE_RETRY(stat(dir.c_str(), &sb)) != -1) {
+    // Directory exists already
+    return;
+  }
+  PrepareDir(dir, mode, uid, gid, fail_fn);
+}
+
+static void BindMount(const std::string& source_dir, const std::string& target_dir,
+                      fail_fn_t fail_fn) {
+  if (TEMP_FAILURE_RETRY(mount(source_dir.c_str(), target_dir.c_str(), nullptr,
+                               MS_BIND | MS_REC, nullptr)) == -1) {
+    fail_fn(CREATE_ERROR("Failed to mount %s to %s: %s",
+                         source_dir.c_str(), target_dir.c_str(), strerror(errno)));
+  }
+}
+
+static void MountAppDataTmpFs(const std::string& target_dir,
+                      fail_fn_t fail_fn) {
+  if (TEMP_FAILURE_RETRY(mount("tmpfs", target_dir.c_str(), "tmpfs",
+                               MS_NOSUID | MS_NODEV | MS_NOEXEC, "uid=0,gid=0,mode=0751")) == -1) {
+    fail_fn(CREATE_ERROR("Failed to mount tmpfs to %s: %s",
+                         target_dir.c_str(), strerror(errno)));
+  }
+}
+
 // Create a private mount namespace and bind mount appropriate emulated
 // storage for the given user.
 static void MountEmulatedStorage(uid_t uid, jint mount_mode,
@@ -638,51 +804,56 @@ static void MountEmulatedStorage(uid_t uid, jint mount_mode,
   // See storage config details at http://source.android.com/tech/storage/
   ATRACE_CALL();
 
-  String8 storage_source;
-  if (mount_mode == MOUNT_EXTERNAL_DEFAULT) {
-    storage_source = "/mnt/runtime/default";
-  } else if (mount_mode == MOUNT_EXTERNAL_READ) {
-    storage_source = "/mnt/runtime/read";
-  } else if (mount_mode == MOUNT_EXTERNAL_WRITE
-      || mount_mode == MOUNT_EXTERNAL_LEGACY
-      || mount_mode == MOUNT_EXTERNAL_INSTALLER) {
-    storage_source = "/mnt/runtime/write";
-  } else if (mount_mode == MOUNT_EXTERNAL_FULL) {
-    storage_source = "/mnt/runtime/full";
-  } else if (mount_mode == MOUNT_EXTERNAL_NONE && !force_mount_namespace) {
+  if (mount_mode < 0 || mount_mode >= MOUNT_EXTERNAL_COUNT) {
+    fail_fn(CREATE_ERROR("Unknown mount_mode: %d", mount_mode));
+  }
+
+  if (mount_mode == MOUNT_EXTERNAL_NONE && !force_mount_namespace) {
     // Sane default of no storage visible
     return;
   }
 
   // Create a second private mount namespace for our process
-  if (unshare(CLONE_NEWNS) == -1) {
-    fail_fn(CREATE_ERROR("Failed to unshare(): %s", strerror(errno)));
-  }
+  ensureInAppMountNamespace(fail_fn);
 
   // Handle force_mount_namespace with MOUNT_EXTERNAL_NONE.
   if (mount_mode == MOUNT_EXTERNAL_NONE) {
     return;
   }
 
-  if (TEMP_FAILURE_RETRY(mount(storage_source.string(), "/storage", nullptr,
-                               MS_BIND | MS_REC | MS_SLAVE, nullptr)) == -1) {
-    fail_fn(CREATE_ERROR("Failed to mount %s to /storage: %s",
-                         storage_source.string(),
-                         strerror(errno)));
-  }
+  const userid_t user_id = multiuser_get_user_id(uid);
+  const std::string user_source = StringPrintf("/mnt/user/%d", user_id);
+  // Shell is neither AID_ROOT nor AID_EVERYBODY. Since it equally needs 'execute' access to
+  // /mnt/user/0 to 'adb shell ls /sdcard' for instance, we set the uid bit of /mnt/user/0 to
+  // AID_SHELL. This gives shell access along with apps running as group everybody (user 0 apps)
+  // These bits should be consistent with what is set in vold in
+  // Utils#MountUserFuse on FUSE volume mount
+  PrepareDir(user_source, 0710, user_id ? AID_ROOT : AID_SHELL,
+             multiuser_get_uid(user_id, AID_EVERYBODY), fail_fn);
 
-  // Mount user-specific symlink helper into place
-  userid_t user_id = multiuser_get_user_id(uid);
-  const String8 user_source(String8::format("/mnt/user/%d", user_id));
-  if (fs_prepare_dir(user_source.string(), 0751, 0, 0) == -1) {
-    fail_fn(CREATE_ERROR("fs_prepare_dir failed on %s",
-                         user_source.string()));
-  }
+  bool isFuse = GetBoolProperty(kPropFuse, false);
+  bool isAppDataIsolationEnabled = GetBoolProperty(kVoldAppDataIsolation, false);
 
-  if (TEMP_FAILURE_RETRY(mount(user_source.string(), "/storage/self",
-                               nullptr, MS_BIND, nullptr)) == -1) {
-    fail_fn(CREATE_ERROR("Failed to mount %s to /storage/self: %s",
-                         user_source.string(), strerror(errno)));
+  if (isFuse) {
+    if (mount_mode == MOUNT_EXTERNAL_PASS_THROUGH) {
+      const std::string pass_through_source = StringPrintf("/mnt/pass_through/%d", user_id);
+      PrepareDir(pass_through_source, 0710, AID_ROOT, AID_MEDIA_RW, fail_fn);
+      BindMount(pass_through_source, "/storage", fail_fn);
+    } else if (mount_mode == MOUNT_EXTERNAL_INSTALLER) {
+      const std::string installer_source = StringPrintf("/mnt/installer/%d", user_id);
+      BindMount(installer_source, "/storage", fail_fn);
+    } else if (isAppDataIsolationEnabled && mount_mode == MOUNT_EXTERNAL_ANDROID_WRITABLE) {
+      const std::string writable_source = StringPrintf("/mnt/androidwritable/%d", user_id);
+      BindMount(writable_source, "/storage", fail_fn);
+    } else {
+      BindMount(user_source, "/storage", fail_fn);
+    }
+  } else {
+    const std::string& storage_source = ExternalStorageViews[mount_mode];
+    BindMount(storage_source, "/storage", fail_fn);
+
+    // Mount user-specific symlink helper into place
+    BindMount(user_source, "/storage/self", fail_fn);
   }
 }
 
@@ -903,7 +1074,8 @@ static void ClearUsapTable() {
 // Utility routine to fork a process from the zygote.
 static pid_t ForkCommon(JNIEnv* env, bool is_system_server,
                         const std::vector<int>& fds_to_close,
-                        const std::vector<int>& fds_to_ignore) {
+                        const std::vector<int>& fds_to_ignore,
+                        bool is_priority_fork) {
   SetSignalHandlers();
 
   // Curry a failure function.
@@ -920,7 +1092,7 @@ static pid_t ForkCommon(JNIEnv* env, bool is_system_server,
   // Close any logging related FDs before we start evaluating the list of
   // file descriptors.
   __android_log_close();
-  stats_log_close();
+  AStatsSocket_close();
 
   // If this is the first fork for this zygote, create the open FD table.  If
   // it isn't, we just need to check whether the list of open files has changed
@@ -933,9 +1105,22 @@ static pid_t ForkCommon(JNIEnv* env, bool is_system_server,
 
   android_fdsan_error_level fdsan_error_level = android_fdsan_get_error_level();
 
+  // Purge unused native memory in an attempt to reduce the amount of false
+  // sharing with the child process.  By reducing the size of the libc_malloc
+  // region shared with the child process we reduce the number of pages that
+  // transition to the private-dirty state when malloc adjusts the meta-data
+  // on each of the pages it is managing after the fork.
+  mallopt(M_PURGE, 0);
+
   pid_t pid = fork();
 
   if (pid == 0) {
+    if (is_priority_fork) {
+      setpriority(PRIO_PROCESS, 0, PROCESS_PRIORITY_MAX);
+    } else {
+      setpriority(PRIO_PROCESS, 0, PROCESS_PRIORITY_MIN);
+    }
+
     // The child process.
     PreApplicationInit();
 
@@ -951,6 +1136,9 @@ static pid_t ForkCommon(JNIEnv* env, bool is_system_server,
 
     // Turn fdsan back on.
     android_fdsan_set_error_level(fdsan_error_level);
+
+    // Reset the fd to the unsolicited zygote socket
+    gSystemServerSocketFd = -1;
   } else {
     ALOGD("Forked child process %d", pid);
   }
@@ -961,6 +1149,456 @@ static pid_t ForkCommon(JNIEnv* env, bool is_system_server,
   return pid;
 }
 
+// Create an app data directory over tmpfs overlayed CE / DE storage, and bind mount it
+// from the actual app data directory in data mirror.
+static void createAndMountAppData(std::string_view package_name,
+    std::string_view mirror_pkg_dir_name, std::string_view mirror_data_path,
+    std::string_view actual_data_path, fail_fn_t fail_fn) {
+
+  char mirrorAppDataPath[PATH_MAX];
+  char actualAppDataPath[PATH_MAX];
+  snprintf(mirrorAppDataPath, PATH_MAX, "%s/%s", mirror_data_path.data(),
+      mirror_pkg_dir_name.data());
+  snprintf(actualAppDataPath, PATH_MAX, "%s/%s", actual_data_path.data(), package_name.data());
+
+  PrepareDir(actualAppDataPath, 0700, AID_ROOT, AID_ROOT, fail_fn);
+
+  // Bind mount from original app data directory in mirror.
+  BindMount(mirrorAppDataPath, actualAppDataPath, fail_fn);
+}
+
+// Get the directory name stored in /data/data. If device is unlocked it should be the same as
+// package name, otherwise it will be an encrypted name but with same inode number.
+static std::string getAppDataDirName(std::string_view parent_path, std::string_view package_name,
+      long long ce_data_inode, fail_fn_t fail_fn) {
+  // Check if directory exists
+  char tmpPath[PATH_MAX];
+  snprintf(tmpPath, PATH_MAX, "%s/%s", parent_path.data(), package_name.data());
+  struct stat s;
+  int err = stat(tmpPath, &s);
+  if (err == 0) {
+    // Directory exists, so return the directory name
+    return package_name.data();
+  } else {
+    if (errno != ENOENT) {
+      fail_fn(CREATE_ERROR("Unexpected error in getAppDataDirName: %s", strerror(errno)));
+      return nullptr;
+    }
+    {
+      // Directory doesn't exist, try to search the name from inode
+      std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(parent_path.data()), closedir);
+      if (dir == nullptr) {
+        fail_fn(CREATE_ERROR("Failed to opendir %s", parent_path.data()));
+      }
+      struct dirent* ent;
+      while ((ent = readdir(dir.get()))) {
+        if (ent->d_ino == ce_data_inode) {
+          return ent->d_name;
+        }
+      }
+    }
+
+    // Fallback due to b/145989852, ce_data_inode stored in package manager may be corrupted
+    // if ino_t is 32 bits.
+    ino_t fixed_ce_data_inode = 0;
+    if ((ce_data_inode & UPPER_HALF_WORD_MASK) == UPPER_HALF_WORD_MASK) {
+      fixed_ce_data_inode = ce_data_inode & LOWER_HALF_WORD_MASK;
+    } else if ((ce_data_inode & LOWER_HALF_WORD_MASK) == LOWER_HALF_WORD_MASK) {
+      fixed_ce_data_inode = ((ce_data_inode >> 32) & LOWER_HALF_WORD_MASK);
+    }
+    if (fixed_ce_data_inode != 0) {
+      std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(parent_path.data()), closedir);
+      if (dir == nullptr) {
+        fail_fn(CREATE_ERROR("Failed to opendir %s", parent_path.data()));
+      }
+      struct dirent* ent;
+      while ((ent = readdir(dir.get()))) {
+        if (ent->d_ino == fixed_ce_data_inode) {
+          long long d_ino = ent->d_ino;
+          ALOGW("Fallback success inode %lld -> %lld", ce_data_inode, d_ino);
+          return ent->d_name;
+        }
+      }
+    }
+    // Fallback done
+
+    fail_fn(CREATE_ERROR("Unable to find %s:%lld in %s", package_name.data(),
+        ce_data_inode, parent_path.data()));
+    return nullptr;
+  }
+}
+
+// Isolate app's data directory, by mounting a tmpfs on CE DE storage,
+// and create and bind mount app data in related_packages.
+static void isolateAppDataPerPackage(int userId, std::string_view package_name,
+    std::string_view volume_uuid, long long ce_data_inode, std::string_view actualCePath,
+    std::string_view actualDePath, fail_fn_t fail_fn) {
+
+  char mirrorCePath[PATH_MAX];
+  char mirrorDePath[PATH_MAX];
+  char mirrorCeParent[PATH_MAX];
+  snprintf(mirrorCeParent, PATH_MAX, "/data_mirror/data_ce/%s", volume_uuid.data());
+  snprintf(mirrorCePath, PATH_MAX, "%s/%d", mirrorCeParent, userId);
+  snprintf(mirrorDePath, PATH_MAX, "/data_mirror/data_de/%s/%d", volume_uuid.data(), userId);
+
+  createAndMountAppData(package_name, package_name, mirrorDePath, actualDePath, fail_fn);
+
+  std::string ce_data_path = getAppDataDirName(mirrorCePath, package_name, ce_data_inode, fail_fn);
+  createAndMountAppData(package_name, ce_data_path, mirrorCePath, actualCePath, fail_fn);
+}
+
+// Relabel directory
+static void relabelDir(const char* path, security_context_t context, fail_fn_t fail_fn) {
+  if (setfilecon(path, context) != 0) {
+    fail_fn(CREATE_ERROR("Failed to setfilecon %s %s", path, strerror(errno)));
+  }
+}
+
+// Relabel all directories under a path non-recursively.
+static void relabelAllDirs(const char* path, security_context_t context, fail_fn_t fail_fn) {
+  DIR* dir = opendir(path);
+  if (dir == nullptr) {
+    fail_fn(CREATE_ERROR("Failed to opendir %s", path));
+  }
+  struct dirent* ent;
+  while ((ent = readdir(dir))) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
+    auto filePath = StringPrintf("%s/%s", path, ent->d_name);
+    if (ent->d_type == DT_DIR) {
+      relabelDir(filePath.c_str(), context, fail_fn);
+    } else if (ent->d_type == DT_LNK) {
+      if (lsetfilecon(filePath.c_str(), context) != 0) {
+        fail_fn(CREATE_ERROR("Failed to lsetfilecon %s %s", filePath.c_str(), strerror(errno)));
+      }
+    } else {
+      fail_fn(CREATE_ERROR("Unexpected type: %d %s", ent->d_type, filePath.c_str()));
+    }
+  }
+  closedir(dir);
+}
+
+/**
+ * Make other apps data directory not visible in CE, DE storage.
+ *
+ * Apps without app data isolation can detect if another app is installed on system,
+ * by "touching" other apps data directory like /data/data/com.whatsapp, if it returns
+ * "Permission denied" it means apps installed, otherwise it returns "File not found".
+ * Traditional file permissions or SELinux can only block accessing those directories but
+ * can't fix fingerprinting like this.
+ * We fix it by "overlaying" data directory, and only relevant app data packages exists
+ * in data directories.
+ *
+ * Steps:
+ * 1). Collect a list of all related apps (apps with same uid and whitelisted apps) data info
+ * (package name, data stored volume uuid, and inode number of its CE data directory)
+ * 2). Mount tmpfs on /data/data, /data/user(_de) and /mnt/expand, so apps no longer
+ * able to access apps data directly.
+ * 3). For each related app, create its app data directory and bind mount the actual content
+ * from apps data mirror directory. This works on both CE and DE storage, as DE storage
+ * is always available even storage is FBE locked, while we use inode number to find
+ * the encrypted DE directory in mirror so we can still bind mount it successfully.
+ *
+ * Example:
+ * 0). Assuming com.android.foo CE data is stored in /data/data and no shared uid
+ * 1). Mount a tmpfs on /data/data, /data/user, /data/user_de, /mnt/expand
+ * List = ["com.android.foo", "null" (volume uuid "null"=default),
+ * 123456 (inode number)]
+ * 2). On DE storage, we create a directory /data/user_de/0/com.com.android.foo, and bind
+ * mount (in the app's mount namespace) it from /data_mirror/data_de/0/com.android.foo.
+ * 3). We do similar for CE storage. But in direct boot mode, as /data_mirror/data_ce/0/ is
+ * encrypted, we can't find a directory with name com.android.foo on it, so we will
+ * use the inode number to find the right directory instead, which that directory content will
+ * be decrypted after storage is decrypted.
+ *
+ */
+static void isolateAppData(JNIEnv* env, const std::vector<std::string>& merged_data_info_list,
+    uid_t uid, const char* process_name,
+    jstring managed_nice_name, fail_fn_t fail_fn) {
+
+  const userid_t userId = multiuser_get_user_id(uid);
+
+  int size = merged_data_info_list.size();
+
+  // Mount tmpfs on all possible data directories, so app no longer see the original apps data.
+  char internalCePath[PATH_MAX];
+  char internalLegacyCePath[PATH_MAX];
+  char internalDePath[PATH_MAX];
+  char externalPrivateMountPath[PATH_MAX];
+
+  snprintf(internalCePath, PATH_MAX, "/data/user");
+  snprintf(internalLegacyCePath, PATH_MAX, "/data/data");
+  snprintf(internalDePath, PATH_MAX, "/data/user_de");
+  snprintf(externalPrivateMountPath, PATH_MAX, "/mnt/expand");
+
+  security_context_t dataDataContext = nullptr;
+  if (getfilecon(internalDePath, &dataDataContext) < 0) {
+    fail_fn(CREATE_ERROR("Unable to getfilecon on %s %s", internalDePath,
+        strerror(errno)));
+  }
+
+  MountAppDataTmpFs(internalLegacyCePath, fail_fn);
+  MountAppDataTmpFs(internalCePath, fail_fn);
+  MountAppDataTmpFs(internalDePath, fail_fn);
+
+  // Mount tmpfs on all external vols DE and CE storage
+  DIR* dir = opendir(externalPrivateMountPath);
+  if (dir == nullptr) {
+    fail_fn(CREATE_ERROR("Failed to opendir %s", externalPrivateMountPath));
+  }
+  struct dirent* ent;
+  while ((ent = readdir(dir))) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
+    if (ent->d_type != DT_DIR) {
+      fail_fn(CREATE_ERROR("Unexpected type: %d %s", ent->d_type, ent->d_name));
+    }
+    auto volPath = StringPrintf("%s/%s", externalPrivateMountPath, ent->d_name);
+    auto cePath = StringPrintf("%s/user", volPath.c_str());
+    auto dePath = StringPrintf("%s/user_de", volPath.c_str());
+    MountAppDataTmpFs(cePath.c_str(), fail_fn);
+    MountAppDataTmpFs(dePath.c_str(), fail_fn);
+  }
+  closedir(dir);
+
+  // Prepare default dirs for user 0 as user 0 always exists.
+  int result = symlink("/data/data", "/data/user/0");
+  if (result != 0) {
+    fail_fn(CREATE_ERROR("Failed to create symlink /data/user/0 %s", strerror(errno)));
+  }
+  PrepareDirIfNotPresent("/data/user_de/0", DEFAULT_DATA_DIR_PERMISSION,
+      AID_ROOT, AID_ROOT, fail_fn);
+
+  for (int i = 0; i < size; i += 3) {
+    std::string const & packageName = merged_data_info_list[i];
+    std::string const & volUuid  = merged_data_info_list[i + 1];
+    std::string const & inode = merged_data_info_list[i + 2];
+
+    std::string::size_type sz;
+    long long ceDataInode = std::stoll(inode, &sz);
+
+    std::string actualCePath, actualDePath;
+    if (volUuid.compare("null") != 0) {
+      // Volume that is stored in /mnt/expand
+      char volPath[PATH_MAX];
+      char volCePath[PATH_MAX];
+      char volDePath[PATH_MAX];
+      char volCeUserPath[PATH_MAX];
+      char volDeUserPath[PATH_MAX];
+
+      snprintf(volPath, PATH_MAX, "/mnt/expand/%s", volUuid.c_str());
+      snprintf(volCePath, PATH_MAX, "%s/user", volPath);
+      snprintf(volDePath, PATH_MAX, "%s/user_de", volPath);
+      snprintf(volCeUserPath, PATH_MAX, "%s/%d", volCePath, userId);
+      snprintf(volDeUserPath, PATH_MAX, "%s/%d", volDePath, userId);
+
+      PrepareDirIfNotPresent(volPath, DEFAULT_DATA_DIR_PERMISSION, AID_ROOT, AID_ROOT, fail_fn);
+      PrepareDirIfNotPresent(volCePath, DEFAULT_DATA_DIR_PERMISSION, AID_ROOT, AID_ROOT, fail_fn);
+      PrepareDirIfNotPresent(volDePath, DEFAULT_DATA_DIR_PERMISSION, AID_ROOT, AID_ROOT, fail_fn);
+      PrepareDirIfNotPresent(volCeUserPath, DEFAULT_DATA_DIR_PERMISSION, AID_ROOT, AID_ROOT,
+          fail_fn);
+      PrepareDirIfNotPresent(volDeUserPath, DEFAULT_DATA_DIR_PERMISSION, AID_ROOT, AID_ROOT,
+          fail_fn);
+
+      actualCePath = volCeUserPath;
+      actualDePath = volDeUserPath;
+    } else {
+      // Internal volume that stored in /data
+      char internalCeUserPath[PATH_MAX];
+      char internalDeUserPath[PATH_MAX];
+      snprintf(internalCeUserPath, PATH_MAX, "/data/user/%d", userId);
+      snprintf(internalDeUserPath, PATH_MAX, "/data/user_de/%d", userId);
+      // If it's not user 0, create /data/user/$USER.
+      if (userId == 0) {
+        actualCePath = internalLegacyCePath;
+      } else {
+        PrepareDirIfNotPresent(internalCeUserPath, DEFAULT_DATA_DIR_PERMISSION,
+            AID_ROOT, AID_ROOT, fail_fn);
+        actualCePath = internalCeUserPath;
+      }
+      PrepareDirIfNotPresent(internalDeUserPath, DEFAULT_DATA_DIR_PERMISSION,
+          AID_ROOT, AID_ROOT, fail_fn);
+      actualDePath = internalDeUserPath;
+    }
+    isolateAppDataPerPackage(userId, packageName, volUuid, ceDataInode,
+        actualCePath, actualDePath, fail_fn);
+  }
+  // We set the label AFTER everything is done, as we are applying
+  // the file operations on tmpfs. If we set the label when we mount
+  // tmpfs, SELinux will not happy as we are changing system_data_files.
+  // Relabel dir under /data/user, including /data/user/0
+  relabelAllDirs(internalCePath, dataDataContext, fail_fn);
+
+  // Relabel /data/user
+  relabelDir(internalCePath, dataDataContext, fail_fn);
+
+  // Relabel /data/data
+  relabelDir(internalLegacyCePath, dataDataContext, fail_fn);
+
+  // Relabel dir under /data/user_de
+  relabelAllDirs(internalDePath, dataDataContext, fail_fn);
+
+  // Relabel /data/user_de
+  relabelDir(internalDePath, dataDataContext, fail_fn);
+
+  // Relabel CE and DE dirs under /mnt/expand
+  dir = opendir(externalPrivateMountPath);
+  if (dir == nullptr) {
+    fail_fn(CREATE_ERROR("Failed to opendir %s", externalPrivateMountPath));
+  }
+  while ((ent = readdir(dir))) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
+    auto volPath = StringPrintf("%s/%s", externalPrivateMountPath, ent->d_name);
+    auto cePath = StringPrintf("%s/user", volPath.c_str());
+    auto dePath = StringPrintf("%s/user_de", volPath.c_str());
+
+    relabelAllDirs(cePath.c_str(), dataDataContext, fail_fn);
+    relabelDir(cePath.c_str(), dataDataContext, fail_fn);
+    relabelAllDirs(dePath.c_str(), dataDataContext, fail_fn);
+    relabelDir(dePath.c_str(), dataDataContext, fail_fn);
+  }
+  closedir(dir);
+
+  freecon(dataDataContext);
+}
+
+static void insertPackagesToMergedList(JNIEnv* env,
+  std::vector<std::string>& merged_data_info_list,
+  jobjectArray data_info_list, const char* process_name,
+  jstring managed_nice_name, fail_fn_t fail_fn) {
+
+  auto extract_fn = std::bind(ExtractJString, env, process_name, managed_nice_name, _1);
+
+  int size = (data_info_list != nullptr) ? env->GetArrayLength(data_info_list) : 0;
+  // Size should be a multiple of 3, as it contains list of <package_name, volume_uuid, inode>
+  if ((size % 3) != 0) {
+    fail_fn(CREATE_ERROR("Wrong data_info_list size %d", size));
+  }
+
+  for (int i = 0; i < size; i += 3) {
+    jstring package_str = (jstring) (env->GetObjectArrayElement(data_info_list, i));
+    std::string packageName = extract_fn(package_str).value();
+    merged_data_info_list.push_back(packageName);
+
+    jstring vol_str = (jstring) (env->GetObjectArrayElement(data_info_list, i + 1));
+    std::string volUuid = extract_fn(vol_str).value();
+    merged_data_info_list.push_back(volUuid);
+
+    jstring inode_str = (jstring) (env->GetObjectArrayElement(data_info_list, i + 2));
+    std::string inode = extract_fn(inode_str).value();
+    merged_data_info_list.push_back(inode);
+  }
+}
+
+static void isolateAppData(JNIEnv* env, jobjectArray pkg_data_info_list,
+    jobjectArray whitelisted_data_info_list, uid_t uid, const char* process_name,
+    jstring managed_nice_name, fail_fn_t fail_fn) {
+
+  ensureInAppMountNamespace(fail_fn);
+  std::vector<std::string> merged_data_info_list;
+  insertPackagesToMergedList(env, merged_data_info_list, pkg_data_info_list,
+          process_name, managed_nice_name, fail_fn);
+  insertPackagesToMergedList(env, merged_data_info_list, whitelisted_data_info_list,
+          process_name, managed_nice_name, fail_fn);
+
+  isolateAppData(env, merged_data_info_list, uid, process_name, managed_nice_name, fail_fn);
+}
+
+/**
+ * Like isolateAppData(), isolate jit profile directories, so apps don't see what
+ * other apps are installed by reading content inside /data/misc/profiles/cur.
+ *
+ * The implementation is similar to isolateAppData(), it creates a tmpfs
+ * on /data/misc/profiles/cur, and bind mounts related package profiles to it.
+ */
+static void isolateJitProfile(JNIEnv* env, jobjectArray pkg_data_info_list,
+    uid_t uid, const char* process_name, jstring managed_nice_name,
+    fail_fn_t fail_fn) {
+
+  auto extract_fn = std::bind(ExtractJString, env, process_name, managed_nice_name, _1);
+  const userid_t user_id = multiuser_get_user_id(uid);
+
+  int size = (pkg_data_info_list != nullptr) ? env->GetArrayLength(pkg_data_info_list) : 0;
+  // Size should be a multiple of 3, as it contains list of <package_name, volume_uuid, inode>
+  if ((size % 3) != 0) {
+    fail_fn(CREATE_ERROR("Wrong pkg_inode_list size %d", size));
+  }
+
+  // Mount (namespace) tmpfs on profile directory, so apps no longer access
+  // the original profile directory anymore.
+  MountAppDataTmpFs(kCurProfileDirPath, fail_fn);
+
+  // Create profile directory for this user.
+  std::string actualCurUserProfile = StringPrintf("%s/%d", kCurProfileDirPath, user_id);
+  PrepareDir(actualCurUserProfile, DEFAULT_DATA_DIR_PERMISSION, AID_ROOT, AID_ROOT, fail_fn);
+
+  for (int i = 0; i < size; i += 3) {
+    jstring package_str = (jstring) (env->GetObjectArrayElement(pkg_data_info_list, i));
+    std::string packageName = extract_fn(package_str).value();
+
+    std::string actualCurPackageProfile = StringPrintf("%s/%s", actualCurUserProfile.c_str(),
+        packageName.c_str());
+    std::string mirrorCurPackageProfile = StringPrintf("/data_mirror/cur_profiles/%d/%s",
+        user_id, packageName.c_str());
+
+    if (access(mirrorCurPackageProfile.c_str(), F_OK) != 0) {
+      ALOGW("Can't access app profile directory: %s", mirrorCurPackageProfile.c_str());
+      continue;
+    }
+
+    PrepareDir(actualCurPackageProfile, DEFAULT_DATA_DIR_PERMISSION, uid, uid, fail_fn);
+    BindMount(mirrorCurPackageProfile, actualCurPackageProfile, fail_fn);
+  }
+}
+
+static void BindMountStorageToLowerFs(const userid_t user_id, const uid_t uid,
+    const char* dir_name, const char* package, fail_fn_t fail_fn) {
+    bool hasSdcardFs = IsSdcardfsUsed();
+    std::string source;
+    if (hasSdcardFs) {
+        source = StringPrintf("/mnt/runtime/default/emulated/%d/%s/%s", user_id, dir_name, package);
+    } else {
+        source = StringPrintf("/mnt/pass_through/%d/emulated/%d/%s/%s", user_id, user_id, dir_name,
+                              package);
+    }
+  std::string target = StringPrintf("/storage/emulated/%d/%s/%s", user_id, dir_name, package);
+
+  // As the parent is mounted as tmpfs, we need to create the target dir here.
+  PrepareDirIfNotPresent(target, 0700, uid, uid, fail_fn);
+
+  if (access(source.c_str(), F_OK) != 0) {
+    fail_fn(CREATE_ERROR("Error accessing %s: %s", source.c_str(), strerror(errno)));
+  }
+  if (access(target.c_str(), F_OK) != 0) {
+    fail_fn(CREATE_ERROR("Error accessing %s: %s", target.c_str(), strerror(errno)));
+  }
+  BindMount(source, target, fail_fn);
+}
+
+// Mount tmpfs on Android/data and Android/obb, then bind mount all app visible package
+// directories in data and obb directories.
+static void BindMountStorageDirs(JNIEnv* env, jobjectArray pkg_data_info_list,
+    uid_t uid, const char* process_name, jstring managed_nice_name, fail_fn_t fail_fn) {
+
+  auto extract_fn = std::bind(ExtractJString, env, process_name, managed_nice_name, _1);
+  const userid_t user_id = multiuser_get_user_id(uid);
+
+  // Fuse is ready, so we can start using fuse path.
+  int size = (pkg_data_info_list != nullptr) ? env->GetArrayLength(pkg_data_info_list) : 0;
+
+  // Create tmpfs on Android/obb and Android/data so these 2 dirs won't enter fuse anymore.
+  std::string androidObbDir = StringPrintf("/storage/emulated/%d/Android/obb", user_id);
+  MountAppDataTmpFs(androidObbDir, fail_fn);
+  std::string androidDataDir = StringPrintf("/storage/emulated/%d/Android/data", user_id);
+  MountAppDataTmpFs(androidDataDir, fail_fn);
+
+  // Bind mount each package obb directory
+  for (int i = 0; i < size; i += 3) {
+    jstring package_str = (jstring) (env->GetObjectArrayElement(pkg_data_info_list, i));
+    std::string packageName = extract_fn(package_str).value();
+    BindMountStorageToLowerFs(user_id, uid, "Android/obb", packageName.c_str(), fail_fn);
+    BindMountStorageToLowerFs(user_id, uid, "Android/data", packageName.c_str(), fail_fn);
+  }
+}
+
 // Utility routine to specialize a zygote child process.
 static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
                              jint runtime_flags, jobjectArray rlimits,
@@ -968,7 +1606,10 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
                              jint mount_external, jstring managed_se_info,
                              jstring managed_nice_name, bool is_system_server,
                              bool is_child_zygote, jstring managed_instruction_set,
-                             jstring managed_app_data_dir) {
+                             jstring managed_app_data_dir, bool is_top_app,
+                             jobjectArray pkg_data_info_list,
+                             jobjectArray whitelisted_data_info_list,
+                             bool mount_data_dirs, bool mount_storage_dirs) {
   const char* process_name = is_system_server ? "system_server" : "zygote";
   auto fail_fn = std::bind(ZygoteFailure, env, process_name, managed_nice_name, _1);
   auto extract_fn = std::bind(ExtractJString, env, process_name, managed_nice_name, _1);
@@ -987,22 +1628,32 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
 
   DropCapabilitiesBoundingSet(fail_fn);
 
-  bool use_native_bridge = !is_system_server &&
-                           instruction_set.has_value() &&
-                           android::NativeBridgeAvailable() &&
-                           android::NeedsNativeBridge(instruction_set.value().c_str());
+  bool need_pre_initialize_native_bridge =
+      !is_system_server &&
+      instruction_set.has_value() &&
+      android::NativeBridgeAvailable() &&
+      // Native bridge may be already initialized if this
+      // is an app forked from app-zygote.
+      !android::NativeBridgeInitialized() &&
+      android::NeedsNativeBridge(instruction_set.value().c_str());
 
-  if (use_native_bridge && !app_data_dir.has_value()) {
-    // The app_data_dir variable should never be empty if we need to use a
-    // native bridge.  In general, app_data_dir will never be empty for normal
-    // applications.  It can only happen in special cases (for isolated
-    // processes which are not associated with any app).  These are launched by
-    // the framework and should not be emulated anyway.
-    use_native_bridge = false;
-    ALOGW("Native bridge will not be used because managed_app_data_dir == nullptr.");
+  MountEmulatedStorage(uid, mount_external, need_pre_initialize_native_bridge, fail_fn);
+
+  // System services, isolated process, webview/app zygote, old target sdk app, should
+  // give a null in same_uid_pkgs and private_volumes so they don't need app data isolation.
+  // Isolated process / webview / app zygote should be gated by SELinux and file permission
+  // so they can't even traverse CE / DE directories.
+  if (mount_data_dirs) {
+    isolateAppData(env, pkg_data_info_list, whitelisted_data_info_list,
+            uid, process_name, managed_nice_name, fail_fn);
+    isolateJitProfile(env, pkg_data_info_list, uid, process_name, managed_nice_name, fail_fn);
   }
-
-  MountEmulatedStorage(uid, mount_external, use_native_bridge, fail_fn);
+  // MOUNT_EXTERNAL_INSTALLER, MOUNT_EXTERNAL_PASS_THROUGH, MOUNT_EXTERNAL_ANDROID_WRITABLE apps
+  // will have mount_storage_dirs == false here (set by ProcessList.needsStorageDataIsolation()),
+  // and hence they won't bind mount storage dirs.
+  if (mount_storage_dirs) {
+    BindMountStorageDirs(env, pkg_data_info_list, uid, process_name, managed_nice_name, fail_fn);
+  }
 
   // If this zygote isn't root, it won't be able to create a process group,
   // since the directory is owned by root.
@@ -1015,14 +1666,15 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
     }
   }
 
-  SetGids(env, gids, fail_fn);
+  SetGids(env, gids, is_child_zygote, fail_fn);
   SetRLimits(env, rlimits, fail_fn);
 
-  if (use_native_bridge) {
-    // Due to the logic behind use_native_bridge we know that both app_data_dir
-    // and instruction_set contain values.
-    android::PreInitializeNativeBridge(app_data_dir.value().c_str(),
-                                       instruction_set.value().c_str());
+  if (need_pre_initialize_native_bridge) {
+    // Due to the logic behind need_pre_initialize_native_bridge we know that
+    // instruction_set contains a value.
+    android::PreInitializeNativeBridge(
+        app_data_dir.has_value() ? app_data_dir.value().c_str() : nullptr,
+        instruction_set.value().c_str());
   }
 
   if (setresgid(gid, gid, gid) == -1) {
@@ -1035,6 +1687,9 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
   // breaks SELinux domain transition (see b/71859146).  As the result,
   // privileged syscalls used below still need to be accessible in app process.
   SetUpSeccompFilter(uid, is_child_zygote);
+
+  // Must be called before losing the permission to set scheduler policy.
+  SetSchedulerPolicy(fail_fn, is_top_app);
 
   if (setresuid(uid, uid, uid) == -1) {
     fail_fn(CREATE_ERROR("setresuid(%d) failed: %s", uid, strerror(errno)));
@@ -1073,6 +1728,32 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
     }
   }
 
+  HeapTaggingLevel heap_tagging_level;
+  switch (runtime_flags & RuntimeFlags::MEMORY_TAG_LEVEL_MASK) {
+    case RuntimeFlags::MEMORY_TAG_LEVEL_TBI:
+      heap_tagging_level = M_HEAP_TAGGING_LEVEL_TBI;
+      break;
+    default:
+      heap_tagging_level = M_HEAP_TAGGING_LEVEL_NONE;
+  }
+  android_mallopt(M_SET_HEAP_TAGGING_LEVEL, &heap_tagging_level, sizeof(heap_tagging_level));
+  // Now that we've used the flag, clear it so that we don't pass unknown flags to the ART runtime.
+  runtime_flags &= ~RuntimeFlags::MEMORY_TAG_LEVEL_MASK;
+
+  bool forceEnableGwpAsan = false;
+  switch (runtime_flags & RuntimeFlags::GWP_ASAN_LEVEL_MASK) {
+      default:
+      case RuntimeFlags::GWP_ASAN_LEVEL_NEVER:
+          break;
+      case RuntimeFlags::GWP_ASAN_LEVEL_ALWAYS:
+          forceEnableGwpAsan = true;
+          [[fallthrough]];
+      case RuntimeFlags::GWP_ASAN_LEVEL_LOTTERY:
+          android_mallopt(M_INITIALIZE_GWP_ASAN, &forceEnableGwpAsan, sizeof(forceEnableGwpAsan));
+  }
+  // Now that we've used the flag, clear it so that we don't pass unknown flags to the ART runtime.
+  runtime_flags &= ~RuntimeFlags::GWP_ASAN_LEVEL_MASK;
+
   if (NeedsNoRandomizeWorkaround()) {
     // Work around ARM kernel ASLR lossage (http://b/5817320).
     int old_personality = personality(0xffffffff);
@@ -1084,10 +1765,8 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
 
   SetCapabilities(permitted_capabilities, effective_capabilities, permitted_capabilities, fail_fn);
 
-  SetSchedulerPolicy(fail_fn);
-
   __android_log_close();
-  stats_log_close();
+  AStatsSocket_close();
 
   const char* se_info_ptr = se_info.has_value() ? se_info.value().c_str() : nullptr;
   const char* nice_name_ptr = nice_name.has_value() ? nice_name.value().c_str() : nullptr;
@@ -1109,18 +1788,9 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
   UnsetChldSignalHandler();
 
   if (is_system_server) {
-    env->CallStaticVoidMethod(gZygoteClass, gCallPostForkSystemServerHooks);
+    env->CallStaticVoidMethod(gZygoteClass, gCallPostForkSystemServerHooks, runtime_flags);
     if (env->ExceptionCheck()) {
       fail_fn("Error calling post fork system server hooks.");
-    }
-
-    // Prefetch the classloader for the system server. This is done early to
-    // allow a tie-down of the proper system server selinux domain.
-    env->CallStaticVoidMethod(gZygoteInitClass, gCreateSystemServerClassLoader);
-    if (env->ExceptionCheck()) {
-      // Be robust here. The Java code will attempt to create the classloader
-      // at a later point (but may not have rights to use AoT artifacts).
-      env->ExceptionClear();
     }
 
     // TODO(oth): Remove hardcoded label here (b/117874058).
@@ -1130,8 +1800,15 @@ static void SpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray gids,
     }
   }
 
+  if (is_child_zygote) {
+      initUnsolSocketToSystemServer();
+  }
+
   env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, runtime_flags,
                             is_system_server, is_child_zygote, managed_instruction_set);
+
+  // Reset the process priority to the default value.
+  setpriority(PRIO_PROCESS, 0, PROCESS_PRIORITY_DEFAULT);
 
   if (env->ExceptionCheck()) {
     fail_fn("Error calling post fork hooks.");
@@ -1347,7 +2024,9 @@ static jint com_android_internal_os_Zygote_nativeForkAndSpecialize(
         jint runtime_flags, jobjectArray rlimits,
         jint mount_external, jstring se_info, jstring nice_name,
         jintArray managed_fds_to_close, jintArray managed_fds_to_ignore, jboolean is_child_zygote,
-        jstring instruction_set, jstring app_data_dir) {
+        jstring instruction_set, jstring app_data_dir, jboolean is_top_app,
+        jobjectArray pkg_data_info_list, jobjectArray whitelisted_data_info_list,
+        jboolean mount_data_dirs, jboolean mount_storage_dirs) {
     jlong capabilities = CalculateCapabilities(env, uid, gid, gids, is_child_zygote);
 
     if (UNLIKELY(managed_fds_to_close == nullptr)) {
@@ -1372,13 +2051,22 @@ static jint com_android_internal_os_Zygote_nativeForkAndSpecialize(
       fds_to_ignore.push_back(gUsapPoolEventFD);
     }
 
-    pid_t pid = ForkCommon(env, false, fds_to_close, fds_to_ignore);
+    if (gSystemServerSocketFd != -1) {
+        fds_to_close.push_back(gSystemServerSocketFd);
+        fds_to_ignore.push_back(gSystemServerSocketFd);
+    }
+
+    pid_t pid = ForkCommon(env, false, fds_to_close, fds_to_ignore, true);
 
     if (pid == 0) {
       SpecializeCommon(env, uid, gid, gids, runtime_flags, rlimits,
                        capabilities, capabilities,
                        mount_external, se_info, nice_name, false,
-                       is_child_zygote == JNI_TRUE, instruction_set, app_data_dir);
+                       is_child_zygote == JNI_TRUE, instruction_set, app_data_dir,
+                       is_top_app == JNI_TRUE, pkg_data_info_list,
+                       whitelisted_data_info_list,
+                       mount_data_dirs == JNI_TRUE,
+                       mount_storage_dirs == JNI_TRUE);
     }
     return pid;
 }
@@ -1397,14 +2085,24 @@ static jint com_android_internal_os_Zygote_nativeForkSystemServer(
     fds_to_ignore.push_back(gUsapPoolEventFD);
   }
 
+  if (gSystemServerSocketFd != -1) {
+      fds_to_close.push_back(gSystemServerSocketFd);
+      fds_to_ignore.push_back(gSystemServerSocketFd);
+  }
+
   pid_t pid = ForkCommon(env, true,
                          fds_to_close,
-                         fds_to_ignore);
+                         fds_to_ignore,
+                         true);
   if (pid == 0) {
+      // System server prcoess does not need data isolation so no need to
+      // know pkg_data_info_list.
       SpecializeCommon(env, uid, gid, gids, runtime_flags, rlimits,
                        permitted_capabilities, effective_capabilities,
                        MOUNT_EXTERNAL_DEFAULT, nullptr, nullptr, true,
-                       false, nullptr, nullptr);
+                       false, nullptr, nullptr, /* is_top_app= */ false,
+                       /* pkg_data_info_list */ nullptr,
+                       /* whitelisted_data_info_list */ nullptr, false, false);
   } else if (pid > 0) {
       // The zygote process checks whether the child process has died or not.
       ALOGI("System server process %d has been created", pid);
@@ -1441,13 +2139,15 @@ static jint com_android_internal_os_Zygote_nativeForkSystemServer(
  * zygote in managed code.
  * @param managed_session_socket_fds  A list of anonymous session sockets that must be ignored by
  * the FD hygiene code and automatically "closed" in the new USAP.
+ * @param is_priority_fork  Controls the nice level assigned to the newly created process
  * @return
  */
 static jint com_android_internal_os_Zygote_nativeForkUsap(JNIEnv* env,
                                                           jclass,
                                                           jint read_pipe_fd,
                                                           jint write_pipe_fd,
-                                                          jintArray managed_session_socket_fds) {
+                                                          jintArray managed_session_socket_fds,
+                                                          jboolean is_priority_fork) {
   std::vector<int> fds_to_close(MakeUsapPipeReadFDVector()),
                    fds_to_ignore(fds_to_close);
 
@@ -1461,6 +2161,9 @@ static jint com_android_internal_os_Zygote_nativeForkUsap(JNIEnv* env,
   fds_to_close.push_back(gZygoteSocketFD);
   fds_to_close.push_back(gUsapPoolEventFD);
   fds_to_close.insert(fds_to_close.end(), session_socket_fds.begin(), session_socket_fds.end());
+  if (gSystemServerSocketFd != -1) {
+      fds_to_close.push_back(gSystemServerSocketFd);
+  }
 
   fds_to_ignore.push_back(gZygoteSocketFD);
   fds_to_ignore.push_back(gUsapPoolSocketFD);
@@ -1468,8 +2171,12 @@ static jint com_android_internal_os_Zygote_nativeForkUsap(JNIEnv* env,
   fds_to_ignore.push_back(read_pipe_fd);
   fds_to_ignore.push_back(write_pipe_fd);
   fds_to_ignore.insert(fds_to_ignore.end(), session_socket_fds.begin(), session_socket_fds.end());
+  if (gSystemServerSocketFd != -1) {
+      fds_to_ignore.push_back(gSystemServerSocketFd);
+  }
 
-  pid_t usap_pid = ForkCommon(env, /* is_system_server= */ false, fds_to_close, fds_to_ignore);
+  pid_t usap_pid = ForkCommon(env, /* is_system_server= */ false, fds_to_close, fds_to_ignore,
+                              is_priority_fork == JNI_TRUE);
 
   if (usap_pid != 0) {
     ++gUsapPoolCount;
@@ -1518,18 +2225,23 @@ static void com_android_internal_os_Zygote_nativeInstallSeccompUidGidFilter(
  * @param is_child_zygote  If the process is to become a WebViewZygote
  * @param instruction_set  The instruction set expected/requested by the new application
  * @param app_data_dir  Path to the application's data directory
+ * @param is_top_app  If the process is for top (high priority) application
  */
 static void com_android_internal_os_Zygote_nativeSpecializeAppProcess(
     JNIEnv* env, jclass, jint uid, jint gid, jintArray gids,
     jint runtime_flags, jobjectArray rlimits,
     jint mount_external, jstring se_info, jstring nice_name,
-    jboolean is_child_zygote, jstring instruction_set, jstring app_data_dir) {
+    jboolean is_child_zygote, jstring instruction_set, jstring app_data_dir, jboolean is_top_app,
+    jobjectArray pkg_data_info_list, jobjectArray whitelisted_data_info_list,
+    jboolean mount_data_dirs, jboolean mount_storage_dirs) {
   jlong capabilities = CalculateCapabilities(env, uid, gid, gids, is_child_zygote);
 
   SpecializeCommon(env, uid, gid, gids, runtime_flags, rlimits,
                    capabilities, capabilities,
                    mount_external, se_info, nice_name, false,
-                   is_child_zygote == JNI_TRUE, instruction_set, app_data_dir);
+                   is_child_zygote == JNI_TRUE, instruction_set, app_data_dir,
+                   is_top_app == JNI_TRUE, pkg_data_info_list, whitelisted_data_info_list,
+                   mount_data_dirs == JNI_TRUE, mount_storage_dirs == JNI_TRUE);
 }
 
 /**
@@ -1546,26 +2258,23 @@ static void com_android_internal_os_Zygote_nativeInitNativeState(JNIEnv* env, jc
    * Obtain file descriptors created by init from the environment.
    */
 
-  std::string android_socket_prefix(ANDROID_SOCKET_PREFIX);
-  std::string env_var_name = android_socket_prefix + (is_primary ? "zygote" : "zygote_secondary");
-  char* env_var_val = getenv(env_var_name.c_str());
-
-  if (env_var_val != nullptr) {
-    gZygoteSocketFD = atoi(env_var_val);
+  gZygoteSocketFD =
+      android_get_control_socket(is_primary ? "zygote" : "zygote_secondary");
+  if (gZygoteSocketFD >= 0) {
     ALOGV("Zygote:zygoteSocketFD = %d", gZygoteSocketFD);
   } else {
     ALOGE("Unable to fetch Zygote socket file descriptor");
   }
 
-  env_var_name = android_socket_prefix + (is_primary ? "usap_pool_primary" : "usap_pool_secondary");
-  env_var_val = getenv(env_var_name.c_str());
-
-  if (env_var_val != nullptr) {
-    gUsapPoolSocketFD = atoi(env_var_val);
+  gUsapPoolSocketFD =
+      android_get_control_socket(is_primary ? "usap_pool_primary" : "usap_pool_secondary");
+  if (gUsapPoolSocketFD >= 0) {
     ALOGV("Zygote:usapPoolSocketFD = %d", gUsapPoolSocketFD);
   } else {
     ALOGE("Unable to fetch USAP pool socket file descriptor");
   }
+
+  initUnsolSocketToSystemServer();
 
   /*
    * Security Initialization
@@ -1590,11 +2299,6 @@ static void com_android_internal_os_Zygote_nativeInitNativeState(JNIEnv* env, jc
   if (!SetTaskProfiles(0, {})) {
     ZygoteFailure(env, "zygote", nullptr, "Zygote SetTaskProfiles failed");
   }
-
-  /*
-   * ashmem initialization to avoid dlopen overhead
-   */
-  ashmem_init();
 }
 
 /**
@@ -1676,26 +2380,6 @@ static void com_android_internal_os_Zygote_nativeEmptyUsapPool(JNIEnv* env, jcla
   }
 }
 
-static int disable_execute_only(struct dl_phdr_info *info, size_t size, void *data) {
-  // Search for any execute-only segments and mark them read+execute.
-  for (int i = 0; i < info->dlpi_phnum; i++) {
-    if ((info->dlpi_phdr[i].p_type == PT_LOAD) && (info->dlpi_phdr[i].p_flags == PF_X)) {
-      mprotect(reinterpret_cast<void*>(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr),
-              info->dlpi_phdr[i].p_memsz, PROT_READ | PROT_EXEC);
-    }
-  }
-  // Return non-zero to exit dl_iterate_phdr.
-  return 0;
-}
-
-/**
- * @param env  Managed runtime environment
- * @return  True if disable was successful.
- */
-static jboolean com_android_internal_os_Zygote_nativeDisableExecuteOnly(JNIEnv* env, jclass) {
-  return dl_iterate_phdr(disable_execute_only, nullptr) == 0;
-}
-
 static void com_android_internal_os_Zygote_nativeBlockSigTerm(JNIEnv* env, jclass) {
   auto fail_fn = std::bind(ZygoteFailure, env, "usap", nullptr, _1);
   BlockSignal(SIGTERM, fail_fn);
@@ -1706,58 +2390,104 @@ static void com_android_internal_os_Zygote_nativeUnblockSigTerm(JNIEnv* env, jcl
   UnblockSignal(SIGTERM, fail_fn);
 }
 
+static void com_android_internal_os_Zygote_nativeBoostUsapPriority(JNIEnv* env, jclass) {
+  setpriority(PRIO_PROCESS, 0, PROCESS_PRIORITY_MAX);
+}
+
+static jint com_android_internal_os_Zygote_nativeParseSigChld(JNIEnv* env, jclass, jbyteArray in,
+                                                              jint length, jintArray out) {
+    if (length != sizeof(struct UnsolicitedZygoteMessageSigChld)) {
+        // Apparently it's not the message we are expecting.
+        return -1;
+    }
+    if (in == nullptr || out == nullptr) {
+        // Invalid parameter
+        jniThrowException(env, "java/lang/IllegalArgumentException", nullptr);
+        return -1;
+    }
+    ScopedByteArrayRO source(env, in);
+    if (source.size() < length) {
+        // Invalid parameter
+        jniThrowException(env, "java/lang/IllegalArgumentException", nullptr);
+        return -1;
+    }
+    const struct UnsolicitedZygoteMessageSigChld* msg =
+            reinterpret_cast<const struct UnsolicitedZygoteMessageSigChld*>(source.get());
+
+    switch (msg->header.type) {
+        case UNSOLICITED_ZYGOTE_MESSAGE_TYPE_SIGCHLD: {
+            ScopedIntArrayRW buf(env, out);
+            if (buf.size() != 3) {
+                jniThrowException(env, "java/lang/IllegalArgumentException", nullptr);
+                return UNSOLICITED_ZYGOTE_MESSAGE_TYPE_RESERVED;
+            }
+            buf[0] = msg->payload.pid;
+            buf[1] = msg->payload.uid;
+            buf[2] = msg->payload.status;
+            return 3;
+        }
+        default:
+            break;
+    }
+    return -1;
+}
+
+static jboolean com_android_internal_os_Zygote_nativeSupportsTaggedPointers(JNIEnv* env, jclass) {
+#ifdef __aarch64__
+  int res = prctl(PR_GET_TAGGED_ADDR_CTRL, 0, 0, 0, 0);
+  return res >= 0 && res & PR_TAGGED_ADDR_ENABLE;
+#else
+  return false;
+#endif
+}
+
 static const JNINativeMethod gMethods[] = {
-    { "nativeForkAndSpecialize",
-      "(II[II[[IILjava/lang/String;Ljava/lang/String;[I[IZLjava/lang/String;Ljava/lang/String;)I",
-      (void *) com_android_internal_os_Zygote_nativeForkAndSpecialize },
-    { "nativeForkSystemServer", "(II[II[[IJJ)I",
-      (void *) com_android_internal_os_Zygote_nativeForkSystemServer },
-    { "nativeAllowFileAcrossFork", "(Ljava/lang/String;)V",
-      (void *) com_android_internal_os_Zygote_nativeAllowFileAcrossFork },
-    { "nativePreApplicationInit", "()V",
-      (void *) com_android_internal_os_Zygote_nativePreApplicationInit },
-    { "nativeInstallSeccompUidGidFilter", "(II)V",
-      (void *) com_android_internal_os_Zygote_nativeInstallSeccompUidGidFilter },
-    { "nativeForkUsap", "(II[I)I",
-      (void *) com_android_internal_os_Zygote_nativeForkUsap },
-    { "nativeSpecializeAppProcess",
-      "(II[II[[IILjava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V",
-      (void *) com_android_internal_os_Zygote_nativeSpecializeAppProcess },
-    { "nativeInitNativeState", "(Z)V",
-      (void *) com_android_internal_os_Zygote_nativeInitNativeState },
-    { "nativeGetUsapPipeFDs", "()[I",
-      (void *) com_android_internal_os_Zygote_nativeGetUsapPipeFDs },
-    { "nativeRemoveUsapTableEntry", "(I)Z",
-      (void *) com_android_internal_os_Zygote_nativeRemoveUsapTableEntry },
-    { "nativeGetUsapPoolEventFD", "()I",
-      (void *) com_android_internal_os_Zygote_nativeGetUsapPoolEventFD },
-    { "nativeGetUsapPoolCount", "()I",
-      (void *) com_android_internal_os_Zygote_nativeGetUsapPoolCount },
-    { "nativeEmptyUsapPool", "()V",
-      (void *) com_android_internal_os_Zygote_nativeEmptyUsapPool },
-    { "nativeDisableExecuteOnly", "()Z",
-      (void *) com_android_internal_os_Zygote_nativeDisableExecuteOnly },
-    { "nativeBlockSigTerm", "()V",
-      (void* ) com_android_internal_os_Zygote_nativeBlockSigTerm },
-    { "nativeUnblockSigTerm", "()V",
-      (void* ) com_android_internal_os_Zygote_nativeUnblockSigTerm }
+        {"nativeForkAndSpecialize",
+         "(II[II[[IILjava/lang/String;Ljava/lang/String;[I[IZLjava/lang/String;Ljava/lang/"
+         "String;Z[Ljava/lang/String;[Ljava/lang/String;ZZ)I",
+         (void*)com_android_internal_os_Zygote_nativeForkAndSpecialize},
+        {"nativeForkSystemServer", "(II[II[[IJJ)I",
+         (void*)com_android_internal_os_Zygote_nativeForkSystemServer},
+        {"nativeAllowFileAcrossFork", "(Ljava/lang/String;)V",
+         (void*)com_android_internal_os_Zygote_nativeAllowFileAcrossFork},
+        {"nativePreApplicationInit", "()V",
+         (void*)com_android_internal_os_Zygote_nativePreApplicationInit},
+        {"nativeInstallSeccompUidGidFilter", "(II)V",
+         (void*)com_android_internal_os_Zygote_nativeInstallSeccompUidGidFilter},
+        {"nativeForkUsap", "(II[IZ)I", (void*)com_android_internal_os_Zygote_nativeForkUsap},
+        {"nativeSpecializeAppProcess",
+         "(II[II[[IILjava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/"
+         "String;Z[Ljava/lang/String;[Ljava/lang/String;ZZ)V",
+         (void*)com_android_internal_os_Zygote_nativeSpecializeAppProcess},
+        {"nativeInitNativeState", "(Z)V",
+         (void*)com_android_internal_os_Zygote_nativeInitNativeState},
+        {"nativeGetUsapPipeFDs", "()[I",
+         (void*)com_android_internal_os_Zygote_nativeGetUsapPipeFDs},
+        {"nativeRemoveUsapTableEntry", "(I)Z",
+         (void*)com_android_internal_os_Zygote_nativeRemoveUsapTableEntry},
+        {"nativeGetUsapPoolEventFD", "()I",
+         (void*)com_android_internal_os_Zygote_nativeGetUsapPoolEventFD},
+        {"nativeGetUsapPoolCount", "()I",
+         (void*)com_android_internal_os_Zygote_nativeGetUsapPoolCount},
+        {"nativeEmptyUsapPool", "()V", (void*)com_android_internal_os_Zygote_nativeEmptyUsapPool},
+        {"nativeBlockSigTerm", "()V", (void*)com_android_internal_os_Zygote_nativeBlockSigTerm},
+        {"nativeUnblockSigTerm", "()V", (void*)com_android_internal_os_Zygote_nativeUnblockSigTerm},
+        {"nativeBoostUsapPriority", "()V",
+         (void*)com_android_internal_os_Zygote_nativeBoostUsapPriority},
+        {"nativeParseSigChld", "([BI[I)I",
+         (void*)com_android_internal_os_Zygote_nativeParseSigChld},
+        {"nativeSupportsTaggedPointers", "()Z",
+         (void*)com_android_internal_os_Zygote_nativeSupportsTaggedPointers},
 };
 
 int register_com_android_internal_os_Zygote(JNIEnv* env) {
   gZygoteClass = MakeGlobalRefOrDie(env, FindClassOrDie(env, kZygoteClassName));
   gCallPostForkSystemServerHooks = GetStaticMethodIDOrDie(env, gZygoteClass,
                                                           "callPostForkSystemServerHooks",
-                                                          "()V");
+                                                          "(I)V");
   gCallPostForkChildHooks = GetStaticMethodIDOrDie(env, gZygoteClass, "callPostForkChildHooks",
                                                    "(IZZLjava/lang/String;)V");
 
-  gZygoteInitClass = MakeGlobalRefOrDie(env, FindClassOrDie(env, kZygoteInitClassName));
-  gCreateSystemServerClassLoader = GetStaticMethodIDOrDie(env, gZygoteInitClass,
-                                                          "createSystemServerClassLoader",
-                                                          "()V");
-
-  RegisterMethodsOrDie(env, "com/android/internal/os/Zygote", gMethods, NELEM(gMethods));
-
-  return JNI_OK;
+  return RegisterMethodsOrDie(env, "com/android/internal/os/Zygote", gMethods, NELEM(gMethods));
 }
 }  // namespace android

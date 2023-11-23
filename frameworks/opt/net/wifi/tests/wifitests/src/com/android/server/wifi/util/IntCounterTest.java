@@ -21,7 +21,8 @@ import static com.android.server.wifi.WifiMetricsTestUtil.buildInt32Count;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.server.wifi.nano.WifiMetricsProto.Int32Count;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.Int32Count;
 
 import org.junit.Test;
 
@@ -30,7 +31,7 @@ import org.junit.Test;
  * Unit tests for IntCounter.
  */
 @SmallTest
-public class IntCounterTest {
+public class IntCounterTest extends WifiBaseTest {
 
     private static final int[] TEST_KEYS = {
             100, 20, 34, 5656, 3535, 6456, -1231, -4235, 20, 3535, -5, 100, 6456, 34, -4235, -4235

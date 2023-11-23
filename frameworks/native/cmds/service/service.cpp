@@ -18,13 +18,18 @@
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
 #include <binder/TextOutput.h>
+#include <cutils/ashmem.h>
 
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 using namespace android;
 
@@ -70,7 +75,7 @@ int main(int argc, char* const argv[])
 {
     bool wantsUsage = false;
     int result = 0;
-    
+
     while (1) {
         int ic = getopt(argc, argv, "h?");
         if (ic < 0)
@@ -97,7 +102,7 @@ int main(int argc, char* const argv[])
         aerr << "service: Unable to get default service manager!" << endl;
         return 20;
     }
-    
+
     if (optind >= argc) {
         wantsUsage = true;
     } else if (!wantsUsage) {
@@ -119,8 +124,8 @@ int main(int argc, char* const argv[])
             for (unsigned i = 0; i < services.size(); i++) {
                 String16 name = services[i];
                 sp<IBinder> service = sm->checkService(name);
-                aout << i 
-                     << "\t" << good_old_string(name) 
+                aout << i
+                     << "\t" << good_old_string(name)
                      << ": [" << good_old_string(get_interface_name(service)) << "]"
                      << endl;
             }
@@ -187,69 +192,120 @@ int main(int argc, char* const argv[])
                         } else if (strcmp(argv[optind], "null") == 0) {
                             optind++;
                             data.writeStrongBinder(nullptr);
-                        } else if (strcmp(argv[optind], "intent") == 0) {
-                        	
-                        	char* action = nullptr;
-                        	char* dataArg = nullptr;
-                        	char* type = nullptr;
-                        	int launchFlags = 0;
-                        	char* component = nullptr;
-                        	int categoryCount = 0;
-                        	char* categories[16];
-                        	
-                        	char* context1 = nullptr;
-                        	
+                        } else if (strcmp(argv[optind], "fd") == 0) {
                             optind++;
-                            
-                        	while (optind < argc)
-                        	{
-                        		char* key = strtok_r(argv[optind], "=", &context1);
-                        		char* value = strtok_r(nullptr, "=", &context1);
-                                
+                            if (optind >= argc) {
+                                aerr << "service: no path supplied for 'fd'" << endl;
+                                wantsUsage = true;
+                                result = 10;
+                                break;
+                            }
+                            const char *path = argv[optind++];
+                            int fd = open(path, O_RDONLY);
+                            if (fd < 0) {
+                                aerr << "service: could not open '" << path << "'" << endl;
+                                wantsUsage = true;
+                                result = 10;
+                                break;
+                            }
+                            data.writeFileDescriptor(fd, true /* take ownership */);
+                        } else if (strcmp(argv[optind], "afd") == 0) {
+                            optind++;
+                            if (optind >= argc) {
+                                aerr << "service: no path supplied for 'afd'" << endl;
+                                wantsUsage = true;
+                                result = 10;
+                                break;
+                            }
+                            const char *path = argv[optind++];
+                            int fd = open(path, O_RDONLY);
+                            struct stat statbuf;
+                            if (fd < 0 || fstat(fd, &statbuf) != 0) {
+                                aerr << "service: could not open or stat '" << path << "'" << endl;
+                                wantsUsage = true;
+                                result = 10;
+                                break;
+                            }
+                            int afd = ashmem_create_region("test", statbuf.st_size);
+                            void* ptr = mmap(NULL, statbuf.st_size,
+                                   PROT_READ | PROT_WRITE, MAP_SHARED, afd, 0);
+                            read(fd, ptr, statbuf.st_size);
+                            close(fd);
+                            data.writeFileDescriptor(afd, true /* take ownership */);
+                        } else if (strcmp(argv[optind], "nfd") == 0) {
+                            optind++;
+                            if (optind >= argc) {
+                                aerr << "service: no file descriptor supplied for 'nfd'" << endl;
+                                wantsUsage = true;
+                                result = 10;
+                                break;
+                            }
+                            data.writeFileDescriptor(
+                                    atoi(argv[optind++]), true /* take ownership */);
+
+                        } else if (strcmp(argv[optind], "intent") == 0) {
+
+                            char* action = nullptr;
+                            char* dataArg = nullptr;
+                            char* type = nullptr;
+                            int launchFlags = 0;
+                            char* component = nullptr;
+                            int categoryCount = 0;
+                            char* categories[16];
+
+                            char* context1 = nullptr;
+
+                            optind++;
+
+                            while (optind < argc)
+                            {
+                                char* key = strtok_r(argv[optind], "=", &context1);
+                                char* value = strtok_r(nullptr, "=", &context1);
+
                                 // we have reached the end of the XXX=XXX args.
                                 if (key == nullptr) break;
-                        		
-                        		if (strcmp(key, "action") == 0)
-                        		{
-                        			action = value;
-                        		}
-                        		else if (strcmp(key, "data") == 0)
-                        		{
-                        			dataArg = value;
-                        		}
-                        		else if (strcmp(key, "type") == 0)
-                        		{
-                        			type = value;
-                        		}
-                        		else if (strcmp(key, "launchFlags") == 0)
-                        		{
-                        			launchFlags = atoi(value);
-                        		}
-                        		else if (strcmp(key, "component") == 0)
-                        		{
-                        			component = value;
-                        		}
-                        		else if (strcmp(key, "categories") == 0)
-                        		{
-                        			char* context2 = nullptr;
-                        			categories[categoryCount] = strtok_r(value, ",", &context2);
-                        			
-                        			while (categories[categoryCount] != nullptr)
-                        			{
-                        				categoryCount++;
-                        				categories[categoryCount] = strtok_r(nullptr, ",", &context2);
-                        			}
-                        		}
-                                
+
+                                if (strcmp(key, "action") == 0)
+                                {
+                                    action = value;
+                                }
+                                else if (strcmp(key, "data") == 0)
+                                {
+                                    dataArg = value;
+                                }
+                                else if (strcmp(key, "type") == 0)
+                                {
+                                    type = value;
+                                }
+                                else if (strcmp(key, "launchFlags") == 0)
+                                {
+                                    launchFlags = atoi(value);
+                                }
+                                else if (strcmp(key, "component") == 0)
+                                {
+                                    component = value;
+                                }
+                                else if (strcmp(key, "categories") == 0)
+                                {
+                                    char* context2 = nullptr;
+                                    categories[categoryCount] = strtok_r(value, ",", &context2);
+
+                                    while (categories[categoryCount] != nullptr)
+                                    {
+                                        categoryCount++;
+                                        categories[categoryCount] = strtok_r(nullptr, ",", &context2);
+                                    }
+                                }
+
                                 optind++;
-                        	} 
-                        	
+                            }
+
                             writeString16(data, action);
                             writeString16(data, dataArg);
                             writeString16(data, type);
-                       		data.writeInt32(launchFlags);
+                            data.writeInt32(launchFlags);
                             writeString16(data, component);
-                        	
+
                             if (categoryCount > 0)
                             {
                                 data.writeInt32(categoryCount);
@@ -261,10 +317,10 @@ int main(int argc, char* const argv[])
                             else
                             {
                                 data.writeInt32(0);
-                            }                            
-  
+                            }
+
                             // for now just set the extra field to be null.
-                       		data.writeInt32(-1);
+                            data.writeInt32(-1);
                         } else {
                             aerr << "service: unknown option " << argv[optind] << endl;
                             wantsUsage = true;
@@ -272,7 +328,7 @@ int main(int argc, char* const argv[])
                             break;
                         }
                     }
-                    
+
                     service->transact(code, data, &reply);
                     aout << "Result: " << reply << endl;
                 } else {
@@ -295,23 +351,29 @@ int main(int argc, char* const argv[])
             result = 10;
         }
     }
-    
+
     if (wantsUsage) {
         aout << "Usage: service [-h|-?]\n"
                 "       service list\n"
                 "       service check SERVICE\n"
-                "       service call SERVICE CODE [i32 N | i64 N | f N | d N | s16 STR ] ...\n"
+                "       service call SERVICE CODE [i32 N | i64 N | f N | d N | s16 STR | null"
+                " | fd f | nfd n | afd f ] ...\n"
                 "Options:\n"
                 "   i32: Write the 32-bit integer N into the send parcel.\n"
                 "   i64: Write the 64-bit integer N into the send parcel.\n"
                 "   f:   Write the 32-bit single-precision number N into the send parcel.\n"
                 "   d:   Write the 64-bit double-precision number N into the send parcel.\n"
-                "   s16: Write the UTF-16 string STR into the send parcel.\n";
+                "   s16: Write the UTF-16 string STR into the send parcel.\n"
+                "  null: Write a null binder into the send parcel.\n"
+                "    fd: Write a file descriptor for the file f to the send parcel.\n"
+                "   nfd: Write file descriptor n to the send parcel.\n"
+                "   afd: Write an ashmem file descriptor for a region containing the data from"
+                " file f to the send parcel.\n";
 //                "   intent: Write and Intent int the send parcel. ARGS can be\n"
 //                "       action=STR data=STR type=STR launchFlags=INT component=STR categories=STR[,STR,...]\n";
         return result;
     }
-    
+
     return result;
 }
 

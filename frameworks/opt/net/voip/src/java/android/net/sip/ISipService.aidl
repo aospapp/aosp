@@ -39,5 +39,5 @@ interface ISipService {
             in ISipSessionListener listener, String opPackageName);
     ISipSession getPendingSession(String callId, String opPackageName);
 
-    SipProfile[] getListOfProfiles(String opPackageName);
+    List<SipProfile> getProfiles(String opPackageName);
 }

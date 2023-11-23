@@ -16,6 +16,7 @@
 
 package android.location;
 
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -23,8 +24,11 @@ import android.os.Parcelable;
 /**
  * A class representing a GPS satellite measurement, containing raw and computed information.
  *
+ * @deprecated use {@link GnssMeasurement} instead.
+ *
  * @hide
  */
+@Deprecated
 @SystemApi
 public class GpsMeasurement implements Parcelable {
     private int mFlags;
@@ -1244,6 +1248,7 @@ public class GpsMeasurement implements Parcelable {
         return 0;
     }
 
+    @NonNull
     @Override
     public String toString() {
         final String format = "   %-29s = %s\n";

@@ -18,7 +18,7 @@
 
 #include "RSStubsWhiteList.h"
 
-std::vector<std::string> stubList = {
+std::array<std::string_view, 2328> stubList = {
 "_Z10half_recipDv2_f",
 "_Z10half_recipDv3_f",
 "_Z10half_recipDv4_f",

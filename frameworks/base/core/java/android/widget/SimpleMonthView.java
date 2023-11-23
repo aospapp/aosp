@@ -28,6 +28,7 @@ import android.graphics.Paint.Style;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.icu.text.DisplayContext;
+import android.icu.text.RelativeDateTimeFormatter;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
 import android.os.Bundle;
@@ -419,6 +420,7 @@ class SimpleMonthView extends View {
                 break;
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
                 if (mHighlightedDay != -1) {
                     onDayClicked(mHighlightedDay);
                     return true;
@@ -850,7 +852,7 @@ class SimpleMonthView extends View {
             case Calendar.NOVEMBER:
                 return 30;
             case Calendar.FEBRUARY:
-                return (year % 4 == 0) ? 29 : 28;
+                return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
             default:
                 throw new IllegalArgumentException("Invalid Month");
         }
@@ -1095,6 +1097,14 @@ class SimpleMonthView extends View {
 
             node.setText(getDayText(virtualViewId));
             node.setContentDescription(getDayDescription(virtualViewId));
+            if (virtualViewId == mToday) {
+                RelativeDateTimeFormatter fmt = RelativeDateTimeFormatter.getInstance();
+                node.setStateDescription(fmt.format(RelativeDateTimeFormatter.Direction.THIS,
+                        RelativeDateTimeFormatter.AbsoluteUnit.DAY));
+            }
+            if (virtualViewId == mActivatedDay) {
+                node.setSelected(true);
+            }
             node.setBoundsInParent(mTempRect);
 
             final boolean isDayEnabled = isDayEnabled(virtualViewId);
@@ -1103,6 +1113,7 @@ class SimpleMonthView extends View {
             }
 
             node.setEnabled(isDayEnabled);
+            node.setClickable(true);
 
             if (virtualViewId == mActivatedDay) {
                 // TODO: This should use activated once that's supported.

@@ -25,8 +25,8 @@
 
 #include <aaudio/AAudio.h>
 #include <aaudio/AAudioTesting.h>
-
 #include "AudioClock.h"
+#include "AudioGlobal.h"
 #include "AudioStreamBuilder.h"
 #include "AudioStream.h"
 #include "binding/AAudioCommon.h"
@@ -45,62 +45,13 @@ using namespace aaudio;
         return AAUDIO_ERROR_NULL; \
     }
 
-#define AAUDIO_CASE_ENUM(name) case name: return #name
-
 AAUDIO_API const char * AAudio_convertResultToText(aaudio_result_t returnCode) {
-    switch (returnCode) {
-        AAUDIO_CASE_ENUM(AAUDIO_OK);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_DISCONNECTED);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_ILLEGAL_ARGUMENT);
-        // reserved
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_INTERNAL);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_INVALID_STATE);
-        // reserved
-        // reserved
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_INVALID_HANDLE);
-         // reserved
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_UNIMPLEMENTED);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_UNAVAILABLE);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_NO_FREE_HANDLES);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_NO_MEMORY);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_NULL);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_TIMEOUT);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_WOULD_BLOCK);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_INVALID_FORMAT);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_OUT_OF_RANGE);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_NO_SERVICE);
-        AAUDIO_CASE_ENUM(AAUDIO_ERROR_INVALID_RATE);
-    }
-    return "Unrecognized AAudio error.";
+    return AudioGlobal_convertResultToText(returnCode);
 }
 
 AAUDIO_API const char * AAudio_convertStreamStateToText(aaudio_stream_state_t state) {
-    switch (state) {
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_UNINITIALIZED);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_UNKNOWN);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_OPEN);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_STARTING);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_STARTED);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_PAUSING);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_PAUSED);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_FLUSHING);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_FLUSHED);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_STOPPING);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_STOPPED);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_DISCONNECTED);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_CLOSING);
-        AAUDIO_CASE_ENUM(AAUDIO_STREAM_STATE_CLOSED);
-    }
-    return "Unrecognized AAudio state.";
+    return AudioGlobal_convertStreamStateToText(state);
 }
-
-#undef AAUDIO_CASE_ENUM
-
-
-/******************************************
- * Static globals.
- */
-static aaudio_policy_t s_MMapPolicy = AAUDIO_UNSPECIFIED;
 
 static AudioStream *convertAAudioStreamToAudioStream(AAudioStream* stream)
 {
@@ -197,6 +148,12 @@ AAUDIO_API void AAudioStreamBuilder_setInputPreset(AAudioStreamBuilder* builder,
     streamBuilder->setInputPreset(inputPreset);
 }
 
+AAUDIO_API void AAudioStreamBuilder_setPrivacySensitive(AAudioStreamBuilder* builder,
+                                                   bool privacySensitive) {
+    AudioStreamBuilder *streamBuilder = convertAAudioBuilderToStreamBuilder(builder);
+    streamBuilder->setPrivacySensitiveRequest(privacySensitive);
+}
+
 AAUDIO_API void AAudioStreamBuilder_setBufferCapacityInFrames(AAudioStreamBuilder* builder,
                                                               int32_t frames)
 {
@@ -273,21 +230,42 @@ AAUDIO_API aaudio_result_t  AAudioStreamBuilder_delete(AAudioStreamBuilder* buil
     return AAUDIO_ERROR_NULL;
 }
 
-AAUDIO_API aaudio_result_t  AAudioStream_close(AAudioStream* stream)
-{
+AAUDIO_API aaudio_result_t  AAudioStream_release(AAudioStream* stream) {
     aaudio_result_t result = AAUDIO_ERROR_NULL;
-    AudioStream *audioStream = convertAAudioStreamToAudioStream(stream);
+    AudioStream* audioStream = convertAAudioStreamToAudioStream(stream);
     if (audioStream != nullptr) {
         aaudio_stream_id_t id = audioStream->getId();
         ALOGD("%s(s#%u) called ---------------", __func__, id);
-        result = audioStream->safeClose();
-        // Close will only fail if called illegally, for example, from a callback.
+        result = audioStream->safeRelease();
+        // safeRelease() will only fail if called illegally, for example, from a callback.
+        // That would result in the release of an active stream, which would cause a crash.
+        if (result != AAUDIO_OK) {
+            ALOGW("%s(s#%u) failed. Release it from another thread.",
+                  __func__, id);
+        }
+        ALOGD("%s(s#%u) returned %d %s ---------", __func__,
+                id, result, AAudio_convertResultToText(result));
+    }
+    return result;
+}
+
+AAUDIO_API aaudio_result_t  AAudioStream_close(AAudioStream* stream) {
+    aaudio_result_t result = AAUDIO_ERROR_NULL;
+    AudioStream* audioStream = convertAAudioStreamToAudioStream(stream);
+    if (audioStream != nullptr) {
+        aaudio_stream_id_t id = audioStream->getId();
+        ALOGD("%s(s#%u) called ---------------", __func__, id);
+        result = audioStream->safeRelease();
+        // safeRelease will only fail if called illegally, for example, from a callback.
         // That would result in deleting an active stream, which would cause a crash.
-        if (result == AAUDIO_OK) {
-            audioStream->unregisterPlayerBase();
-            delete audioStream;
+        if (result != AAUDIO_OK) {
+            ALOGW("%s(s#%u) failed. Close it from another thread.",
+                  __func__, id);
         } else {
-            ALOGW("%s attempt to close failed. Close it from another thread.", __func__);
+            audioStream->unregisterPlayerBase();
+             // Mark CLOSED to keep destructors from asserting.
+            audioStream->closeFinal();
+            delete audioStream;
         }
         ALOGD("%s(s#%u) returned %d ---------", __func__, id, result);
     }
@@ -543,27 +521,21 @@ AAUDIO_API aaudio_result_t AAudioStream_getTimestamp(AAudioStream* stream,
 }
 
 AAUDIO_API aaudio_policy_t AAudio_getMMapPolicy() {
-    return s_MMapPolicy;
+    return AudioGlobal_getMMapPolicy();
 }
 
 AAUDIO_API aaudio_result_t AAudio_setMMapPolicy(aaudio_policy_t policy) {
-    aaudio_result_t result = AAUDIO_OK;
-    switch(policy) {
-        case AAUDIO_UNSPECIFIED:
-        case AAUDIO_POLICY_NEVER:
-        case AAUDIO_POLICY_AUTO:
-        case AAUDIO_POLICY_ALWAYS:
-            s_MMapPolicy = policy;
-            break;
-        default:
-            result = AAUDIO_ERROR_ILLEGAL_ARGUMENT;
-            break;
-    }
-    return result;
+    return AudioGlobal_setMMapPolicy(policy);
 }
 
 AAUDIO_API bool AAudioStream_isMMapUsed(AAudioStream* stream)
 {
     AudioStream *audioStream = convertAAudioStreamToAudioStream(stream);
     return audioStream->isMMap();
+}
+
+AAUDIO_API bool AAudioStream_isPrivacySensitive(AAudioStream* stream)
+{
+    AudioStream *audioStream = convertAAudioStreamToAudioStream(stream);
+    return audioStream->isPrivacySensitive();
 }

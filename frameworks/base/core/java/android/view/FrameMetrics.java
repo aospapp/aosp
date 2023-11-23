@@ -17,7 +17,7 @@
 package android.view;
 
 import android.annotation.IntDef;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -220,7 +220,7 @@ public final class FrameMetrics {
         int SWAP_BUFFERS = 12;
         int FRAME_COMPLETED = 13;
 
-        int FRAME_STATS_COUNT = 16; // must always be last
+        int FRAME_STATS_COUNT = 17; // must always be last
     }
 
     /*

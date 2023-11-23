@@ -22,6 +22,8 @@ import android.util.SparseIntArray;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -32,7 +34,7 @@ import org.mockito.MockitoAnnotations;
  * Unit test harness for MetricsUtils.
  */
 @SmallTest
-public class MetricsUtilsTest {
+public class MetricsUtilsTest extends WifiBaseTest {
     @Rule
     public ErrorCollector collector = new ErrorCollector();
 

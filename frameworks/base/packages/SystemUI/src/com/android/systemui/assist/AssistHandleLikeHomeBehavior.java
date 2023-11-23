@@ -20,18 +20,24 @@ import android.content.Context;
 
 import androidx.annotation.Nullable;
 
-import com.android.systemui.Dependency;
 import com.android.systemui.assist.AssistHandleBehaviorController.BehaviorController;
+import com.android.systemui.keyguard.WakefulnessLifecycle;
+import com.android.systemui.model.SysUiState;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
-import com.android.systemui.recents.OverviewProxyService;
 import com.android.systemui.shared.system.QuickStepContract;
 
 import java.io.PrintWriter;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+import dagger.Lazy;
 
 /**
  * Assistant Handle behavior that makes Assistant handles show/hide when the home handle is
  * shown/hidden, respectively.
  */
+@Singleton
 final class AssistHandleLikeHomeBehavior implements BehaviorController {
 
     private final StatusBarStateController.StateListener mStatusBarStateListener =
@@ -41,39 +47,70 @@ final class AssistHandleLikeHomeBehavior implements BehaviorController {
                     handleDozingChanged(isDozing);
                 }
             };
-    private final OverviewProxyService.OverviewProxyListener mOverviewProxyListener =
-            new OverviewProxyService.OverviewProxyListener() {
-        @Override
-        public void onSystemUiStateChanged(int sysuiStateFlags) {
-            handleSystemUiStateChange(sysuiStateFlags);
-        }
-    };
-    private final StatusBarStateController mStatusBarStateController;
-    private final OverviewProxyService mOverviewProxyService;
+    private final WakefulnessLifecycle.Observer mWakefulnessLifecycleObserver =
+            new WakefulnessLifecycle.Observer() {
+                @Override
+                public void onStartedWakingUp() {
+                    handleWakefullnessChanged(/* isAwake = */ false);
+                }
+
+                @Override
+                public void onFinishedWakingUp() {
+                    handleWakefullnessChanged(/* isAwake = */ true);
+                }
+
+                @Override
+                public void onStartedGoingToSleep() {
+                    handleWakefullnessChanged(/* isAwake = */ false);
+                }
+
+                @Override
+                public void onFinishedGoingToSleep() {
+                    handleWakefullnessChanged(/* isAwake = */ false);
+                }
+            };
+
+    private final SysUiState.SysUiStateCallback mSysUiStateCallback =
+            this::handleSystemUiStateChange;
+
+    private final Lazy<StatusBarStateController> mStatusBarStateController;
+    private final Lazy<WakefulnessLifecycle> mWakefulnessLifecycle;
+    private final Lazy<SysUiState> mSysUiFlagContainer;
 
     private boolean mIsDozing;
+    private boolean mIsAwake;
     private boolean mIsHomeHandleHiding;
 
     @Nullable private AssistHandleCallbacks mAssistHandleCallbacks;
 
-    AssistHandleLikeHomeBehavior() {
-        mStatusBarStateController = Dependency.get(StatusBarStateController.class);
-        mOverviewProxyService = Dependency.get(OverviewProxyService.class);
+    @Inject
+    AssistHandleLikeHomeBehavior(
+            Lazy<StatusBarStateController> statusBarStateController,
+            Lazy<WakefulnessLifecycle> wakefulnessLifecycle,
+            Lazy<SysUiState> sysUiFlagContainer) {
+        mStatusBarStateController = statusBarStateController;
+        mWakefulnessLifecycle = wakefulnessLifecycle;
+        mSysUiFlagContainer = sysUiFlagContainer;
     }
 
     @Override
     public void onModeActivated(Context context, AssistHandleCallbacks callbacks) {
         mAssistHandleCallbacks = callbacks;
-        mIsDozing = mStatusBarStateController.isDozing();
-        mStatusBarStateController.addCallback(mStatusBarStateListener);
-        mOverviewProxyService.addCallback(mOverviewProxyListener);
+        mIsDozing = mStatusBarStateController.get().isDozing();
+        mStatusBarStateController.get().addCallback(mStatusBarStateListener);
+        mIsAwake = mWakefulnessLifecycle.get().getWakefulness()
+                == WakefulnessLifecycle.WAKEFULNESS_AWAKE;
+        mWakefulnessLifecycle.get().addObserver(mWakefulnessLifecycleObserver);
+        mSysUiFlagContainer.get().addCallback(mSysUiStateCallback);
         callbackForCurrentState();
     }
 
     @Override
     public void onModeDeactivated() {
         mAssistHandleCallbacks = null;
-        mOverviewProxyService.removeCallback(mOverviewProxyListener);
+        mStatusBarStateController.get().removeCallback(mStatusBarStateListener);
+        mWakefulnessLifecycle.get().removeObserver(mWakefulnessLifecycleObserver);
+        mSysUiFlagContainer.get().removeCallback(mSysUiStateCallback);
     }
 
     private static boolean isHomeHandleHiding(int sysuiStateFlags) {
@@ -86,6 +123,15 @@ final class AssistHandleLikeHomeBehavior implements BehaviorController {
         }
 
         mIsDozing = isDozing;
+        callbackForCurrentState();
+    }
+
+    private void handleWakefullnessChanged(boolean isAwake) {
+        if (mIsAwake == isAwake) {
+            return;
+        }
+
+        mIsAwake = isAwake;
         callbackForCurrentState();
     }
 
@@ -104,18 +150,23 @@ final class AssistHandleLikeHomeBehavior implements BehaviorController {
             return;
         }
 
-        if (mIsHomeHandleHiding || mIsDozing) {
+        if (mIsHomeHandleHiding || !isFullyAwake()) {
             mAssistHandleCallbacks.hide();
         } else {
             mAssistHandleCallbacks.showAndStay();
         }
     }
 
+    private boolean isFullyAwake() {
+        return mIsAwake && !mIsDozing;
+    }
+
     @Override
     public void dump(PrintWriter pw, String prefix) {
-        pw.println("Current AssistHandleLikeHomeBehavior State:");
+        pw.println(prefix + "Current AssistHandleLikeHomeBehavior State:");
 
         pw.println(prefix + "   mIsDozing=" + mIsDozing);
+        pw.println(prefix + "   mIsAwake=" + mIsAwake);
         pw.println(prefix + "   mIsHomeHandleHiding=" + mIsHomeHandleHiding);
     }
 }

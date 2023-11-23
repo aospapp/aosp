@@ -26,7 +26,6 @@
 #include <nativehelper/JNIHelp.h>
 
 #include <binder/MemoryDealer.h>
-#include <drm/drm_framework_common.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <nativehelper/ScopedLocalRef.h>
 
@@ -106,7 +105,8 @@ ssize_t JMediaDataSource::readAt(off64_t offset, size_t size) {
     }
 
     ALOGV("readAt %lld / %zu => %d.", (long long)offset, size, numread);
-    env->GetByteArrayRegion(mByteArrayObj, 0, numread, (jbyte*)mMemory->pointer());
+    env->GetByteArrayRegion(mByteArrayObj, 0, numread,
+        (jbyte*)mMemory->unsecurePointer());
     return numread;
 }
 
@@ -158,10 +158,6 @@ uint32_t JMediaDataSource::getFlags() {
 
 String8 JMediaDataSource::toString() {
     return String8::format("JMediaDataSource(pid %d, uid %d)", getpid(), getuid());
-}
-
-sp<DecryptHandle> JMediaDataSource::DrmInitialization(const char * /* mime */) {
-    return NULL;
 }
 
 }  // namespace android

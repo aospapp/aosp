@@ -39,6 +39,12 @@ option java_package com.android.server
 27391 user_activity_timeout_override (override|2|3)
 27392 battery_saver_setting (threshold|1)
 
+
+# ---------------------------
+# ThermalManagerService.java
+# ---------------------------
+2737 thermal_changed (name|3),(type|1|5),(temperature|5),(sensor_status|1|5),(previous_system_status|1|5)
+
 #
 # Leave IDs through 2740 for more power logs (2730 used by battery_discharge above)
 #
@@ -167,27 +173,6 @@ option java_package com.android.server
 3120 pm_critical_info (msg|3)
 # Disk usage stats for verifying quota correctness
 3121 pm_package_stats (manual_time|2|3),(quota_time|2|3),(manual_data|2|2),(quota_data|2|2),(manual_cache|2|2),(quota_cache|2|2)
-
-# ---------------------------
-# WindowManagerService.java
-# ---------------------------
-# Out of memory for surfaces.
-31000 wm_no_surface_memory (Window|3),(PID|1|5),(Operation|3)
-# Task created.
-31001 wm_task_created (TaskId|1|5),(StackId|1|5)
-# Task moved to top (1) or bottom (0).
-31002 wm_task_moved (TaskId|1|5),(ToTop|1),(Index|1)
-# Task removed with source explanation.
-31003 wm_task_removed (TaskId|1|5),(Reason|3)
-# Stack created.
-31004 wm_stack_created (StackId|1|5)
-# Home stack moved to top (1) or bottom (0).
-31005 wm_home_stack_moved (ToTop|1)
-# Stack removed.
-31006 wm_stack_removed (StackId|1|5)
-# bootanim finished:
-31007 wm_boot_animation_done (time|2|3)
-
 
 # ---------------------------
 # InputMethodManagerService.java

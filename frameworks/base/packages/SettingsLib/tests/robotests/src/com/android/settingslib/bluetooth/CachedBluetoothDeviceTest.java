@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -30,6 +31,8 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.media.AudioManager;
+
+import com.android.settingslib.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -699,7 +702,7 @@ public class CachedBluetoothDeviceTest {
 
     @Test
     public void deviceName_testAliasNameAvailable() {
-        when(mDevice.getAliasName()).thenReturn(DEVICE_ALIAS);
+        when(mDevice.getAlias()).thenReturn(DEVICE_ALIAS);
         when(mDevice.getName()).thenReturn(DEVICE_NAME);
         CachedBluetoothDevice cachedBluetoothDevice =
                 new CachedBluetoothDevice(mContext, mProfileManager, mDevice);
@@ -722,7 +725,7 @@ public class CachedBluetoothDeviceTest {
     @Test
     public void deviceName_testRenameDevice() {
         final String[] alias = {DEVICE_ALIAS};
-        doAnswer(invocation -> alias[0]).when(mDevice).getAliasName();
+        doAnswer(invocation -> alias[0]).when(mDevice).getAlias();
         doAnswer(invocation -> {
             alias[0] = (String) invocation.getArguments()[0];
             return true;
@@ -839,14 +842,14 @@ public class CachedBluetoothDeviceTest {
 
     @Test
     public void getName_aliasNameNotNull_returnAliasName() {
-        when(mDevice.getAliasName()).thenReturn(DEVICE_NAME);
+        when(mDevice.getAlias()).thenReturn(DEVICE_NAME);
 
         assertThat(mCachedDevice.getName()).isEqualTo(DEVICE_NAME);
     }
 
     @Test
     public void getName_aliasNameIsNull_returnAddress() {
-        when(mDevice.getAliasName()).thenReturn(null);
+        when(mDevice.getAlias()).thenReturn(null);
 
         assertThat(mCachedDevice.getName()).isEqualTo(DEVICE_ADDRESS);
     }
@@ -854,7 +857,7 @@ public class CachedBluetoothDeviceTest {
     @Test
     public void setName_setDeviceNameIsNotNull() {
         final String name = "test name";
-        when(mDevice.getAliasName()).thenReturn(DEVICE_NAME);
+        when(mDevice.getAlias()).thenReturn(DEVICE_NAME);
 
         mCachedDevice.setName(name);
 
@@ -921,5 +924,17 @@ public class CachedBluetoothDeviceTest {
         assertThat(subCachedDevice.mRssi).isEqualTo(RSSI_1);
         assertThat(subCachedDevice.mJustDiscovered).isEqualTo(JUSTDISCOVERED_1);
         assertThat(subCachedDevice.mDevice).isEqualTo(mDevice);
+    }
+
+    @Test
+    public void getConnectionSummary_profileConnectedFail_showErrorMessage() {
+        final A2dpProfile profle = mock(A2dpProfile.class);
+        mCachedDevice.onProfileStateChanged(profle, BluetoothProfile.STATE_CONNECTED);
+        mCachedDevice.setProfileConnectedStatus(BluetoothProfile.A2DP, true);
+
+        when(profle.getConnectionStatus(mDevice)).thenReturn(BluetoothProfile.STATE_CONNECTED);
+
+        assertThat(mCachedDevice.getConnectionSummary()).isEqualTo(
+                mContext.getString(R.string.profile_connect_timeout_subtext));
     }
 }

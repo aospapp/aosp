@@ -17,6 +17,8 @@
 #ifndef ANDROID_GUI_IPRODUCERLISTENER_H
 #define ANDROID_GUI_IPRODUCERLISTENER_H
 
+#include <vector>
+
 #include <android/hardware/graphics/bufferqueue/1.0/IProducerListener.h>
 #include <android/hardware/graphics/bufferqueue/2.0/IProducerListener.h>
 #include <binder/IInterface.h>
@@ -44,8 +46,12 @@ public:
     // multiple threads.
     virtual void onBufferReleased() = 0; // Asynchronous
     virtual bool needsReleaseNotify() = 0;
+    // onBuffersFreed is called from IGraphicBufferConsumer::discardFreeBuffers
+    // to notify the producer that certain free buffers are discarded by the consumer.
+    virtual void onBuffersDiscarded(const std::vector<int32_t>& slots) = 0; // Asynchronous
 };
 
+#ifndef NO_BINDER
 class IProducerListener : public ProducerListener, public IInterface
 {
 public:
@@ -65,8 +71,15 @@ public:
     virtual status_t onTransact(uint32_t code, const Parcel& data,
             Parcel* reply, uint32_t flags = 0);
     virtual bool needsReleaseNotify();
+    virtual void onBuffersDiscarded(const std::vector<int32_t>& slots);
 };
 
+#else
+class IProducerListener : public ProducerListener {
+};
+class BnProducerListener : public IProducerListener {
+};
+#endif
 class DummyProducerListener : public BnProducerListener
 {
 public:

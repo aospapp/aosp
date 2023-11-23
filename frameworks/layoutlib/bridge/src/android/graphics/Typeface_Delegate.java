@@ -143,7 +143,7 @@ public final class Typeface_Delegate {
 
         if (newInstance != 0) {
             Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                    "nativeCreateFromTypefaceWithVariation is not supported", null, null);
+                    "nativeCreateFromTypefaceWithVariation is not supported", null, null, null);
         }
         return newInstance;
     }
@@ -257,7 +257,7 @@ public final class Typeface_Delegate {
             }
 
             if (parser != null) {
-                // TODO(namespaces): The aapt namespace should not matter for parsing font files?
+                // TODO(b/156609434): The aapt namespace should not matter for parsing font files?
                 BridgeXmlBlockParser blockParser =
                         new BridgeXmlBlockParser(
                                 parser, context, ResourceNamespace.fromBoolean(isFramework));
@@ -266,17 +266,18 @@ public final class Typeface_Delegate {
                             FontResourcesParser.parse(blockParser, context.getResources());
                     typeface = Typeface.createFromResources(entry, context.getAssets(), path);
                 } catch (XmlPullParserException | IOException e) {
-                    Bridge.getLog().error(null, "Failed to parse file " + path, e, null /*data*/);
+                    Bridge.getLog().error(null, "Failed to parse file " + path, e, null, null /*data
+                    */);
                 } finally {
                     blockParser.ensurePopped();
                 }
             } else {
                 Bridge.getLog().error(LayoutLog.TAG_BROKEN,
                         String.format("File %s does not exist (or is not a file)", path),
-                        null /*data*/);
+                        null, null /*data*/);
             }
         } else {
-            typeface = new Typeface.Builder(context.getAssets(), path).build();
+            typeface = new Typeface.Builder(context.getAssets(), path, false, 0).build();
         }
 
         return typeface;

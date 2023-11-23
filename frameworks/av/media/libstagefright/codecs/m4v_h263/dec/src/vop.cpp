@@ -409,7 +409,9 @@ decode_vol:
         if (!BitstreamRead1Bits(stream)) return PV_FAIL;
 
         /* video_object_layer_width (13 bits) */
-        video->displayWidth = video->width = (int) BitstreamReadBits16(stream, 13);
+        tmpvar = BitstreamReadBits16(stream, 13);
+        if (!tmpvar) return PV_FAIL;
+        video->displayWidth = video->width = tmpvar;
 
         /* round up to a multiple of MB_SIZE.   08/09/2000 */
         video->width = (video->width + 15) & -16;
@@ -419,7 +421,9 @@ decode_vol:
         if (!BitstreamRead1Bits(stream)) return PV_FAIL;
 
         /* video_object_layer_height (13 bits) */
-        video->displayHeight = video->height = (int) BitstreamReadBits16(stream, 13);
+        tmpvar = BitstreamReadBits16(stream, 13);
+        if (!tmpvar) return PV_FAIL;
+        video->displayHeight = video->height = tmpvar;
 
         /* round up to a multiple of MB_SIZE.   08/09/2000 */
         video->height = (video->height + 15) & -16;
@@ -1355,6 +1359,14 @@ PV_STATUS DecodeShortHeader(VideoDecData *video, Vop *currVop)
             int tmpHeight = (tmpDisplayHeight + 15) & -16;
             int tmpWidth = (tmpDisplayWidth + 15) & -16;
 
+            if (tmpWidth > video->width)
+            {
+                // while allowed by the spec, this decoder does not actually
+                // support an increase in size.
+                ALOGE("width increase not supported");
+                status = PV_FAIL;
+                goto return_point;
+            }
             if (tmpHeight * tmpWidth > video->size)
             {
                 // This is just possibly "b/37079296".

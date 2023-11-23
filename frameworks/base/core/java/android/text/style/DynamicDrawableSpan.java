@@ -22,7 +22,7 @@ import android.annotation.IntDef;
 import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -166,7 +166,7 @@ public abstract class DynamicDrawableSpan extends ReplacementSpan {
         if (mVerticalAlignment == ALIGN_BASELINE) {
             transY -= paint.getFontMetricsInt().descent;
         } else if (mVerticalAlignment == ALIGN_CENTER) {
-            transY = (bottom - top) / 2 - b.getBounds().height() / 2;
+            transY = top + (bottom - top) / 2 - b.getBounds().height() / 2;
         }
 
         canvas.translate(x, transY);

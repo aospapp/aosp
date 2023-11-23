@@ -18,6 +18,7 @@ package android.os;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.AppOpsManager;
 import android.util.Log;
 import android.util.SparseIntArray;
 
@@ -241,32 +242,43 @@ public final class BinderProxy implements IBinder {
             }
 
             Map<String, Integer> counts = new HashMap<>();
-            for (ArrayList<WeakReference<BinderProxy>> a : mMainIndexValues) {
-                if (a != null) {
-                    for (WeakReference<BinderProxy> weakRef : a) {
-                        BinderProxy bp = weakRef.get();
-                        String key;
-                        if (bp == null) {
-                            key = "<cleared weak-ref>";
-                        } else {
-                            try {
-                                key = bp.getInterfaceDescriptor();
-                                if ((key == null || key.isEmpty()) && !bp.isBinderAlive()) {
-                                    key = "<proxy to dead node>";
-                                }
-                            } catch (Throwable t) {
-                                key = "<exception during getDescriptor>";
-                            }
-                        }
-                        Integer i = counts.get(key);
-                        if (i == null) {
-                            counts.put(key, 1);
-                        } else {
-                            counts.put(key, i + 1);
-                        }
+            final ArrayList<WeakReference<BinderProxy>> proxiesToQuery =
+                    new ArrayList<WeakReference<BinderProxy>>();
+            synchronized (sProxyMap) {
+                for (ArrayList<WeakReference<BinderProxy>> a : mMainIndexValues) {
+                    if (a != null) {
+                        proxiesToQuery.addAll(a);
                     }
                 }
             }
+            // For gathering this debug output, we're making synchronous binder calls
+            // out of system_server to all processes hosting binder objects it holds a reference to;
+            // since some of those processes might be frozen, we don't want to block here
+            // forever. Disable the freezer.
+            Process.enableFreezer(false);
+            for (WeakReference<BinderProxy> weakRef : proxiesToQuery) {
+                BinderProxy bp = weakRef.get();
+                String key;
+                if (bp == null) {
+                    key = "<cleared weak-ref>";
+                } else {
+                    try {
+                        key = bp.getInterfaceDescriptor();
+                        if ((key == null || key.isEmpty()) && !bp.isBinderAlive()) {
+                            key = "<proxy to dead node>";
+                        }
+                    } catch (Throwable t) {
+                        key = "<exception during getDescriptor>";
+                    }
+                }
+                Integer i = counts.get(key);
+                if (i == null) {
+                    counts.put(key, 1);
+                } else {
+                    counts.put(key, i + 1);
+                }
+            }
+            Process.enableFreezer(true);
             Map.Entry<String, Integer>[] sorted = counts.entrySet().toArray(
                     new Map.Entry[counts.size()]);
 
@@ -354,9 +366,7 @@ public final class BinderProxy implements IBinder {
      * @hide
      */
     public static InterfaceCount[] getSortedInterfaceCounts(int num) {
-        synchronized (sProxyMap) {
-            return sProxyMap.getSortedInterfaceCounts(num);
-        }
+        return sProxyMap.getSortedInterfaceCounts(num);
     }
 
     /**
@@ -376,10 +386,8 @@ public final class BinderProxy implements IBinder {
      */
     public static void dumpProxyDebugInfo() {
         if (Build.IS_DEBUGGABLE) {
-            synchronized (sProxyMap) {
-                sProxyMap.dumpProxyInterfaceCounts();
-                sProxyMap.dumpPerUidProxyCounts();
-            }
+            sProxyMap.dumpProxyInterfaceCounts();
+            sProxyMap.dumpPerUidProxyCounts();
         }
     }
 
@@ -453,6 +461,10 @@ public final class BinderProxy implements IBinder {
         return null;
     }
 
+    /** @hide */
+    @Override
+    public native @Nullable IBinder getExtension() throws RemoteException;
+
     /**
      * Perform a binder transaction on a proxy.
      *
@@ -473,12 +485,23 @@ public final class BinderProxy implements IBinder {
     public boolean transact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
         Binder.checkParcel(this, code, data, "Unreasonably large binder buffer");
 
-        if (mWarnOnBlocking && ((flags & FLAG_ONEWAY) == 0)) {
+        if (mWarnOnBlocking && ((flags & FLAG_ONEWAY) == 0)
+                && Binder.sWarnOnBlockingOnCurrentThread.get()) {
+
             // For now, avoid spamming the log by disabling after we've logged
             // about this interface at least once
             mWarnOnBlocking = false;
-            Log.w(Binder.TAG, "Outgoing transactions from this process must be FLAG_ONEWAY",
-                    new Throwable());
+
+            if (Build.IS_USERDEBUG) {
+                // Log this as a WTF on userdebug builds.
+                Log.wtf(Binder.TAG,
+                        "Outgoing transactions from this process must be FLAG_ONEWAY",
+                        new Throwable());
+            } else {
+                Log.w(Binder.TAG,
+                        "Outgoing transactions from this process must be FLAG_ONEWAY",
+                        new Throwable());
+            }
         }
 
         final boolean tracingEnabled = Binder.isTracingEnabled();
@@ -496,7 +519,7 @@ public final class BinderProxy implements IBinder {
 
         if (transactListener != null) {
             final int origWorkSourceUid = Binder.getCallingWorkSourceUid();
-            session = transactListener.onTransactStarted(this, code);
+            session = transactListener.onTransactStarted(this, code, flags);
 
             // Allow the listener to update the work source uid. We need to update the request
             // header if the uid is updated.
@@ -506,9 +529,18 @@ public final class BinderProxy implements IBinder {
             }
         }
 
+        final AppOpsManager.PausedNotedAppOpsCollection prevCollection =
+                AppOpsManager.pauseNotedAppOpsCollection();
+
+        if ((flags & FLAG_ONEWAY) == 0 && AppOpsManager.isListeningForOpNoted()) {
+            flags |= FLAG_COLLECT_NOTED_APP_OPS;
+        }
+
         try {
             return transactNative(code, data, reply, flags);
         } finally {
+            AppOpsManager.resumeNotedAppOpsCollection(prevCollection);
+
             if (transactListener != null) {
                 transactListener.onTransactEnded(session);
             }
@@ -614,10 +646,12 @@ public final class BinderProxy implements IBinder {
         }
     }
 
-    private static void sendDeathNotice(DeathRecipient recipient) {
-        if (false) Log.v("JavaBinder", "sendDeathNotice to " + recipient);
+    private static void sendDeathNotice(DeathRecipient recipient, IBinder binderProxy) {
+        if (false) {
+            Log.v("JavaBinder", "sendDeathNotice to " + recipient + " for " + binderProxy);
+        }
         try {
-            recipient.binderDied();
+            recipient.binderDied(binderProxy);
         } catch (RuntimeException exc) {
             Log.w("BinderNative", "Uncaught exception from death notification",
                     exc);

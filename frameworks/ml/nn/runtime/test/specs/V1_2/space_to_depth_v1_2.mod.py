@@ -74,3 +74,19 @@ example = Example({
          18,   28,  19,  29, 112, 212, 113, 213,
          110, 210, 111, 211, 114, 214, 115, 215]
 }).AddNchw(i3, o3, layout).AddVariations("relaxed", "float16", quant8)
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "space_to_depth_v1_2_nhwc",
+                   "space_to_depth_v1_2_nhwc_2",
+                   "space_to_depth_v1_2_nhwc_3",
+                   "space_to_depth_v1_2_nhwc_all_inputs_as_internal",
+                   "space_to_depth_v1_2_nhwc_all_inputs_as_internal_2",
+                   "space_to_depth_v1_2_nhwc_all_inputs_as_internal_3",
+                   "space_to_depth_v1_2_nhwc_quant8",
+                   "space_to_depth_v1_2_nhwc_quant8_2",
+                   "space_to_depth_v1_2_nhwc_quant8_3",
+                   "space_to_depth_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "space_to_depth_v1_2_nhwc_quant8_all_inputs_as_internal_2",
+                   "space_to_depth_v1_2_nhwc_quant8_all_inputs_as_internal_3")

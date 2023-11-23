@@ -39,6 +39,7 @@ import android.util.Slog;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.util.FrameworkStatsLog;
 import com.android.server.LocalServices;
 import com.android.server.ServiceThread;
 import com.android.server.SystemService;
@@ -49,6 +50,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * CameraServiceProxy is the system_server analog to the camera service running in cameraserver.
@@ -75,7 +78,7 @@ public class CameraServiceProxy extends SystemService
     private static final int MSG_SWITCH_USER = 1;
 
     private static final int RETRY_DELAY_TIME = 20; //ms
-    private static final int RETRY_TIMES = 30;
+    private static final int RETRY_TIMES = 60;
 
     // Maximum entries to keep in usage history before dumping out
     private static final int MAX_USAGE_HISTORY = 100;
@@ -101,6 +104,9 @@ public class CameraServiceProxy extends SystemService
     private static final IBinder nfcInterfaceToken = new Binder();
 
     private final boolean mNotifyNfc;
+
+    private ScheduledThreadPoolExecutor mLogWriterService = new ScheduledThreadPoolExecutor(
+            /*corePoolSize*/ 1);
 
     /**
      * Structure to track camera usage
@@ -204,6 +210,9 @@ public class CameraServiceProxy extends SystemService
 
         mNotifyNfc = SystemProperties.getInt(NFC_NOTIFICATION_PROP, 0) > 0;
         if (DEBUG) Slog.v(TAG, "Notify NFC behavior is " + (mNotifyNfc ? "active" : "disabled"));
+        // Don't keep any extra logging threads if not needed
+        mLogWriterService.setKeepAliveTime(1, TimeUnit.SECONDS);
+        mLogWriterService.allowCoreThreadTimeOut(true);
     }
 
     @Override
@@ -279,6 +288,51 @@ public class CameraServiceProxy extends SystemService
         }
     }
 
+    private class EventWriterTask implements Runnable {
+        private ArrayList<CameraUsageEvent> mEventList;
+        private static final long WRITER_SLEEP_MS = 100;
+
+        public EventWriterTask(ArrayList<CameraUsageEvent> eventList) {
+            mEventList = eventList;
+        }
+
+        @Override
+        public void run() {
+            if (mEventList != null) {
+                for (CameraUsageEvent event : mEventList) {
+                    logCameraUsageEvent(event);
+                    try {
+                        Thread.sleep(WRITER_SLEEP_MS);
+                    } catch (InterruptedException e) {}
+                }
+                mEventList.clear();
+            }
+        }
+
+        /**
+         * Write camera usage events to stats log.
+         * Package-private
+         */
+        private void logCameraUsageEvent(CameraUsageEvent e) {
+            int facing = FrameworkStatsLog.CAMERA_ACTION_EVENT__FACING__UNKNOWN;
+            switch(e.mCameraFacing) {
+                case ICameraServiceProxy.CAMERA_FACING_BACK:
+                    facing = FrameworkStatsLog.CAMERA_ACTION_EVENT__FACING__BACK;
+                    break;
+                case ICameraServiceProxy.CAMERA_FACING_FRONT:
+                    facing = FrameworkStatsLog.CAMERA_ACTION_EVENT__FACING__FRONT;
+                    break;
+                case ICameraServiceProxy.CAMERA_FACING_EXTERNAL:
+                    facing = FrameworkStatsLog.CAMERA_ACTION_EVENT__FACING__EXTERNAL;
+                    break;
+                default:
+                    Slog.w(TAG, "Unknown camera facing: " + e.mCameraFacing);
+            }
+            FrameworkStatsLog.write(FrameworkStatsLog.CAMERA_ACTION_EVENT, e.getDuration(),
+                    e.mAPILevel, e.mClientName, facing);
+        }
+    }
+
     /**
      * Dump camera usage events to log.
      * Package-private
@@ -315,6 +369,10 @@ public class CameraServiceProxy extends SystemService
                         .setPackageName(e.mClientName);
                 mLogger.write(l);
             }
+
+            mLogWriterService.execute(new EventWriterTask(
+                        new ArrayList<CameraUsageEvent>(mCameraUsageHistory)));
+
             mCameraUsageHistory.clear();
         }
         final long ident = Binder.clearCallingIdentity();

@@ -14,20 +14,11 @@ limitations under the License.
 ==============================================================================*/
 
 #include "simple_philox.h"
-#include "exact_uniform_int.h"
 
-#include "tensorflow/core/platform/logging.h"
+#include <android-base/logging.h>
 
 namespace tensorflow {
 namespace random {
-
-uint32 SimplePhilox::Uniform(uint32 n) {
-    return ExactUniformInt<uint32>(n, [this]() { return Rand32(); });
-}
-
-uint64 SimplePhilox::Uniform64(uint64 n) {
-    return ExactUniformInt<uint64>(n, [this]() { return Rand64(); });
-}
 
 uint32 SimplePhilox::Skewed(int max_log) {
     CHECK(0 <= max_log && max_log <= 32);

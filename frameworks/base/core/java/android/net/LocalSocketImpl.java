@@ -16,7 +16,7 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
 import android.system.Int32Ref;
 import android.system.Os;
@@ -155,40 +155,6 @@ class LocalSocketImpl
                 FileDescriptor myFd = fd;
                 if (myFd == null) throw new IOException("socket closed");
                 write_native(b, myFd);
-            }
-        }
-
-        /**
-         * Wait until the data in sending queue is emptied. A polling version
-         * for flush implementation.
-         * @throws IOException
-         *             if an i/o error occurs.
-         */
-        @Override
-        public void flush() throws IOException {
-            FileDescriptor myFd = fd;
-            if (myFd == null) throw new IOException("socket closed");
-
-            // Loop until the output buffer is empty.
-            Int32Ref pending = new Int32Ref(0);
-            while (true) {
-                try {
-                    // See linux/net/unix/af_unix.c
-                    Os.ioctlInt(myFd, OsConstants.TIOCOUTQ, pending);
-                } catch (ErrnoException e) {
-                    throw e.rethrowAsIOException();
-                }
-
-                if (pending.value <= 0) {
-                    // The output buffer is empty.
-                    break;
-                }
-
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException ie) {
-                    break;
-                }
             }
         }
     }

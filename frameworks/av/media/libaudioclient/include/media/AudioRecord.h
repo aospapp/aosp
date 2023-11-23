@@ -24,7 +24,7 @@
 #include <cutils/sched_policy.h>
 #include <media/AudioSystem.h>
 #include <media/AudioTimestamp.h>
-#include <media/MediaAnalyticsItem.h>
+#include <media/MediaMetricsItem.h>
 #include <media/Modulo.h>
 #include <media/MicrophoneInfo.h>
 #include <media/RecordingActivityTracker.h>
@@ -92,6 +92,11 @@ public:
             int8_t*     i8;         // unsigned 8-bit, offset by 0x80
                                     // input to obtainBuffer(): unused, output: pointer to buffer
         };
+
+        uint32_t    sequence;       // IAudioRecord instance sequence number, as of obtainBuffer().
+                                    // It is set by obtainBuffer() and confirmed by releaseBuffer().
+                                    // Not "user-serviceable".
+                                    // TODO Consider sp<IMemory> instead, or in addition to this.
     };
 
     /* As a convenience, if a callback is supplied, a handler thread
@@ -270,7 +275,20 @@ public:
     /*
      * return metrics information for the current instance.
      */
-            status_t getMetrics(MediaAnalyticsItem * &item);
+            status_t getMetrics(mediametrics::Item * &item);
+
+    /*
+     * Set name of API that is using this object.
+     * For example "aaudio" or "opensles".
+     * This may be logged or reported as part of MediaMetrics.
+     */
+            void setCallerName(const std::string &name) {
+                mCallerName = name;
+            }
+
+            std::string getCallerName() const {
+                return mCallerName;
+            };
 
     /* After it's created the track is not active. Call start() to
      * make it active. If set, the callback will start being called.
@@ -420,14 +438,17 @@ public:
      *  frameCount  number of frames requested
      *  size        ignored
      *  raw         ignored
+     *  sequence    ignored
      * After error return:
      *  frameCount  0
      *  size        0
      *  raw         undefined
+     *  sequence    undefined
      * After successful return:
      *  frameCount  actual number of frames available, <= number requested
      *  size        actual number of bytes available
      *  raw         pointer to the buffer
+     *  sequence    IAudioRecord instance sequence number, as of obtainBuffer()
      */
 
             status_t    obtainBuffer(Buffer* audioBuffer, int32_t waitCount,
@@ -703,6 +724,10 @@ private:
 
     bool                    mInOverrun;         // whether recorder is currently in overrun state
 
+    ExtendedTimestamp       mPreviousTimestamp{}; // used to detect retrograde motion
+    bool                    mTimestampRetrogradePositionReported = false; // reduce log spam
+    bool                    mTimestampRetrogradeTimeReported = false;     // reduce log spam
+
 private:
     class DeathNotifier : public IBinder::DeathRecipient {
     public:
@@ -733,27 +758,27 @@ private:
 private:
     class MediaMetrics {
       public:
-        MediaMetrics() : mAnalyticsItem(MediaAnalyticsItem::create("audiorecord")),
+        MediaMetrics() : mMetricsItem(mediametrics::Item::create("audiorecord")),
                          mCreatedNs(systemTime(SYSTEM_TIME_REALTIME)),
                          mStartedNs(0), mDurationNs(0), mCount(0),
                          mLastError(NO_ERROR) {
         }
         ~MediaMetrics() {
-            // mAnalyticsItem alloc failure will be flagged in the constructor
+            // mMetricsItem alloc failure will be flagged in the constructor
             // don't log empty records
-            if (mAnalyticsItem->count() > 0) {
-                mAnalyticsItem->selfrecord();
+            if (mMetricsItem->count() > 0) {
+                mMetricsItem->selfrecord();
             }
         }
         void gather(const AudioRecord *record);
-        MediaAnalyticsItem *dup() { return mAnalyticsItem->dup(); }
+        mediametrics::Item *dup() { return mMetricsItem->dup(); }
 
         void logStart(nsecs_t when) { mStartedNs = when; mCount++; }
         void logStop(nsecs_t when) { mDurationNs += (when-mStartedNs); mStartedNs = 0;}
         void markError(status_t errcode, const char *func)
                  { mLastError = errcode; mLastErrorFunc = func;}
       private:
-        std::unique_ptr<MediaAnalyticsItem> mAnalyticsItem;
+        std::unique_ptr<mediametrics::Item> mMetricsItem;
         nsecs_t mCreatedNs;     // XXX: perhaps not worth it in production
         nsecs_t mStartedNs;
         nsecs_t mDurationNs;
@@ -763,6 +788,8 @@ private:
         std::string mLastErrorFunc;
     };
     MediaMetrics mMediaMetrics;
+    std::string mMetricsId;  // GUARDED_BY(mLock), could change in createRecord_l().
+    std::string mCallerName; // for example "aaudio"
 };
 
 }; // namespace android

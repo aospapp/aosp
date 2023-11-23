@@ -36,6 +36,10 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 
+#ifndef __ANDROID_APEX__
+#include "HlsSampleDecryptor.h"
+#endif
+
 namespace android {
 
 ElementaryStreamQueue::ElementaryStreamQueue(Mode mode, uint32_t flags)
@@ -50,7 +54,13 @@ ElementaryStreamQueue::ElementaryStreamQueue(Mode mode, uint32_t flags)
 
     // Create the decryptor anyway since we don't know the use-case unless key is provided
     // Won't decrypt if key info not available (e.g., scanner/extractor just parsing ts files)
-    mSampleDecryptor = isSampleEncrypted() ? new HlsSampleDecryptor : NULL;
+    mSampleDecryptor = isSampleEncrypted() ?
+#ifdef __ANDROID_APEX__
+        new SampleDecryptor
+#else
+        new HlsSampleDecryptor
+#endif
+        : NULL;
 }
 
 sp<MetaData> ElementaryStreamQueue::getFormat() {
@@ -1143,7 +1153,7 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitAAC() {
     }
 
     const RangeInfo &info = *mRangeInfos.begin();
-    if (mBuffer->size() < info.mLength) {
+    if (info.mLength == 0 || mBuffer->size() < info.mLength) {
         return NULL;
     }
 

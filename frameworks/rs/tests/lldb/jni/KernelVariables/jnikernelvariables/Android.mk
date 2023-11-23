@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libjnikernelvariables
 
-LOCAL_SRC_FILES := jnikernelvariables.cpp simple.rs
+LOCAL_SRC_FILES := jnikernelvariables.cpp simple.rscript
 
 LOCAL_RENDERSCRIPT_FLAGS := -g
 

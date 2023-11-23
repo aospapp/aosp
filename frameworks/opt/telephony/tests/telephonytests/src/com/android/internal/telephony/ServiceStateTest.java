@@ -36,15 +36,6 @@ public class ServiceStateTest extends TestCase {
     @SmallTest
     public void testRoaming() {
         ServiceState ss = new ServiceState();
-        // add data registration state
-        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
-                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
-                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
-                .setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_ROAMING)
-                .build();
-        ss.addNetworkRegistrationInfo(nri);
-
-        assertTrue(ss.getDataRoamingFromRegistration());
 
         ss.setCdmaDefaultRoamingIndicator(1);
         assertEquals(1, ss.getCdmaDefaultRoamingIndicator());
@@ -62,6 +53,9 @@ public class ServiceStateTest extends TestCase {
         assertTrue(ss.getDataRoaming());
         assertEquals(ServiceState.ROAMING_TYPE_DOMESTIC, ss.getDataRoamingType());
 
+        ss.setDataRoamingFromRegistration(true);
+        assertTrue(ss.getDataRoamingFromRegistration());
+
         ss.setVoiceRoamingType(ServiceState.ROAMING_TYPE_DOMESTIC);
         assertTrue(ss.getVoiceRoaming());
         assertEquals(ServiceState.ROAMING_TYPE_DOMESTIC, ss.getVoiceRoamingType());
@@ -72,10 +66,10 @@ public class ServiceStateTest extends TestCase {
         ServiceState ss = new ServiceState();
 
         ss.setDataRegState(ServiceState.STATE_IN_SERVICE);
-        assertEquals(ServiceState.STATE_IN_SERVICE, ss.getDataRegState());
+        assertEquals(ServiceState.STATE_IN_SERVICE, ss.getDataRegistrationState());
 
         ss.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
-        assertEquals(ServiceState.STATE_IN_SERVICE, ss.getVoiceRegState());
+        assertEquals(ServiceState.STATE_IN_SERVICE, ss.getState());
     }
 
     @SmallTest
@@ -171,6 +165,7 @@ public class ServiceStateTest extends TestCase {
         rats.add(new Pair<Integer, Boolean>(ServiceState.RIL_RADIO_TECHNOLOGY_GSM, false));
         rats.add(new Pair<Integer, Boolean>(ServiceState.RIL_RADIO_TECHNOLOGY_TD_SCDMA, false));
         rats.add(new Pair<Integer, Boolean>(ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN, false));
+        rats.add(new Pair<Integer, Boolean>(ServiceState.RIL_RADIO_TECHNOLOGY_NR, false));
 
         for (Pair<Integer, Boolean> rat : rats) {
             boolean isCdma = rat.second;
@@ -200,19 +195,13 @@ public class ServiceStateTest extends TestCase {
     public void testOperatorName() {
         ServiceState ss = new ServiceState();
 
-        ss.setDataOperatorAlphaLong("abc");
-        assertEquals("abc", ss.getDataOperatorAlphaLong());
-
-        ss.setDataOperatorName("def", "xyz", "123456");
-        assertEquals("xyz", ss.getDataOperatorAlphaShort());
+        ss.setOperatorAlphaLong("abc");
+        assertEquals("abc", ss.getOperatorAlphaLong());
 
         ss.setOperatorName("long", "short", "numeric");
-        assertEquals("long", ss.getVoiceOperatorAlphaLong());
-        assertEquals("short", ss.getVoiceOperatorAlphaShort());
-        assertEquals("numeric", ss.getVoiceOperatorNumeric());
-        assertEquals("long", ss.getDataOperatorAlphaLong());
-        assertEquals("short", ss.getDataOperatorAlphaShort());
-        assertEquals("numeric", ss.getDataOperatorNumeric());
+        assertEquals("long", ss.getOperatorAlphaLong());
+        assertEquals("short", ss.getOperatorAlphaShort());
+        assertEquals("numeric", ss.getOperatorNumeric());
         assertEquals("long", ss.getOperatorAlpha());
 
         ss.setOperatorName("", "short", "");
@@ -245,6 +234,7 @@ public class ServiceStateTest extends TestCase {
         ss.setDataRegState(ServiceState.STATE_OUT_OF_SERVICE);
         ss.setVoiceRoamingType(ServiceState.ROAMING_TYPE_INTERNATIONAL);
         ss.setDataRoamingType(ServiceState.ROAMING_TYPE_UNKNOWN);
+        ss.setDataRoamingFromRegistration(true);
         ss.setOperatorName("long", "short", "numeric");
         ss.setIsManualSelection(true);
         ss.setCssIndicator(1);
@@ -288,6 +278,7 @@ public class ServiceStateTest extends TestCase {
 
         ss.setVoiceRoamingType(ServiceState.ROAMING_TYPE_INTERNATIONAL);
         ss.setDataRoamingType(ServiceState.ROAMING_TYPE_UNKNOWN);
+        ss.setDataRoamingFromRegistration(true);
         ss.setOperatorName("long", "short", "numeric");
         ss.setIsManualSelection(true);
 
@@ -313,7 +304,7 @@ public class ServiceStateTest extends TestCase {
         NetworkRegistrationInfo wwanVoiceRegState = new NetworkRegistrationInfo(
                 NetworkRegistrationInfo.DOMAIN_CS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
                 0, 0, 0, false,
-                null, null, true, 0, 0, 0);
+                null, null, "", true, 0, 0, 0);
 
         LteVopsSupportInfo lteVopsSupportInfo =
                 new LteVopsSupportInfo(LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE,
@@ -344,7 +335,7 @@ public class ServiceStateTest extends TestCase {
 
         wwanDataRegState = new NetworkRegistrationInfo(
                 NetworkRegistrationInfo.DOMAIN_PS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
-                0, 0, 0, true, null, null, 0, false, false, false, lteVopsSupportInfo, false);
+                0, 0, 0, true, null, null, "", 0, false, false, false, lteVopsSupportInfo, false);
         ss.addNetworkRegistrationInfo(wwanDataRegState);
         assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_PS,
                 AccessNetworkConstants.TRANSPORT_TYPE_WWAN), wwanDataRegState);

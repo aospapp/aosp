@@ -16,15 +16,17 @@
 
 package com.android.commands.telecom;
 
+import android.app.ActivityThread;
 import android.content.ComponentName;
 import android.content.Context;
 import android.net.Uri;
 import android.os.IUserManager;
+import android.os.Looper;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.sysprop.TelephonyProperties;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -33,8 +35,6 @@ import android.text.TextUtils;
 
 import com.android.internal.os.BaseCommand;
 import com.android.internal.telecom.ITelecomService;
-import com.android.internal.telephony.ITelephony;
-import com.android.internal.telephony.TelephonyProperties;
 
 import java.io.PrintStream;
 
@@ -46,6 +46,10 @@ public final class Telecom extends BaseCommand {
      * @param args The command-line arguments
      */
     public static void main(String[] args) {
+        // Initialize the telephony module.
+        // TODO: Do it in zygote and RuntimeInit. b/148897549
+        ActivityThread.initializeMainlineModules();
+
       (new Telecom()).run(args);
     }
 
@@ -59,22 +63,33 @@ public final class Telecom extends BaseCommand {
     private static final String COMMAND_SET_TEST_CALL_SCREENING_APP = "set-test-call-screening-app";
     private static final String COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP =
             "add-or-remove-call-companion-app";
-    private static final String COMMAND_SET_TEST_AUTO_MODE_APP = "set-test-auto-mode-app";
     private static final String COMMAND_SET_PHONE_ACCOUNT_SUGGESTION_COMPONENT =
             "set-phone-acct-suggestion-component";
     private static final String COMMAND_UNREGISTER_PHONE_ACCOUNT = "unregister-phone-account";
     private static final String COMMAND_SET_DEFAULT_DIALER = "set-default-dialer";
     private static final String COMMAND_GET_DEFAULT_DIALER = "get-default-dialer";
+    private static final String COMMAND_STOP_BLOCK_SUPPRESSION = "stop-block-suppression";
+
+    /**
+     * Change the system dialer package name if a package name was specified,
+     * Example: adb shell telecom set-system-dialer <PACKAGE>
+     *
+     * Restore it to the default if if argument is "default" or no argument is passed.
+     * Example: adb shell telecom set-system-dialer default
+     */
+    private static final String COMMAND_SET_SYSTEM_DIALER = "set-system-dialer";
     private static final String COMMAND_GET_SYSTEM_DIALER = "get-system-dialer";
     private static final String COMMAND_WAIT_ON_HANDLERS = "wait-on-handlers";
     private static final String COMMAND_SET_SIM_COUNT = "set-sim-count";
     private static final String COMMAND_GET_SIM_CONFIG = "get-sim-config";
     private static final String COMMAND_GET_MAX_PHONES = "get-max-phones";
+    private static final String COMMAND_SET_TEST_EMERGENCY_PHONE_ACCOUNT_PACKAGE_FILTER =
+            "set-test-emergency-phone-account-package-filter";
 
     private ComponentName mComponent;
     private String mAccountId;
     private ITelecomService mTelecomService;
-    private ITelephony mTelephonyService;
+    private TelephonyManager mTelephonyManager;
     private IUserManager mUserManager;
 
     @Override
@@ -83,11 +98,13 @@ public final class Telecom extends BaseCommand {
                 + "usage: telecom set-phone-account-enabled <COMPONENT> <ID> <USER_SN>\n"
                 + "usage: telecom set-phone-account-disabled <COMPONENT> <ID> <USER_SN>\n"
                 + "usage: telecom register-phone-account <COMPONENT> <ID> <USER_SN> <LABEL>\n"
-                + "usage: telecom set-user-selected-outgoing-phone-account <COMPONENT> <ID> "
+                + "usage: telecom register-sim-phone-account [-e] <COMPONENT> <ID> <USER_SN>"
+                        + " <LABEL>: registers a PhoneAccount with CAPABILITY_SIM_SUBSCRIPTION"
+                        + " and optionally CAPABILITY_PLACE_EMERGENCY_CALLS if \"-e\" is provided\n"
+                + "usage: telecom set-user-selected-outgoing-phone-account [-e] <COMPONENT> <ID> "
                 + "<USER_SN>\n"
                 + "usage: telecom set-test-call-redirection-app <PACKAGE>\n"
                 + "usage: telecom set-test-call-screening-app <PACKAGE>\n"
-                + "usage: telecom set-test-auto-mode-app <PACKAGE>\n"
                 + "usage: telecom set-phone-acct-suggestion-component <COMPONENT>\n"
                 + "usage: telecom add-or-remove-call-companion-app <PACKAGE> <1/0>\n"
                 + "usage: telecom register-sim-phone-account <COMPONENT> <ID> <USER_SN>"
@@ -100,6 +117,9 @@ public final class Telecom extends BaseCommand {
                 + "usage: telecom set-sim-count <COUNT>\n"
                 + "usage: telecom get-sim-config\n"
                 + "usage: telecom get-max-phones\n"
+                + "usage: telecom stop-block-suppression: Stop suppressing the blocked number"
+                        + " provider after a call to emergency services.\n"
+                + "usage: telecom set-emer-phone-account-filter <PACKAGE>\n"
                 + "\n"
                 + "telecom set-phone-account-enabled: Enables the given phone account, if it has"
                         + " already been registered with Telecom.\n"
@@ -113,6 +133,8 @@ public final class Telecom extends BaseCommand {
                 + "telecom get-default-dialer: Displays the current default dialer.\n"
                 + "\n"
                 + "telecom get-system-dialer: Displays the current system dialer.\n"
+                + "telecom set-system-dialer: Set the override system dialer to the given"
+                        + " component. To remove the override, send \"default\"\n"
                 + "\n"
                 + "telecom wait-on-handlers: Wait until all handlers finish their work.\n"
                 + "\n"
@@ -123,6 +145,10 @@ public final class Telecom extends BaseCommand {
                         + " or \"\" for single SIM\n"
                 + "\n"
                 + "telecom get-max-phones: Get the max supported phones from the modem.\n"
+                + "telecom set-test-emergency-phone-account-package-filter <PACKAGE>: sets a"
+                        + " package name that will be used for test emergency calls. To clear,"
+                        + " send an empty package name. Real emergency calls will still be placed"
+                        + " over Telephony.\n"
         );
     }
 
@@ -136,9 +162,10 @@ public final class Telecom extends BaseCommand {
             return;
         }
 
-        mTelephonyService = ITelephony.Stub.asInterface(
-                ServiceManager.getService(Context.TELEPHONY_SERVICE));
-        if (mTelephonyService == null) {
+        Looper.prepareMainLooper();
+        Context context = ActivityThread.systemMain().getSystemContext();
+        mTelephonyManager = context.getSystemService(TelephonyManager.class);
+        if (mTelephonyManager == null) {
             Log.w(this, "onRun: Can't access telephony service.");
             showError("Error: Could not access the Telephony Service. Is the system running?");
             return;
@@ -172,9 +199,6 @@ public final class Telecom extends BaseCommand {
             case COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP:
                 runAddOrRemoveCallCompanionApp();
                 break;
-            case COMMAND_SET_TEST_AUTO_MODE_APP:
-                runSetTestAutoModeApp();
-                break;
             case COMMAND_SET_PHONE_ACCOUNT_SUGGESTION_COMPONENT:
                 runSetTestPhoneAcctSuggestionComponent();
                 break;
@@ -187,11 +211,17 @@ public final class Telecom extends BaseCommand {
             case COMMAND_UNREGISTER_PHONE_ACCOUNT:
                 runUnregisterPhoneAccount();
                 break;
+            case COMMAND_STOP_BLOCK_SUPPRESSION:
+                runStopBlockSuppression();
+                break;
             case COMMAND_SET_DEFAULT_DIALER:
                 runSetDefaultDialer();
                 break;
             case COMMAND_GET_DEFAULT_DIALER:
                 runGetDefaultDialer();
+                break;
+            case COMMAND_SET_SYSTEM_DIALER:
+                runSetSystemDialer();
                 break;
             case COMMAND_GET_SYSTEM_DIALER:
                 runGetSystemDialer();
@@ -207,6 +237,9 @@ public final class Telecom extends BaseCommand {
                 break;
             case COMMAND_GET_MAX_PHONES:
                 runGetMaxPhones();
+                break;
+            case COMMAND_SET_TEST_EMERGENCY_PHONE_ACCOUNT_PACKAGE_FILTER:
+                runSetEmergencyPhoneAccountPackageFilter();
                 break;
             default:
                 Log.w(this, "onRun: unknown command: %s", command);
@@ -234,19 +267,31 @@ public final class Telecom extends BaseCommand {
     }
 
     private void runRegisterSimPhoneAccount() throws RemoteException {
+        boolean isEmergencyAccount = false;
+        String opt;
+        while ((opt = nextOption()) != null) {
+            switch (opt) {
+                case "-e": {
+                    isEmergencyAccount = true;
+                    break;
+                }
+            }
+        }
         final PhoneAccountHandle handle = getPhoneAccountHandleFromArgs();
         final String label = nextArgRequired();
         final String address = nextArgRequired();
+        int capabilities = PhoneAccount.CAPABILITY_CALL_PROVIDER
+                | PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION
+                | (isEmergencyAccount ? PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS : 0);
         PhoneAccount account = PhoneAccount.builder(
             handle, label)
-            .setAddress(Uri.parse(address))
-            .setSubscriptionAddress(Uri.parse(address))
-            .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
-                    PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
-            .setShortDescription(label)
-            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
-            .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
-            .build();
+                .setAddress(Uri.parse(address))
+                .setSubscriptionAddress(Uri.parse(address))
+                .setCapabilities(capabilities)
+                .setShortDescription(label)
+                .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+                .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
+                .build();
         mTelecomService.registerPhoneAccount(account);
         System.out.println("Success - " + handle + " registered.");
     }
@@ -268,11 +313,6 @@ public final class Telecom extends BaseCommand {
         mTelecomService.addOrRemoveTestCallCompanionApp(packageName, isAddedBool);
     }
 
-    private void runSetTestAutoModeApp() throws RemoteException {
-        final String packageName = nextArg();
-        mTelecomService.setTestAutoModeApp(packageName);
-    }
-
     private void runSetTestPhoneAcctSuggestionComponent() throws RemoteException {
         final String componentName = nextArg();
         mTelecomService.setTestPhoneAcctSuggestionComponent(componentName);
@@ -291,10 +331,23 @@ public final class Telecom extends BaseCommand {
         System.out.println("Success - " + handle + " unregistered.");
     }
 
+    private void runStopBlockSuppression() throws RemoteException {
+        mTelecomService.stopBlockSuppression();
+    }
+
     private void runSetDefaultDialer() throws RemoteException {
-        final String packageName = nextArgRequired();
+        String packageName = nextArg();
+        if ("default".equals(packageName)) packageName = null;
         mTelecomService.setTestDefaultDialer(packageName);
         System.out.println("Success - " + packageName + " set as override default dialer.");
+    }
+
+    private void runSetSystemDialer() throws RemoteException {
+        final String flatComponentName = nextArg();
+        final ComponentName componentName = (flatComponentName.equals("default")
+                ? null : parseComponentName(flatComponentName));
+        mTelecomService.setSystemDialer(componentName);
+        System.out.println("Success - " + componentName + " set as override system dialer.");
     }
 
     private void runGetDefaultDialer() throws RemoteException {
@@ -316,7 +369,7 @@ public final class Telecom extends BaseCommand {
         }
         int numSims = Integer.parseInt(nextArgRequired());
         System.out.println("Setting sim count to " + numSims + ". Device may reboot");
-        mTelephonyService.switchMultiSimConfig(numSims);
+        mTelephonyManager.switchMultiSimConfig(numSims);
     }
 
     /**
@@ -325,17 +378,24 @@ public final class Telecom extends BaseCommand {
      * "" (empty string) for a phone in SS mode
      */
     private void runGetSimConfig() throws RemoteException {
-        System.out.println(SystemProperties.get(TelephonyProperties.PROPERTY_MULTI_SIM_CONFIG));
+        System.out.println(TelephonyProperties.multi_sim_config().orElse(""));
     }
 
     private void runGetMaxPhones() throws RemoteException {
-        // This assumes the max number of SIMs is 2, which it currently is
-        if (TelephonyManager.MULTISIM_ALLOWED
-                == mTelephonyService.isMultiSimSupported("com.android.commands.telecom")) {
-            System.out.println("2");
+        // how many logical modems can be potentially active simultaneously
+        System.out.println(mTelephonyManager.getSupportedModemCount());
+    }
+
+    private void runSetEmergencyPhoneAccountPackageFilter() throws RemoteException {
+        String packageName = mArgs.getNextArg();
+        if (TextUtils.isEmpty(packageName)) {
+            mTelecomService.setTestEmergencyPhoneAccountPackageNameFilter(null);
+            System.out.println("Success - filter cleared");
         } else {
-            System.out.println("1");
+            mTelecomService.setTestEmergencyPhoneAccountPackageNameFilter(packageName);
+            System.out.println("Success = filter set to " + packageName);
         }
+
     }
 
     private PhoneAccountHandle getPhoneAccountHandleFromArgs() throws RemoteException {

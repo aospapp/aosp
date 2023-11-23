@@ -34,12 +34,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#define BQ_LOGV(x, ...) ALOGV("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGD(x, ...) ALOGD("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGI(x, ...) ALOGI("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGW(x, ...) ALOGW("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGE(x, ...) ALOGE("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
-
 #define ATRACE_BUFFER_INDEX(index)                                                         \
     do {                                                                                   \
         if (ATRACE_ENABLED()) {                                                            \
@@ -189,8 +183,12 @@ private:
     sp<IProducerListener> mLinkedToDeath;
 
     // mConnectedProducerListener is used to handle the onBufferReleased
-    // notification.
+    // and onBuffersDiscarded notification.
     sp<IProducerListener> mConnectedProducerListener;
+    // mBufferReleasedCbEnabled is used to indicate whether onBufferReleased()
+    // callback is registered by the listener. When set to false,
+    // mConnectedProducerListener will not trigger onBufferReleased() callback.
+    bool mBufferReleasedCbEnabled;
 
     // mSlots is an array of buffer slots that must be mirrored on the producer
     // side. This allows buffer ownership to be transferred between the producer
@@ -347,6 +345,14 @@ private:
     OccupancyTracker mOccupancyTracker;
 
     const uint64_t mUniqueId;
+
+    // When buffer size is driven by the consumer and mTransformHint specifies
+    // a 90 or 270 degree rotation, this indicates whether the width and height
+    // used by dequeueBuffer will be additionally swapped.
+    bool mAutoPrerotation;
+
+    // mTransformHintInUse is to cache the mTransformHint used by the producer.
+    uint32_t mTransformHintInUse;
 
 }; // class BufferQueueCore
 

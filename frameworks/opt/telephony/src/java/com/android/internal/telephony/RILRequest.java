@@ -16,15 +16,16 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.AsyncResult;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.WorkSource;
 import android.os.WorkSource.WorkChain;
-import android.telephony.Rlog;
 
-import java.util.ArrayList;
+import com.android.telephony.Rlog;
+
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -56,6 +57,8 @@ public class RILRequest {
     String mClientId;
     // time in ms when RIL request was made
     long mStartTimeMs;
+    /** Argument list for radio HAL fallback method call */
+    Object[] mArguments;
 
     public int getSerial() {
         return mSerial;
@@ -133,6 +136,25 @@ public class RILRequest {
     }
 
     /**
+     * Retrieves a new RILRequest instance from the pool and sets the clientId
+     *
+     * @param request RIL_REQUEST_*
+     * @param result sent when operation completes
+     * @param workSource WorkSource to track the client
+     * @param args The list of parameters used to call the fallback HAL method
+     * @return a RILRequest instance from the pool.
+     */
+    // @VisibleForTesting
+    public static RILRequest obtain(int request, Message result, WorkSource workSource,
+            Object... args) {
+        RILRequest rr = obtain(request, result, workSource);
+
+        rr.mArguments = args;
+
+        return rr;
+    }
+
+    /**
      * Generate a String client ID from the WorkSource.
      */
     // @VisibleForTesting
@@ -142,13 +164,13 @@ public class RILRequest {
         }
 
         if (mWorkSource.size() > 0) {
-            return mWorkSource.get(0) + ":" + mWorkSource.getName(0);
+            return mWorkSource.getUid(0) + ":" + mWorkSource.getPackageName(0);
         }
 
-        final ArrayList<WorkChain> workChains = mWorkSource.getWorkChains();
+        final List<WorkChain> workChains = mWorkSource.getWorkChains();
         if (workChains != null && !workChains.isEmpty()) {
             final WorkChain workChain = workChains.get(0);
-            return workChain.getAttributionUid() + ":" + workChain.getTags()[0];
+            return workChain.toString();
         }
 
         return null;
@@ -174,6 +196,7 @@ public class RILRequest {
                                 + serialString());
                     }
                 }
+                mArguments = null;
             }
         }
     }

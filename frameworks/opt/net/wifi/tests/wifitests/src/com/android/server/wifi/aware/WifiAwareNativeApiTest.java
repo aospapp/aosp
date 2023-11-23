@@ -48,6 +48,8 @@ import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -64,7 +66,7 @@ import java.util.ArrayList;
  * Unit test harness for WifiAwareNativeApi
  */
 @SmallTest
-public class WifiAwareNativeApiTest {
+public class WifiAwareNativeApiTest extends WifiBaseTest {
     @Mock WifiAwareNativeManager mWifiAwareNativeManagerMock;
     @Mock IWifiNanIface mIWifiNanIfaceMock;
     @Mock android.hardware.wifi.V1_2.IWifiNanIface mIWifiNanIface12Mock;

@@ -16,22 +16,21 @@
 
 package android.telephony;
 
-import com.android.i18n.phonenumbers.NumberParseException;
-import com.android.i18n.phonenumbers.PhoneNumberUtil;
-import com.android.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
-import com.android.i18n.phonenumbers.Phonenumber.PhoneNumber;
-
 import android.annotation.IntDef;
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.annotation.SystemApi;
+import android.annotation.TestApi;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.database.Cursor;
-import android.location.CountryDetector;
 import android.net.Uri;
 import android.os.PersistableBundle;
-import android.os.SystemProperties;
 import android.provider.Contacts;
 import android.provider.ContactsContract;
+import android.sysprop.TelephonyProperties;
 import android.telecom.PhoneAccount;
 import android.text.Editable;
 import android.text.Spannable;
@@ -40,7 +39,11 @@ import android.text.TextUtils;
 import android.text.style.TtsSpan;
 import android.util.SparseIntArray;
 
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_OPERATOR_IDP_STRING;
+import com.android.i18n.phonenumbers.NumberParseException;
+import com.android.i18n.phonenumbers.PhoneNumberUtil;
+import com.android.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
+import com.android.i18n.phonenumbers.Phonenumber.PhoneNumber;
+import com.android.telephony.Rlog;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -164,6 +167,33 @@ public class PhoneNumberUtils {
         return c == 'w'||c == 'W';
     }
 
+    private static int sMinMatch = 0;
+
+    private static int getMinMatch() {
+        if (sMinMatch == 0) {
+            sMinMatch = Resources.getSystem().getInteger(
+                    com.android.internal.R.integer.config_phonenumber_compare_min_match);
+        }
+        return sMinMatch;
+    }
+
+    /**
+     * A Test API to get current sMinMatch.
+     * @hide
+     */
+    @TestApi
+    public static int getMinMatchForTest() {
+        return getMinMatch();
+    }
+
+    /**
+     * A Test API to set sMinMatch.
+     * @hide
+     */
+    @TestApi
+    public static void setMinMatchForTest(int minMatch) {
+        sMinMatch = minMatch;
+    }
 
     /** Returns true if ch is not dialable or alpha char */
     private static boolean isSeparator(char ch) {
@@ -188,6 +218,9 @@ public class PhoneNumberUtils {
         }
 
         String scheme = uri.getScheme();
+        if (scheme == null) {
+            return null;
+        }
 
         if (scheme.equals("tel") || scheme.equals("sip")) {
             return uri.getSchemeSpecificPart();
@@ -475,7 +508,7 @@ public class PhoneNumberUtils {
      * enough for caller ID purposes.
      *
      * - Compares from right to left
-     * - requires MIN_MATCH (7) characters to match
+     * - requires minimum characters to match
      * - handles common trunk prefixes and international prefixes
      *   (basically, everything except the Russian trunk prefix)
      *
@@ -491,6 +524,7 @@ public class PhoneNumberUtils {
         int matched;
         int numNonDialableCharsInA = 0;
         int numNonDialableCharsInB = 0;
+        int minMatch = getMinMatch();
 
         if (a == null || b == null) return a == b;
 
@@ -530,12 +564,12 @@ public class PhoneNumberUtils {
             }
         }
 
-        if (matched < MIN_MATCH) {
+        if (matched < minMatch) {
             int effectiveALen = a.length() - numNonDialableCharsInA;
             int effectiveBLen = b.length() - numNonDialableCharsInB;
 
 
-            // if the number of dialable chars in a and b match, but the matched chars < MIN_MATCH,
+            // if the number of dialable chars in a and b match, but the matched chars < minMatch,
             // treat them as equal (i.e. 404-04 and 40404)
             if (effectiveALen == effectiveBLen && effectiveALen == matched) {
                 return true;
@@ -545,7 +579,7 @@ public class PhoneNumberUtils {
         }
 
         // At least one string has matched completely;
-        if (matched >= MIN_MATCH && (ia < 0 || ib < 0)) {
+        if (matched >= minMatch && (ia < 0 || ib < 0)) {
             return true;
         }
 
@@ -736,7 +770,7 @@ public class PhoneNumberUtils {
     }
 
     /**
-     * Returns the rightmost MIN_MATCH (5) characters in the network portion
+     * Returns the rightmost minimum matched characters in the network portion
      * in *reversed* order
      *
      * This can be used to do a database lookup against the column
@@ -747,7 +781,7 @@ public class PhoneNumberUtils {
     public static String
     toCallerIDMinMatch(String phoneNumber) {
         String np = extractNetworkPortionAlt(phoneNumber);
-        return internalGetStrippedReversed(np, MIN_MATCH);
+        return internalGetStrippedReversed(np, getMinMatch());
     }
 
     /**
@@ -1709,26 +1743,6 @@ public class PhoneNumberUtils {
         return normalizedDigits.toString();
     }
 
-    // Three and four digit phone numbers for either special services,
-    // or 3-6 digit addresses from the network (eg carrier-originated SMS messages) should
-    // not match.
-    //
-    // This constant used to be 5, but SMS short codes has increased in length and
-    // can be easily 6 digits now days. Most countries have SMS short code length between
-    // 3 to 6 digits. The exceptions are
-    //
-    // Australia: Short codes are six or eight digits in length, starting with the prefix "19"
-    //            followed by an additional four or six digits and two.
-    // Czechia: Codes are seven digits in length for MO and five (not billed) or
-    //            eight (billed) for MT direction
-    //
-    // see http://en.wikipedia.org/wiki/Short_code#Regional_differences for reference
-    //
-    // However, in order to loose match 650-555-1212 and 555-1212, we need to set the min match
-    // to 7.
-    @UnsupportedAppUsage
-    static final int MIN_MATCH = 7;
-
     /**
      * Checks a given number against the list of
      * emergency numbers provided by the RIL and SIM card.
@@ -2016,6 +2030,7 @@ public class PhoneNumberUtils {
     private static boolean isEmergencyNumberInternal(int subId, String number,
                                                      String defaultCountryIso,
                                                      boolean useExactMatch) {
+        // TODO: clean up all the callers that pass in a defaultCountryIso, since it's ignored now.
         try {
             if (useExactMatch) {
                 return TelephonyManager.getDefault().isEmergencyNumber(number);
@@ -2177,18 +2192,7 @@ public class PhoneNumberUtils {
     private static boolean isLocalEmergencyNumberInternal(int subId, String number,
                                                           Context context,
                                                           boolean useExactMatch) {
-        String countryIso;
-        CountryDetector detector = (CountryDetector) context.getSystemService(
-                Context.COUNTRY_DETECTOR);
-        if (detector != null && detector.detectCountry() != null) {
-            countryIso = detector.detectCountry().getCountryIso();
-        } else {
-            Locale locale = context.getResources().getConfiguration().locale;
-            countryIso = locale.getCountry();
-            Rlog.w(LOG_TAG, "No CountryDetector; falling back to countryIso based on locale: "
-                    + countryIso);
-        }
-        return isEmergencyNumberInternal(subId, number, countryIso, useExactMatch);
+        return isEmergencyNumberInternal(subId, number, null /* unused */, useExactMatch);
     }
 
     /**
@@ -2234,8 +2238,10 @@ public class PhoneNumberUtils {
      * to read the VM number.
      * @hide
      */
-    @UnsupportedAppUsage
-    public static boolean isVoiceMailNumber(Context context, int subId, String number) {
+    @SystemApi
+    @TestApi
+    public static boolean isVoiceMailNumber(@NonNull Context context, int subId,
+            @Nullable String number) {
         String vmNumber, mdn;
         try {
             final TelephonyManager tm;
@@ -2641,7 +2647,7 @@ public class PhoneNumberUtils {
             ps = NANP_IDP_STRING;
         } else {
             // in case, there is no IDD is found, we shouldn't convert it.
-            ps = SystemProperties.get(PROPERTY_OPERATOR_IDP_STRING, PLUS_SIGN_STRING);
+            ps = TelephonyProperties.operator_idp_string().orElse(PLUS_SIGN_STRING);
         }
         return ps;
     }
@@ -2721,8 +2727,9 @@ public class PhoneNumberUtils {
      * @param number
      * @return true if number contains @
      */
-    @UnsupportedAppUsage
-    public static boolean isUriNumber(String number) {
+    @SystemApi
+    @TestApi
+    public static boolean isUriNumber(@Nullable String number) {
         // Note we allow either "@" or "%40" to indicate a URI, in case
         // the passed-in string is URI-escaped.  (Neither "@" nor "%40"
         // will ever be found in a legal PSTN number.)
@@ -2739,8 +2746,9 @@ public class PhoneNumberUtils {
      *
      * @hide
      */
-    @UnsupportedAppUsage
-    public static String getUsernameFromUriNumber(String number) {
+    @SystemApi
+    @TestApi
+    public static @NonNull String getUsernameFromUriNumber(@NonNull String number) {
         // The delimiter between username and domain name can be
         // either "@" or "%40" (the URI-escaped equivalent.)
         int delimiterIndex = number.indexOf('@');

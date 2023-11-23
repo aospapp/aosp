@@ -41,11 +41,13 @@ cc_library_shared {
         "-DVK_NO_PROTOTYPES",
         "-fvisibility=hidden",
         "-fstrict-aliasing",
-        "-Weverything",
+        "-Wextra",
         "-Werror",
         "-Wno-padded",
+        "-Wno-sign-compare",
         "-Wno-switch-enum",
-        "-Wno-undef",
+        "-Wno-unused-variable",
+        "-Wno-unused-function",
 
         // Have clang emit complete debug_info.
         "-fstandalone-debug",
@@ -75,7 +77,9 @@ cc_library_shared {
 
     header_libs: [
         "hwvulkan_headers",
+        "libnativeloader-headers",
         "vulkan_headers",
+        "libsurfaceflinger_headers",
     ],
     export_header_lib_headers: ["vulkan_headers"],
     shared_libs: [
@@ -87,7 +91,6 @@ cc_library_shared {
         "libbase",
         "libdl_android",
         "libhidlbase",
-        "libhidltransport",
         "liblog",
         "libui",
         "libgraphicsenv",
@@ -98,6 +101,7 @@ cc_library_shared {
         "libnativeloader_lazy",
         "libnativewindow",
         "android.hardware.graphics.common@1.0",
+        "libSurfaceFlingerProp",
     ],
     static_libs: ["libgrallocusage"],
 }

@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "BufferPoolAccessor"
+#define LOG_TAG "BufferPoolAccessor1.0"
 //#define LOG_NDEBUG 0
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <time.h>
 #include <unistd.h>
 #include <utils/Log.h>
@@ -127,7 +128,6 @@ bool contains(std::map<T, std::set<U>> *mapOfSet, T key, U value) {
     return false;
 }
 
-int32_t Accessor::Impl::sPid = getpid();
 uint32_t Accessor::Impl::sSeqId = time(nullptr);
 
 Accessor::Impl::Impl(
@@ -145,13 +145,19 @@ ResultStatus Accessor::Impl::connect(
     {
         std::lock_guard<std::mutex> lock(mBufferPool.mMutex);
         if (newConnection) {
-            ConnectionId id = (int64_t)sPid << 32 | sSeqId;
+            int32_t pid = getpid();
+            ConnectionId id = (int64_t)pid << 32 | sSeqId;
             status = mBufferPool.mObserver.open(id, fmqDescPtr);
             if (status == ResultStatus::OK) {
                 newConnection->initialize(accessor, id);
                 *connection = newConnection;
                 *pConnectionId = id;
-                ++sSeqId;
+                mBufferPool.mConnectionIds.insert(id);
+                if (sSeqId == UINT32_MAX) {
+                   sSeqId = 0;
+                } else {
+                    ++sSeqId;
+                }
             }
         }
         mBufferPool.processStatusMessages();
@@ -247,7 +253,7 @@ Accessor::Impl::Impl::BufferPool::~BufferPool() {
     ALOGD("Destruction - bufferpool %p "
           "cached: %zu/%zuM, %zu/%d%% in use; "
           "allocs: %zu, %d%% recycled; "
-          "transfers: %zu, %d%% unfetced",
+          "transfers: %zu, %d%% unfetched",
           this, mStats.mBuffersCached, mStats.mSizeCached >> 20,
           mStats.mBuffersInUse, percentage(mStats.mBuffersInUse, mStats.mBuffersCached),
           mStats.mTotalAllocations, percentage(mStats.mTotalRecycles, mStats.mTotalAllocations),
@@ -305,7 +311,12 @@ bool Accessor::Impl::BufferPool::handleTransferTo(const BufferStatusMessage &mes
         found->second->mSenderValidated = true;
         return true;
     }
-    // TODO: verify there is target connection Id
+    if (mConnectionIds.find(message.targetConnectionId) == mConnectionIds.end()) {
+        // N.B: it could be fake or receive connection already closed.
+        ALOGD("bufferpool %p receiver connection %lld is no longer valid",
+              this, (long long)message.targetConnectionId);
+        return false;
+    }
     mStats.onBufferSent();
     mTransactions.insert(std::make_pair(
             message.transactionId,
@@ -450,6 +461,7 @@ bool Accessor::Impl::BufferPool::handleClose(ConnectionId connectionId) {
             }
         }
     }
+    mConnectionIds.erase(connectionId);
     return true;
 }
 

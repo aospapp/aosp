@@ -16,6 +16,10 @@
 
 package com.android.server.wifi;
 
+import android.annotation.Nullable;
+import android.util.Log;
+
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtil;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -32,6 +36,7 @@ import java.util.Map;
  * (XML block data inside <MacAddressMappingList> tag).
  */
 public class RandomizedMacStoreData implements WifiConfigStore.StoreData {
+    private static final String TAG = "RandomizedMacStoreData";
     private static final String XML_TAG_SECTION_HEADER_MAC_ADDRESS_MAP = "MacAddressMap";
     private static final String XML_TAG_MAC_MAP = "MacMapEntry";
 
@@ -40,7 +45,8 @@ public class RandomizedMacStoreData implements WifiConfigStore.StoreData {
     RandomizedMacStoreData() {}
 
     @Override
-    public void serializeData(XmlSerializer out)
+    public void serializeData(XmlSerializer out,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         if (mMacMapping != null) {
             XmlUtil.writeNextValue(out, XML_TAG_MAC_MAP, mMacMapping);
@@ -48,7 +54,9 @@ public class RandomizedMacStoreData implements WifiConfigStore.StoreData {
     }
 
     @Override
-    public void deserializeData(XmlPullParser in, int outerTagDepth)
+    public void deserializeData(XmlPullParser in, int outerTagDepth,
+            @WifiConfigStore.Version int version,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         // Ignore empty reads.
         if (in == null) {
@@ -65,9 +73,10 @@ public class RandomizedMacStoreData implements WifiConfigStore.StoreData {
                     mMacMapping = (Map<String, String>) value;
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown tag under "
+                    Log.w(TAG, "Ignoring unknown tag under "
                             + XML_TAG_SECTION_HEADER_MAC_ADDRESS_MAP
                             + ": " + valueName[0]);
+                    break;
             }
         }
     }

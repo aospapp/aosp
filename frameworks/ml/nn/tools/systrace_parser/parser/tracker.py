@@ -5,6 +5,7 @@
 """
 
 import re
+import sys
 from parser.naming import (subphases, translate_hidl_mark_to_nn_and_tag,
                            get_function_name_from_mark, make_tag)
 from parser.naming import LAYER_CPU, LAYER_DRIVER, LAYER_RUNTIME, LAYER_APPLICATION
@@ -85,6 +86,9 @@ class Tracker(object):
       # TODO(mikie): remove later
       if ("ANeuralNetworksEvent_free" in mark) or ("ANeuralNetworksExecution_free" in mark):
         mark = mark.replace("_PT", "_PE")
+      # Workarounds for trace marker for getSupportedExtensions (fixed in ag/9484333)
+      if ("getSupportedExtensions" in mark):
+        mark = mark.replace("_PC", "_PI")  
       elif ("[SW][NN_LA_PR]executeWithCompilation" in mark):
         mark = mark.replace("[SW]", "")
       if MARKER_SWITCH in mark:
@@ -116,16 +120,19 @@ class Tracker(object):
             self.la_pe_counts.get(self.app_phase.current(), 0) + 1)
       self.mytree.push(time, mark, layer, phase, self.app_phase.current(), subtract)
     elif mark[0] == "E":
-      node = self.mytree.pop(time)
-      if node.is_dummy():  # Dummy item
-        pass
-      else:
-        if node.layer == LAYER_APPLICATION and node.phase in [PHASE_WARMUP, PHASE_BENCHMARK]:
-          self.app_phase.pop()
-        function = node.app_phase + "::" + get_function_name_from_mark(node.mark)
-        self.begins_and_ends_ms[function] = (self.begins_and_ends_ms.get(function, []) +
-                                             [[float(node.start_time_s) * 1000.0,
-                                               float(node.end_time_s) * 1000.0]])
+      try:
+        node = self.mytree.pop(time)
+        if node.is_dummy():  # Dummy item
+          pass
+        else:
+          if node.layer == LAYER_APPLICATION and node.phase in [PHASE_WARMUP, PHASE_BENCHMARK]:
+            self.app_phase.pop()
+          function = node.app_phase + "::" + get_function_name_from_mark(node.mark)
+          self.begins_and_ends_ms[function] = (self.begins_and_ends_ms.get(function, []) +
+                                               [[float(node.start_time_s) * 1000.0,
+                                                 float(node.end_time_s) * 1000.0]])
+      except IndexError as e:
+        raise Exception("Unable to process a trace termination mark, please check that the collected trace are including full application lifecycles.\n") from e
 
   def is_complete(self):
     """ Checks if we've seen all end tracepoints for the begin tracepoints.

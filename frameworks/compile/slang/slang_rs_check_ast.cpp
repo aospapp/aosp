@@ -61,7 +61,7 @@ void RSCheckAST::WarnOnSetElementAt(clang::CallExpr *E) {
   const clang::BuiltinType *ElementTy;
   Ty = ImplCast->getSubExpr()->getType()->getPointeeType()
     ->getUnqualifiedDesugaredType();
-  VectorTy = clang::dyn_cast_or_null<clang::VectorType>(Ty);
+  VectorTy = clang::dyn_cast<clang::VectorType>(Ty);
 
   if (VectorTy) {
     ElementTy = clang::dyn_cast_or_null<clang::BuiltinType>(

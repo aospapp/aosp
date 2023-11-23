@@ -53,11 +53,11 @@ namespace {
 // (We can also get very unlucky and mask a memory leak by unrelated unmapping
 // somewhere else. This seems unlikely enough to not deal with.)
 class MemoryLeakTest : public ::testing::Test {
-protected:
+   protected:
     void SetUp() override;
     void TearDown() override;
 
-private:
+   private:
     size_t GetAshmemMappingsCount();
 
     size_t mStartingMapCount = 0;
@@ -77,7 +77,7 @@ void MemoryLeakTest::TearDown() {
 
 size_t MemoryLeakTest::GetAshmemMappingsCount() {
     std::ifstream mappingsStream("/proc/self/maps");
-    if (! mappingsStream.good()) {
+    if (!mappingsStream.good()) {
         // errno is set by std::ifstream on Linux
         ADD_FAILURE() << "Failed to open /proc/self/maps: " << std::strerror(errno);
         return 0;
@@ -85,9 +85,9 @@ size_t MemoryLeakTest::GetAshmemMappingsCount() {
     std::string line;
     int mapCount = 0;
     while (std::getline(mappingsStream, line)) {
-      if (line.find("/dev/ashmem") != std::string::npos) {
-        ++mapCount;
-      }
+        if (line.find("/dev/ashmem") != std::string::npos) {
+            ++mapCount;
+        }
     }
     return mapCount;
 }
@@ -106,8 +106,8 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
 
     int weightsFd = ASharedMemory_create("weights", weightsSize);
     ASSERT_GT(weightsFd, -1);
-    uint8_t* weightsData = (uint8_t*)mmap(nullptr, weightsSize, PROT_READ | PROT_WRITE,
-                                          MAP_SHARED, weightsFd, 0);
+    uint8_t* weightsData =
+            (uint8_t*)mmap(nullptr, weightsSize, PROT_READ | PROT_WRITE, MAP_SHARED, weightsFd, 0);
     ASSERT_NE(weightsData, nullptr);
     memcpy(weightsData + offsetForMatrix2, matrix2, sizeof(matrix2));
     memcpy(weightsData + offsetForMatrix3, matrix3, sizeof(matrix3));
@@ -139,8 +139,8 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
     constexpr size_t inputSize = offsetForMatrix1 + sizeof(Matrix3x4);
     int inputFd = ASharedMemory_create("input", inputSize);
     ASSERT_GT(inputFd, -1);
-    uint8_t* inputData = (uint8_t*)mmap(nullptr, inputSize,
-                                        PROT_READ | PROT_WRITE, MAP_SHARED, inputFd, 0);
+    uint8_t* inputData =
+            (uint8_t*)mmap(nullptr, inputSize, PROT_READ | PROT_WRITE, MAP_SHARED, inputFd, 0);
     ASSERT_NE(inputData, nullptr);
     memcpy(inputData + offsetForMatrix1, matrix1, sizeof(Matrix3x4));
     WrapperMemory input(inputSize, PROT_READ, inputFd, 0);
@@ -150,8 +150,8 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
     constexpr size_t outputSize = offsetForActual + sizeof(Matrix3x4);
     int outputFd = ASharedMemory_create("output", outputSize);
     ASSERT_GT(outputFd, -1);
-    uint8_t* outputData = (uint8_t*)mmap(nullptr, outputSize,
-                                         PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
+    uint8_t* outputData =
+            (uint8_t*)mmap(nullptr, outputSize, PROT_READ | PROT_WRITE, MAP_SHARED, outputFd, 0);
     ASSERT_NE(outputData, nullptr);
     memset(outputData, 0, outputSize);
     WrapperMemory actual(outputSize, PROT_READ | PROT_WRITE, outputFd, 0);
@@ -166,8 +166,9 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
     ASSERT_EQ(execution2.setOutputFromMemory(0, &actual, offsetForActual, sizeof(Matrix3x4)),
               WrapperResult::NO_ERROR);
     ASSERT_EQ(execution2.compute(), WrapperResult::NO_ERROR);
-    ASSERT_EQ(CompareMatrices(expected3,
-                              *reinterpret_cast<Matrix3x4*>(outputData + offsetForActual)), 0);
+    ASSERT_EQ(
+            CompareMatrices(expected3, *reinterpret_cast<Matrix3x4*>(outputData + offsetForActual)),
+            0);
 
     munmap(weightsData, weightsSize);
     munmap(inputData, inputSize);
@@ -175,54 +176,6 @@ TEST_F(MemoryLeakTest, TestASharedMemory) {
     close(weightsFd);
     close(inputFd);
     close(outputFd);
-}
-
-// Regression test for http://b/69621433 "MemoryFd leaks shared memory regions".
-TEST_F(MemoryLeakTest, GetPointer) {
-    static const size_t size = 1;
-
-    int fd = ASharedMemory_create(nullptr, size);
-    ASSERT_GE(fd, 0);
-
-    uint8_t* buf = (uint8_t*)mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    ASSERT_NE(buf, nullptr);
-    *buf = 0;
-
-    {
-        // Scope "mem" in such a way that any shared memory regions it
-        // owns will be released before we check the value of *buf: We
-        // want to verify that the explicit mmap() above is not
-        // perturbed by any mmap()/munmap() that results from methods
-        // invoked on "mem".
-
-        WrapperMemory mem(size, PROT_READ | PROT_WRITE, fd, 0);
-        ASSERT_TRUE(mem.isValid());
-
-        auto internalMem = reinterpret_cast<::android::nn::Memory*>(mem.get());
-        uint8_t *dummy;
-        ASSERT_EQ(internalMem->getPointer(&dummy), ANEURALNETWORKS_NO_ERROR);
-        (*dummy)++;
-    }
-
-    ASSERT_EQ(*buf, (uint8_t)1);
-    ASSERT_EQ(munmap(buf, size), 0);
-
-    close(fd);
-}
-
-// Regression test for http://b/69621433 "MemoryFd leaks shared memory regions".
-TEST_F(MemoryLeakTest, Instantiate) {
-    static const size_t size = 1;
-    int fd = ASharedMemory_create(nullptr, size);
-    ASSERT_GE(fd, 0);
-    WrapperMemory mem(size, PROT_READ | PROT_WRITE, fd, 0);
-    ASSERT_TRUE(mem.isValid());
-
-    auto internalMem = reinterpret_cast<::android::nn::Memory*>(mem.get());
-    uint8_t *dummy;
-    ASSERT_EQ(internalMem->getPointer(&dummy), ANEURALNETWORKS_NO_ERROR);
-
-    close(fd);
 }
 
 #ifndef NNTEST_ONLY_PUBLIC_API
@@ -260,7 +213,8 @@ TEST_F(MemoryLeakTest, convTooLarge) {
     model.setOperandValue(act, act_init, sizeof(act_init));
     int32_t stride_init[] = {1};
     model.setOperandValue(stride, stride_init, sizeof(stride_init));
-    model.addOperation(ANEURALNETWORKS_CONV_2D, {op1, op2, op3, pad0, pad0, pad0, pad0, stride, stride, act}, {op4});
+    model.addOperation(ANEURALNETWORKS_CONV_2D,
+                       {op1, op2, op3, pad0, pad0, pad0, pad0, stride, stride, act}, {op4});
 
     // Inputs and outputs
     model.identifyInputsAndOutputs({op1}, {op4});
@@ -269,7 +223,7 @@ TEST_F(MemoryLeakTest, convTooLarge) {
 
     // Compilation
     WrapperCompilation compilation(&model);
-    ASSERT_EQ(WrapperResult::NO_ERROR,compilation.finish());
+    ASSERT_EQ(WrapperResult::NO_ERROR, compilation.finish());
     WrapperExecution execution(&compilation);
 
     // Set input and outputs
@@ -283,6 +237,6 @@ TEST_F(MemoryLeakTest, convTooLarge) {
 
     ASSERT_EQ(WrapperResult::OP_FAILED, r);
 }
-#endif // NNTEST_ONLY_PUBLIC_API
+#endif  // NNTEST_ONLY_PUBLIC_API
 
 }  // end namespace

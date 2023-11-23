@@ -16,32 +16,36 @@
 
 package com.android.internal.telephony.dataconnection;
 
+import android.annotation.IntDef;
 import android.content.Context;
 import android.hardware.radio.V1_4.DataConnActiveStatus;
-import android.net.INetworkPolicyListener;
 import android.net.LinkAddress;
-import android.net.LinkProperties.CompareResult;
-import android.net.NetworkPolicyManager;
-import android.net.NetworkUtils;
 import android.os.AsyncResult;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
+import android.os.RegistrantList;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.DataFailCause;
 import android.telephony.PhoneStateListener;
-import android.telephony.Rlog;
 import android.telephony.TelephonyManager;
 import android.telephony.data.DataCallResponse;
 
 import com.android.internal.telephony.DctConstants;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.dataconnection.DataConnection.UpdateLinkPropertyResult;
+import com.android.internal.telephony.util.HandlerExecutor;
+import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+import com.android.net.module.util.LinkPropertiesUtils;
+import com.android.net.module.util.LinkPropertiesUtils.CompareResult;
+import com.android.net.module.util.NetUtils;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,6 +58,24 @@ import java.util.List;
 public class DcController extends StateMachine {
     private static final boolean DBG = true;
     private static final boolean VDBG = false;
+
+    /** Physical link state unknown */
+    public static final int PHYSICAL_LINK_UNKNOWN = 0;
+
+    /** Physical link state inactive (i.e. RRC idle) */
+    public static final int PHYSICAL_LINK_NOT_ACTIVE = 1;
+
+    /** Physical link state active (i.e. RRC connected) */
+    public static final int PHYSICAL_LINK_ACTIVE = 2;
+
+    /** @hide */
+    @IntDef(prefix = { "PHYSICAL_LINK_" }, value = {
+            PHYSICAL_LINK_UNKNOWN,
+            PHYSICAL_LINK_NOT_ACTIVE,
+            PHYSICAL_LINK_ACTIVE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PhysicalLinkState{}
 
     private final Phone mPhone;
     private final DcTracker mDct;
@@ -69,13 +91,22 @@ public class DcController extends StateMachine {
     private DccDefaultState mDccDefaultState = new DccDefaultState();
 
     final TelephonyManager mTelephonyManager;
-    final NetworkPolicyManager mNetworkPolicyManager;
 
     private PhoneStateListener mPhoneStateListener;
 
     //mExecutingCarrierChange tracks whether the phone is currently executing
     //carrier network change
     private volatile boolean mExecutingCarrierChange;
+
+    /**
+     * Aggregated physical link state from all data connections. This reflects the device's RRC
+     * connection state.
+     * // TODO: Instead of tracking the RRC state here, we should make PhysicalChannelConfig work in
+     *          S.
+     */
+    private @PhysicalLinkState int mPhysicalLinkState = PHYSICAL_LINK_UNKNOWN;
+
+    private RegistrantList mPhysicalLinkStateChangedRegistrants = new RegistrantList();
 
     /**
      * Constructor.
@@ -98,7 +129,7 @@ public class DcController extends StateMachine {
         setInitialState(mDccDefaultState);
         log("X ctor");
 
-        mPhoneStateListener = new PhoneStateListener(handler.getLooper()) {
+        mPhoneStateListener = new PhoneStateListener(new HandlerExecutor(handler)) {
             @Override
             public void onCarrierNetworkChange(boolean active) {
                 mExecutingCarrierChange = active;
@@ -107,10 +138,8 @@ public class DcController extends StateMachine {
 
         mTelephonyManager = (TelephonyManager) phone.getContext()
                 .getSystemService(Context.TELEPHONY_SERVICE);
-        mNetworkPolicyManager = (NetworkPolicyManager) phone.getContext()
-                .getSystemService(Context.NETWORK_POLICY_SERVICE);
 
-        mDcTesterDeactivateAll = (Build.IS_DEBUGGABLE)
+        mDcTesterDeactivateAll = (TelephonyUtils.IS_DEBUGGABLE)
                 ? new DcTesterDeactivateAll(mPhone, DcController.this, getHandler())
                 : null;
 
@@ -173,21 +202,6 @@ public class DcController extends StateMachine {
         return mExecutingCarrierChange;
     }
 
-    private final INetworkPolicyListener mListener = new NetworkPolicyManager.Listener() {
-        @Override
-        public void onSubscriptionOverride(int subId, int overrideMask, int overrideValue) {
-            if (mPhone == null || mPhone.getSubId() != subId) return;
-
-            final HashMap<Integer, DataConnection> dcListActiveByCid;
-            synchronized (mDcListAll) {
-                dcListActiveByCid = new HashMap<>(mDcListActiveByCid);
-            }
-            for (DataConnection dc : dcListActiveByCid.values()) {
-                dc.onSubscriptionOverride(overrideMask, overrideValue);
-            }
-        }
-    };
-
     private class DccDefaultState extends State {
         @Override
         public void enter() {
@@ -199,10 +213,6 @@ public class DcController extends StateMachine {
 
             mDataServiceManager.registerForDataCallListChanged(getHandler(),
                     DataConnection.EVENT_DATA_STATE_CHANGED);
-
-            if (mNetworkPolicyManager != null) {
-                mNetworkPolicyManager.registerListener(mListener);
-            }
         }
 
         @Override
@@ -215,9 +225,6 @@ public class DcController extends StateMachine {
 
             if (mDcTesterDeactivateAll != null) {
                 mDcTesterDeactivateAll.dispose();
-            }
-            if (mNetworkPolicyManager != null) {
-                mNetworkPolicyManager.unregisterListener(mListener);
             }
         }
 
@@ -348,15 +355,21 @@ public class DcController extends StateMachine {
                         if (result.oldLp.equals(result.newLp)) {
                             if (DBG) log("onDataStateChanged: no change");
                         } else {
-                            if (result.oldLp.isIdenticalInterfaceName(result.newLp)) {
-                                if (! result.oldLp.isIdenticalDnses(result.newLp) ||
-                                        ! result.oldLp.isIdenticalRoutes(result.newLp) ||
-                                        ! result.oldLp.isIdenticalHttpProxy(result.newLp) ||
-                                        ! result.oldLp.isIdenticalAddresses(result.newLp)) {
+                            if (LinkPropertiesUtils.isIdenticalInterfaceName(
+                                    result.oldLp, result.newLp)) {
+                                if (!LinkPropertiesUtils.isIdenticalDnses(
+                                        result.oldLp, result.newLp)
+                                        || !LinkPropertiesUtils.isIdenticalRoutes(
+                                                result.oldLp, result.newLp)
+                                        || !LinkPropertiesUtils.isIdenticalHttpProxy(
+                                                result.oldLp, result.newLp)
+                                        || !LinkPropertiesUtils.isIdenticalAddresses(
+                                                result.oldLp, result.newLp)) {
                                     // If the same address type was removed and
                                     // added we need to cleanup
                                     CompareResult<LinkAddress> car =
-                                        result.oldLp.compareAddresses(result.newLp);
+                                            LinkPropertiesUtils.compareAddresses(result.oldLp,
+                                                    result.newLp);
                                     if (DBG) {
                                         log("onDataStateChanged: oldLp=" + result.oldLp +
                                                 " newLp=" + result.newLp + " car=" + car);
@@ -364,7 +377,7 @@ public class DcController extends StateMachine {
                                     boolean needToClean = false;
                                     for (LinkAddress added : car.added) {
                                         for (LinkAddress removed : car.removed) {
-                                            if (NetworkUtils.addressTypeMatches(
+                                            if (NetUtils.addressTypeMatches(
                                                     removed.getAddress(),
                                                     added.getAddress())) {
                                                 needToClean = true;
@@ -411,24 +424,33 @@ public class DcController extends StateMachine {
                 }
             }
 
-            if (isAnyDataCallDormant && !isAnyDataCallActive) {
-                // There is no way to indicate link activity per APN right now. So
-                // Link Activity will be considered dormant only when all data calls
-                // are dormant.
-                // If a single data call is in dormant state and none of the data
-                // calls are active broadcast overall link state as dormant.
-                if (DBG) {
-                    log("onDataStateChanged: Data Activity updated to DORMANT. stopNetStatePoll");
+            if (mDataServiceManager.getTransportType()
+                    == AccessNetworkConstants.TRANSPORT_TYPE_WWAN) {
+                int physicalLinkState = isAnyDataCallActive
+                        ? PHYSICAL_LINK_ACTIVE : PHYSICAL_LINK_NOT_ACTIVE;
+                if (mPhysicalLinkState != physicalLinkState) {
+                    mPhysicalLinkState = physicalLinkState;
+                    mPhysicalLinkStateChangedRegistrants.notifyResult(mPhysicalLinkState);
                 }
-                mDct.sendStopNetStatPoll(DctConstants.Activity.DORMANT);
-            } else {
-                if (DBG) {
-                    log("onDataStateChanged: Data Activity updated to NONE. " +
-                            "isAnyDataCallActive = " + isAnyDataCallActive +
-                            " isAnyDataCallDormant = " + isAnyDataCallDormant);
-                }
-                if (isAnyDataCallActive) {
-                    mDct.sendStartNetStatPoll(DctConstants.Activity.NONE);
+                if (isAnyDataCallDormant && !isAnyDataCallActive) {
+                    // There is no way to indicate link activity per APN right now. So
+                    // Link Activity will be considered dormant only when all data calls
+                    // are dormant.
+                    // If a single data call is in dormant state and none of the data
+                    // calls are active broadcast overall link state as dormant.
+                    if (DBG) {
+                        log("onDataStateChanged: Data activity DORMANT. stopNetStatePoll");
+                    }
+                    mDct.sendStopNetStatPoll(DctConstants.Activity.DORMANT);
+                } else {
+                    if (DBG) {
+                        log("onDataStateChanged: Data Activity updated to NONE. "
+                                + "isAnyDataCallActive = " + isAnyDataCallActive
+                                + " isAnyDataCallDormant = " + isAnyDataCallDormant);
+                    }
+                    if (isAnyDataCallActive) {
+                        mDct.sendStartNetStatPoll(DctConstants.Activity.NONE);
+                    }
                 }
             }
 
@@ -450,6 +472,25 @@ public class DcController extends StateMachine {
 
             if (VDBG) log("onDataStateChanged: X");
         }
+    }
+
+    /**
+     * Register for physical link state (i.e. RRC state) changed event.
+     *
+     * @param h The handler
+     * @param what The event
+     */
+    public void registerForPhysicalLinkStateChanged(Handler h, int what) {
+        mPhysicalLinkStateChangedRegistrants.addUnique(h, what, null);
+    }
+
+    /**
+     * Unregister from physical link state (i.e. RRC state) changed event.
+     *
+     * @param h The previously registered handler
+     */
+    public void unregisterForPhysicalLinkStateChanged(Handler h) {
+        mPhysicalLinkStateChangedRegistrants.remove(h);
     }
 
     /**

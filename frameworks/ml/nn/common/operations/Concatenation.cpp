@@ -14,12 +14,21 @@
  * limitations under the License.
  */
 
+#include "OperationsUtils.h"
+#define LOG_TAG "Operations"
+
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/legacy_reference_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/reference_ops.h>
+#include <tensorflow/lite/kernels/internal/types.h>
+
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
-
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-#include "tensorflow/lite/kernels/internal/reference/legacy_reference_ops.h"
-
 #include "Tracing.h"
 
 namespace android {
@@ -33,6 +42,8 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+using namespace hal;
+
 template <typename T>
 bool concatenation(const std::vector<const T*>& inputDataPtrs,
                    const std::vector<Shape>& inputShapes, int32_t axis, T* outputData,
@@ -40,7 +51,7 @@ bool concatenation(const std::vector<const T*>& inputDataPtrs,
     NNTRACE_TRANS("concatenation");
     int num_inputs = inputShapes.size();
     std::vector<tflite::Dims<4>*> inputDimsPtr(num_inputs);
-    std::vector<tflite::Dims<4> > inputDims(num_inputs);
+    std::vector<tflite::Dims<4>> inputDims(num_inputs);
     for (int i = 0; i < num_inputs; i++) {
         inputDims[i] = convertShapeToDims(inputShapes[i]);
         inputDimsPtr[i] = &inputDims[i];
@@ -62,7 +73,7 @@ bool concatenation<uint8_t>(const std::vector<const uint8_t*>& inputDataPtrs,
     std::vector<float> inputScales(num_inputs);
     std::vector<int32> inputOffsets(num_inputs);
     std::vector<tflite::Dims<4>*> inputDimsPtr(num_inputs);
-    std::vector<tflite::Dims<4> > inputDims(num_inputs);
+    std::vector<tflite::Dims<4>> inputDims(num_inputs);
     for (int i = 0; i < num_inputs; i++) {
         inputScales[i] = inputShapes[i].scale;
         inputOffsets[i] = inputShapes[i].offset;
@@ -95,6 +106,36 @@ inline bool concatenation(IOperationExecutionContext* context) {
                          context->getOutputShape(kOutputTensor));
 }
 
+template <>
+inline bool concatenation<int8_t>(IOperationExecutionContext* context) {
+    uint32_t inputCount = context->getNumInputs() - 1;
+    std::vector<std::vector<uint8_t>> inputs_uint8(inputCount);
+    for (int i = 0; i < inputCount; ++i) {
+        const auto currentSize = getNumberOfElements(context->getInputShape(i));
+        inputs_uint8[i].resize(currentSize);
+        if (currentSize != 0) {
+            convertInt8ToUInt8(context->getInputBuffer<int8_t>(i), &inputs_uint8[i]);
+        }
+    }
+    std::vector<const uint8_t*> inputDatas;
+    std::vector<Shape> inputShapes;
+    for (uint32_t i = 0; i < inputCount; ++i) {
+        inputDatas.push_back(inputs_uint8[i].data());
+        inputShapes.push_back(context->getInputShape(i));
+        inputShapes[i].offset += 128;
+    }
+
+    std::vector<uint8_t> output_uint8(getNumberOfElements(context->getOutputShape(kOutputTensor)));
+    Shape outputShape(context->getOutputShape(kOutputTensor));
+    outputShape.offset += 128;
+    NN_RET_CHECK(concatenation(inputDatas, inputShapes, context->getInputValue<int32_t>(inputCount),
+                               output_uint8.data(), outputShape));
+
+    convertUInt8ToInt8(output_uint8, context->getOutputBuffer<int8_t>(kOutputTensor));
+
+    return true;
+}
+
 }  // namespace
 
 bool validate(const IOperationValidationContext* context) {
@@ -106,6 +147,8 @@ bool validate(const IOperationValidationContext* context) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_0));
     } else if (inputType == OperandType::TENSOR_FLOAT16) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
     }
@@ -120,6 +163,12 @@ bool validate(const IOperationValidationContext* context) {
             NN_RET_CHECK_EQ(input.offset, output.offset);
         }
     }
+    for (uint32_t i = 0; i < inputCount - 1; ++i) {
+        const uint32_t inputRank = getNumberOfDimensions(context->getInputShape(i));
+        if (inputRank != 0) {
+            NN_RET_CHECK_LE(inputRank, 4);
+        }
+    }
     return validateInputTypes(context, inExpectedTypes) &&
            validateOutputTypes(context, {inputType});
 }
@@ -132,6 +181,7 @@ bool prepare(IOperationExecutionContext* context) {
     int32_t axis = context->getInputValue<int32_t>(numInputs - 1);
     NN_RET_CHECK_GE(axis, 0);
     NN_RET_CHECK_LT(axis, numDimensions);
+    NN_RET_CHECK_LE(numDimensions, 4);
 
     uint32_t sumAxis = getSizeOfDimension(input0, axis);
     for (uint32_t i = 1; i < numInputs - 1; ++i) {
@@ -164,6 +214,8 @@ bool execute(IOperationExecutionContext* context) {
             return concatenation<float>(context);
         case OperandType::TENSOR_QUANT8_ASYMM:
             return concatenation<uint8_t>(context);
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return concatenation<int8_t>(context);
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
     }

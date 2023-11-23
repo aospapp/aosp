@@ -25,7 +25,7 @@ import android.util.SparseArray;
 import android.util.Xml;
 
 import com.android.internal.util.FastXmlSerializer;
-import com.android.server.net.IpConfigStore;
+import com.android.server.wifi.util.IpConfigStore;
 import com.android.server.wifi.util.NativeUtil;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 import com.android.server.wifi.util.XmlUtil;
@@ -81,7 +81,7 @@ public class WifiBackupRestore {
      * Note that bumping up only the minor version will still allow restoring the backup set to
      * lower versions of SDK_INT.
      */
-    private static final float CURRENT_BACKUP_DATA_VERSION = 1.1f;
+    private static final int CURRENT_BACKUP_DATA_MAJOR_VERSION = 1;
 
     /** This list of older versions will be used to restore data from older backups. */
     /**
@@ -128,9 +128,33 @@ public class WifiBackupRestore {
     private byte[] mDebugLastBackupDataRetrieved;
     private byte[] mDebugLastBackupDataRestored;
     private byte[] mDebugLastSupplicantBackupDataRestored;
+    private byte[] mDebugLastIpConfigBackupDataRestored;
 
     public WifiBackupRestore(WifiPermissionsUtil wifiPermissionsUtil) {
         mWifiPermissionsUtil = wifiPermissionsUtil;
+    }
+
+    /**
+     * Retrieve the version for serialization.
+     */
+    private Float getVersion() {
+        WifiBackupDataParser parser =
+                getWifiBackupDataParser(CURRENT_BACKUP_DATA_MAJOR_VERSION);
+        if (parser == null) {
+            Log.e(TAG, "Major version of backup data is unknown to this Android"
+                    + " version; not backing up");
+            return null;
+        }
+        int minorVersion = parser.getHighestSupportedMinorVersion();
+        Float version;
+        try {
+            version = Float.valueOf(
+                    CURRENT_BACKUP_DATA_MAJOR_VERSION + "." + minorVersion);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Failed to generate version", e);
+            return null;
+        }
+        return version;
     }
 
     /**
@@ -154,7 +178,9 @@ public class WifiBackupRestore {
             // Start writing the XML stream.
             XmlUtil.writeDocumentStart(out, XML_TAG_DOCUMENT_HEADER);
 
-            XmlUtil.writeNextValue(out, XML_TAG_VERSION, CURRENT_BACKUP_DATA_VERSION);
+            Float version = getVersion();
+            if (version == null) return null;
+            XmlUtil.writeNextValue(out, XML_TAG_VERSION, version.floatValue());
 
             writeNetworkConfigurationsToXml(out, configurations);
 
@@ -189,7 +215,7 @@ public class WifiBackupRestore {
             }
             if (!mWifiPermissionsUtil.checkConfigOverridePermission(configuration.creatorUid)) {
                 Log.d(TAG, "Ignoring network from an app with no config override permission: "
-                        + configuration.configKey());
+                        + configuration.getKey());
                 continue;
             }
             // Write this configuration data now.
@@ -342,6 +368,7 @@ public class WifiBackupRestore {
 
         if (mVerboseLoggingEnabled) {
             mDebugLastSupplicantBackupDataRestored = supplicantData;
+            mDebugLastIpConfigBackupDataRestored = ipConfigData;
         }
 
         SupplicantBackupMigration.SupplicantNetworks supplicantNetworks =
@@ -369,7 +396,7 @@ public class WifiBackupRestore {
                     int id = networks.keyAt(i);
                     for (WifiConfiguration configuration : configurations) {
                         // This is a dangerous lookup, but that's how it is currently written.
-                        if (configuration.configKey().hashCode() == id) {
+                        if (configuration.getKey().hashCode() == id) {
                             configuration.setIpConfiguration(networks.valueAt(i));
                         }
                     }
@@ -394,6 +421,7 @@ public class WifiBackupRestore {
             mDebugLastBackupDataRetrieved = null;
             mDebugLastBackupDataRestored = null;
             mDebugLastSupplicantBackupDataRestored = null;
+            mDebugLastIpConfigBackupDataRestored = null;
         }
     }
 
@@ -415,9 +443,13 @@ public class WifiBackupRestore {
                     + createLogFromBackupData(mDebugLastBackupDataRestored));
         }
         if (mDebugLastSupplicantBackupDataRestored != null) {
-            pw.println("Last old backup data restored: "
+            pw.println("Last old supplicant backup data restored: "
                     + SupplicantBackupMigration.createLogFromBackupData(
                             mDebugLastSupplicantBackupDataRestored));
+        }
+        if (mDebugLastIpConfigBackupDataRestored != null) {
+            pw.println("Last old ipconfig backup data restored: "
+                    + mDebugLastIpConfigBackupDataRestored);
         }
     }
 
@@ -434,6 +466,8 @@ public class WifiBackupRestore {
         public static final String SUPPLICANT_KEY_SSID = WifiConfiguration.ssidVarName;
         public static final String SUPPLICANT_KEY_HIDDEN = WifiConfiguration.hiddenSSIDVarName;
         public static final String SUPPLICANT_KEY_KEY_MGMT = WifiConfiguration.KeyMgmt.varName;
+        public static final String SUPPLICANT_KEY_AUTH_ALG =
+                WifiConfiguration.AuthAlgorithm.varName;
         public static final String SUPPLICANT_KEY_CLIENT_CERT =
                 WifiEnterpriseConfig.CLIENT_CERT_KEY;
         public static final String SUPPLICANT_KEY_CA_CERT = WifiEnterpriseConfig.CA_CERT_KEY;
@@ -503,6 +537,7 @@ public class WifiBackupRestore {
             private String mParsedSSIDLine;
             private String mParsedHiddenLine;
             private String mParsedKeyMgmtLine;
+            private String mParsedAuthAlgLine;
             private String mParsedPskLine;
             private String[] mParsedWepKeyLines = new String[4];
             private String mParsedWepTxKeyIdxLine;
@@ -549,6 +584,8 @@ public class WifiBackupRestore {
                     if (line.contains("EAP")) {
                         isEap = true;
                     }
+                } else if (line.startsWith(SUPPLICANT_KEY_AUTH_ALG + "=")) {
+                    mParsedAuthAlgLine = line;
                 } else if (line.startsWith(SUPPLICANT_KEY_CLIENT_CERT + "=")) {
                     certUsed = true;
                 } else if (line.startsWith(SUPPLICANT_KEY_CA_CERT + "=")) {
@@ -619,7 +656,23 @@ public class WifiBackupRestore {
                         } else if (ktype.equals("IEEE8021X")) {
                             configuration.allowedKeyManagement.set(
                                     WifiConfiguration.KeyMgmt.IEEE8021X);
+                        } else if (ktype.equals("WAPI-PSK")) {
+                            configuration.allowedKeyManagement.set(
+                                    WifiConfiguration.KeyMgmt.WAPI_PSK);
+                        } else if (ktype.equals("WAPI-CERT")) {
+                            configuration.allowedKeyManagement.set(
+                                    WifiConfiguration.KeyMgmt.WAPI_CERT);
                         }
+                    }
+                }
+                if (mParsedAuthAlgLine != null) {
+                    if (mParsedAuthAlgLine.contains("OPEN")) {
+                        configuration.allowedAuthAlgorithms.set(
+                                WifiConfiguration.AuthAlgorithm.OPEN);
+                    }
+                    if (mParsedAuthAlgLine.contains("SHARED")) {
+                        configuration.allowedAuthAlgorithms.set(
+                                WifiConfiguration.AuthAlgorithm.SHARED);
                     }
                 }
                 if (mParsedPskLine != null) {
@@ -666,11 +719,11 @@ public class WifiBackupRestore {
                             Log.e(TAG, "Configuration key was not passed, ignoring network.");
                             return null;
                         }
-                        if (!configKey.equals(configuration.configKey())) {
+                        if (!configKey.equals(configuration.getKey())) {
                             // ConfigKey mismatches are expected for private networks because the
                             // UID is not preserved across backup/restore.
                             Log.w(TAG, "Configuration key does not match. Retrieved: " + configKey
-                                    + ", Calculated: " + configuration.configKey());
+                                    + ", Calculated: " + configuration.getKey());
                         }
                         // For wpa_supplicant backup data, parse out the creatorUid to ensure that
                         // these networks were created by system apps.
@@ -679,7 +732,7 @@ public class WifiBackupRestore {
                                         SupplicantStaNetworkHal.ID_STRING_KEY_CREATOR_UID));
                         if (creatorUid >= Process.FIRST_APPLICATION_UID) {
                             Log.d(TAG, "Ignoring network from non-system app: "
-                                    + configuration.configKey());
+                                    + configuration.getKey());
                             return null;
                         }
                     }
@@ -741,7 +794,7 @@ public class WifiBackupRestore {
                     try {
                         WifiConfiguration wifiConfiguration = net.createWifiConfiguration();
                         if (wifiConfiguration != null) {
-                            Log.v(TAG, "Parsed Configuration: " + wifiConfiguration.configKey());
+                            Log.v(TAG, "Parsed Configuration: " + wifiConfiguration.getKey());
                             wifiConfigurations.add(wifiConfiguration);
                         }
                     } catch (NumberFormatException e) {

@@ -25,9 +25,10 @@ limitations under the License.
 #include <algorithm>
 #include <type_traits>
 
+#include <tensorflow/core/lib/bfloat16/bfloat16.h>
+#include <unsupported/Eigen/CXX11/Tensor>
+
 #include "philox_random.h"
-#include "tensorflow/core/lib/bfloat16/bfloat16.h"
-#include "unsupported/Eigen/CXX11/Tensor"
 
 namespace tensorflow {
 namespace random {

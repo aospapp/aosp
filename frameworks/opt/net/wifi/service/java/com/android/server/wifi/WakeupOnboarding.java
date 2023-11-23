@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.format.DateUtils;
@@ -93,12 +92,12 @@ public class WakeupOnboarding {
     public WakeupOnboarding(
             Context context,
             WifiConfigManager wifiConfigManager,
-            Looper looper,
+            Handler handler,
             FrameworkFacade frameworkFacade,
             WakeupNotificationFactory wakeupNotificationFactory) {
         mContext = context;
         mWifiConfigManager = wifiConfigManager;
-        mHandler = new Handler(looper);
+        mHandler = handler;
         mFrameworkFacade = frameworkFacade;
         mWakeupNotificationFactory = wakeupNotificationFactory;
 

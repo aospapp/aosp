@@ -29,6 +29,7 @@ import android.graphics.Paint;
 
 import java.awt.Font;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -77,10 +78,20 @@ public class FontFamily_Builder_Delegate {
 
     @LayoutlibDelegate
     /*package*/ static void nAddFont(long builderPtr, long fontPtr) {
-        FontFamily_Builder_Delegate builder = sBuilderManager.getDelegate(builderPtr);
-        Font_Builder_Delegate font = Font_Builder_Delegate.sBuilderManager.getDelegate(fontPtr);
-        if (builder != null && font != null) {
-            builder.addFont(font.mBuffer, font.mTtcIndex, font.mWeight, font.mItalic);
+        FontFamily_Builder_Delegate familyBuilder = sBuilderManager.getDelegate(builderPtr);
+        Font_Builder_Delegate fontBuilder = Font_Builder_Delegate.sBuilderManager.getDelegate(fontPtr);
+        if (familyBuilder == null || fontBuilder == null) {
+            return;
+        }
+        Font font;
+        if (fontBuilder.filePath.equals("")) {
+            font = loadFontBuffer(fontBuilder.mBuffer);
+
+        } else {
+            font = loadFontPath(fontBuilder.filePath);
+        }
+        if (font != null) {
+            familyBuilder.addFont(font, fontBuilder.mWeight, fontBuilder.mItalic);
         }
     }
 
@@ -159,16 +170,7 @@ public class FontFamily_Builder_Delegate {
 
     // ---- private helper methods ----
 
-    private void addFont(final ByteBuffer buffer, int ttcIndex, int weight, boolean italic) {
-        addFont(buffer, weight, italic);
-    }
-
-    private void addFont(@NonNull ByteBuffer buffer, int weight, boolean italic) {
-        // Set valid to true, even if the font fails to load.
-        Font font = loadFont(buffer);
-        if (font == null) {
-            return;
-        }
+    private void addFont(@NonNull Font font, int weight, boolean italic) {
         FontInfo fontInfo = new FontInfo();
         fontInfo.mFont = font;
         fontInfo.mWeight = weight;
@@ -180,15 +182,27 @@ public class FontFamily_Builder_Delegate {
         mFonts.putIfAbsent(fontInfo, fontInfo.mFont);
     }
 
-    private static Font loadFont(@NonNull ByteBuffer buffer) {
+    private static Font loadFontBuffer(@NonNull ByteBuffer buffer) {
         try {
             byte[] byteArray = new byte[buffer.limit()];
-            buffer.get(byteArray);
             buffer.rewind();
+            buffer.get(byteArray);
             return Font.createFont(Font.TRUETYPE_FONT, new ByteArrayInputStream(byteArray));
         } catch (Exception e) {
             Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN, "Unable to load font",
-                    e, null);
+                    e, null, null);
+        }
+
+        return null;
+    }
+
+    private static Font loadFontPath(@NonNull String path) {
+        try {
+            File file = new File(path);
+            return Font.createFont(Font.TRUETYPE_FONT, file);
+        } catch (Exception e) {
+            Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN, "Unable to load font",
+                    e, null, null);
         }
 
         return null;

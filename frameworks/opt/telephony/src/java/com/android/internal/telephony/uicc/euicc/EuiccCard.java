@@ -25,7 +25,6 @@ import android.os.Registrant;
 import android.os.RegistrantList;
 import android.service.carrier.CarrierIdentifier;
 import android.service.euicc.EuiccProfileInfo;
-import android.telephony.Rlog;
 import android.telephony.SubscriptionInfo;
 import android.telephony.UiccAccessRule;
 import android.telephony.euicc.EuiccCardManager;
@@ -53,6 +52,7 @@ import com.android.internal.telephony.uicc.euicc.apdu.RequestBuilder;
 import com.android.internal.telephony.uicc.euicc.apdu.RequestProvider;
 import com.android.internal.telephony.uicc.euicc.async.AsyncResultCallback;
 import com.android.internal.telephony.uicc.euicc.async.AsyncResultHelper;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -99,6 +99,9 @@ public class EuiccCard extends UiccCard {
     private static final String DEV_CAP_EUTRAN = "eutran";
     private static final String DEV_CAP_NFC = "nfc";
     private static final String DEV_CAP_CRL = "crl";
+    private static final String DEV_CAP_NREPC = "nrepc";
+    private static final String DEV_CAP_NR5GC = "nr5gc";
+    private static final String DEV_CAP_EUTRAN5GC = "eutran5gc";
 
     // These interfaces are used for simplifying the code by leveraging lambdas.
     private interface ApduRequestBuilder {
@@ -752,17 +755,62 @@ public class EuiccCard extends UiccCard {
         sendApdu(
                 newRequestProvider((RequestBuilder requestBuilder) -> {
                     Asn1Node bppNode = new Asn1Decoder(boundProfilePackage).nextNode();
+                    int actualLength = bppNode.getDataLength();
+                    int segmentedLength = 0;
                     // initialiseSecureChannelRequest (ES8+.InitialiseSecureChannel)
                     Asn1Node initialiseSecureChannelRequest = bppNode.getChild(
                             Tags.TAG_INITIALISE_SECURE_CHANNEL);
+                    segmentedLength += initialiseSecureChannelRequest.getEncodedLength();
                     // firstSequenceOf87 (ES8+.ConfigureISDP)
                     Asn1Node firstSequenceOf87 = bppNode.getChild(Tags.TAG_CTX_COMP_0);
+                    segmentedLength += firstSequenceOf87.getEncodedLength();
                     // sequenceOf88 (ES8+.StoreMetadata)
                     Asn1Node sequenceOf88 = bppNode.getChild(Tags.TAG_CTX_COMP_1);
                     List<Asn1Node> metaDataSeqs = sequenceOf88.getChildren(Tags.TAG_CTX_8);
-                    // sequenceOf86 (ES8+.LoadProfileElements #1)
+                    segmentedLength += sequenceOf88.getEncodedLength();
+                    // secondSequenceOf87 (ES8+.ReplaceSessionKeys), optional
+                    Asn1Node secondSequenceOf87 = null;
+                    if (bppNode.hasChild(Tags.TAG_CTX_COMP_2)) {
+                        secondSequenceOf87 = bppNode.getChild(Tags.TAG_CTX_COMP_2);
+                        segmentedLength += secondSequenceOf87.getEncodedLength();
+                    }
+                    // sequenceOf86 (ES8+.LoadProfileElements)
                     Asn1Node sequenceOf86 = bppNode.getChild(Tags.TAG_CTX_COMP_3);
                     List<Asn1Node> elementSeqs = sequenceOf86.getChildren(Tags.TAG_CTX_6);
+                    segmentedLength += sequenceOf86.getEncodedLength();
+
+                    if (mSpecVersion.compareTo(SGP22_V_2_1) >= 0) {
+                        // Per SGP.22 v2.1+ section 2.5.5, it's the LPA's job to "segment" the BPP
+                        // before sending it to the eUICC. This check was only instituted in SGP.22
+                        // v2.1 and higher. SGP.22 v2.0 doesn't mention this "segmentation" process
+                        // at all, or what the LPA should do in the case of unrecognized or missing
+                        // tags. Per section 3.1.3.3: "If the LPAd is unable to perform the
+                        // segmentation (e.g., because of an error in the BPP structure), ... the
+                        // LPAd SHALL perform the Sub-procedure "Profile Download and installation -
+                        // Download rejection" with reason code 'Load BPP execution error'." This
+                        // implies that if we detect an invalid BPP, we should short-circuit before
+                        // sending anything to the eUICC. There are two cases to account for:
+                        if (elementSeqs == null || elementSeqs.isEmpty()) {
+                            // 1. The BPP is missing a required tag. Upon calling bppNode.getChild,
+                            // an exception will occur if the expected tag is missing, though we
+                            // should make sure that the sequences are non-empty when appropriate as
+                            // well. A profile with no profile elements is invalid. This is
+                            // explicitly tested by SGP.23 case 4.4.25.2.1_03.
+                            throw new EuiccCardException("No profile elements in BPP");
+                        } else if (actualLength != segmentedLength) {
+                            // 2. The BPP came with extraneous tags other than what the spec
+                            // mandates. We keep track of the total length of the BPP and compare it
+                            // to the length of the segments we care about. If they're different,
+                            // we'll throw an exception to indicate this. This is explicitly tested
+                            // by SGP.23 case 4.4.25.2.1_05.
+                            throw new EuiccCardException(
+                                    "Actual BPP length ("
+                                            + actualLength
+                                            + ") does not match segmented length ("
+                                            + segmentedLength
+                                            + "), this must be due to a malformed BPP");
+                        }
+                    }
 
                     requestBuilder.addStoreData(bppNode.getHeadAsHex()
                             + initialiseSecureChannelRequest.toHex());
@@ -775,8 +823,8 @@ public class EuiccCard extends UiccCard {
                         requestBuilder.addStoreData(metaDataSeqs.get(i).toHex());
                     }
 
-                    if (bppNode.hasChild(Tags.TAG_CTX_COMP_2)) {
-                        requestBuilder.addStoreData(bppNode.getChild(Tags.TAG_CTX_COMP_2).toHex());
+                    if (secondSequenceOf87 != null) {
+                        requestBuilder.addStoreData(secondSequenceOf87.toHex());
                     }
 
                     requestBuilder.addStoreData(sequenceOf86.getHeadAsHex());
@@ -1013,6 +1061,15 @@ public class EuiccCard extends UiccCard {
                 break;
             case DEV_CAP_CRL:
                 devCapBuilder.addChildAsBytes(Tags.TAG_CTX_7, versionBytes);
+                break;
+            case DEV_CAP_NREPC:
+                devCapBuilder.addChildAsBytes(Tags.TAG_CTX_9, versionBytes);
+                break;
+            case DEV_CAP_NR5GC:
+                devCapBuilder.addChildAsBytes(Tags.TAG_CTX_10, versionBytes);
+                break;
+            case DEV_CAP_EUTRAN5GC:
+                devCapBuilder.addChildAsBytes(Tags.TAG_CTX_11, versionBytes);
                 break;
             default:
                 loge("Invalid device capability name: " + devCap);

@@ -91,14 +91,13 @@ public class StatusBar extends CustomBar {
 
         if (icons.size() != 2 || clockView == null) {
             Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to initialize statusbar", null,
-                    null);
+                    null, null);
             return;
         }
 
         // Cannot access the inside items through id because no R.id values have been
         // created for them.
         // We do know the order though.
-        // 0 is the spacer
         loadIcon(icons.get(0), "stat_sys_wifi_signal_4_fully."
                         + Config.getWifiIconType(simulatedPlatformVersion), density);
         loadIcon(icons.get(1), "stat_sys_battery_100.png", density);
@@ -128,10 +127,10 @@ public class StatusBar extends CustomBar {
                         Drawable.createFromXml(mContext.getResources(), parser));
             } catch (XmlPullParserException e) {
                 Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
-                        null);
+                        null, null);
             } catch (IOException e) {
                 Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
-                        null);
+                        null, null);
             }
         }
 

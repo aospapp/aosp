@@ -223,7 +223,8 @@ public class BidiRenderer {
 
     private static void logFontWarning() {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN,
-                "Some fonts could not be loaded. The rendering may not be perfect.", null, null);
+                "Some fonts could not be loaded. The rendering may not be perfect.", null, null,
+                null);
     }
 
     /**

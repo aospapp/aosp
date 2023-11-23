@@ -8,26 +8,7 @@ libraries.
 The easiest way to run tests is simply run
 
 ```
-frameworks/opt/net/wifi/tests/wifitests/runtests.sh
-```
-
-`runtests.sh` will build the test project and all of its dependencies and push the APK to the
-connected device. It will then run the tests on the device.
-
-See below for a few example of options to limit which tests are run.
-See the
-[AndroidJUnitRunner Documentation](https://developer.android.com/reference/android/support/test/runner/AndroidJUnitRunner.html)
-for more details on the supported options.
-
-```
-runtests.sh -e package com.android.server.wifi.util
-runtests.sh -e class com.android.server.wifi.WifiServiceImplTest
-```
-
-If you manually build and push the test APK to the device you can run tests using
-
-```
-adb shell am instrument -w 'com.android.server.wifi.test/androidx.test.runner.AndroidJUnitRunner'
+atest com.android.server.wifi
 ```
 
 ## Adding Tests

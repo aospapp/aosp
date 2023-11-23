@@ -20,9 +20,9 @@
 
 #include "include/CallbackDataSource.h"
 
+#include <android/IDataSource.h>
 #include <binder/IMemory.h>
 #include <binder/IPCThreadState.h>
-#include <media/IDataSource.h>
 #include <media/stagefright/foundation/ADebug.h>
 
 #include <algorithm>
@@ -81,7 +81,8 @@ ssize_t CallbackDataSource::readAt(off64_t offset, void* data, size_t size) {
             return ERROR_OUT_OF_RANGE;
         }
         CHECK(numRead >= 0 && (size_t)numRead <= bufferSize);
-        memcpy(((uint8_t*)data) + totalNumRead, mMemory->pointer(), numRead);
+        memcpy(((uint8_t*)data) + totalNumRead, mMemory->unsecurePointer(),
+            numRead);
         numLeft -= numRead;
         totalNumRead += numRead;
     }
@@ -111,10 +112,6 @@ void CallbackDataSource::close() {
         mIDataSource->close();
         mIsClosed = true;
     }
-}
-
-sp<DecryptHandle> CallbackDataSource::DrmInitialization(const char *mime) {
-    return mIDataSource->DrmInitialization(mime);
 }
 
 sp<IDataSource> CallbackDataSource::getIDataSource() const {
@@ -188,14 +185,6 @@ status_t TinyCacheSource::getSize(off64_t *size) {
 
 uint32_t TinyCacheSource::flags() {
     return mSource->flags();
-}
-
-sp<DecryptHandle> TinyCacheSource::DrmInitialization(const char *mime) {
-    // flush cache when DrmInitialization occurs since decrypted
-    // data may differ from what is in cache.
-    mCachedOffset = 0;
-    mCachedSize = 0;
-    return mSource->DrmInitialization(mime);
 }
 
 sp<IDataSource> TinyCacheSource::getIDataSource() const {

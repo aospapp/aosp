@@ -18,8 +18,9 @@ package com.android.internal.telephony.dataconnection;
 
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED;
-import static android.net.NetworkPolicyManager.OVERRIDE_CONGESTED;
-import static android.net.NetworkPolicyManager.OVERRIDE_UNMETERED;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED;
+import static android.net.NetworkPolicyManager.SUBSCRIPTION_OVERRIDE_CONGESTED;
+import static android.net.NetworkPolicyManager.SUBSCRIPTION_OVERRIDE_UNMETERED;
 
 import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_ADDRESS;
@@ -31,22 +32,22 @@ import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_P
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
+import android.net.InetAddresses;
 import android.net.KeepalivePacketData;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.NattKeepalivePacketData;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
-import android.net.NetworkUtils;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -71,7 +72,6 @@ import com.android.internal.telephony.dataconnection.DataConnection.DisconnectPa
 import com.android.internal.telephony.dataconnection.DataConnection.SetupResult;
 import com.android.internal.util.IState;
 import com.android.internal.util.StateMachine;
-import com.android.server.pm.PackageManagerService;
 
 import org.junit.After;
 import org.junit.Before;
@@ -95,12 +95,11 @@ public class DataConnectionTest extends TelephonyTest {
     ApnContext mApnContext;
     @Mock
     DcFailBringUp mDcFailBringUp;
-    @Mock
-    PackageManagerService mMockPackageManagerInternal;
 
     private DataConnection mDc;
     private DataConnectionTestHandler mDataConnectionTestHandler;
     private DcController mDcc;
+    private CellularDataService mCellularDataService;
 
     private ApnSetting mApn1 = ApnSetting.makeApnSetting(
             2163,                   // id
@@ -263,7 +262,7 @@ public class DataConnectionTest extends TelephonyTest {
     }
 
     private void addDataService() {
-        CellularDataService cellularDataService = new CellularDataService();
+        mCellularDataService = new CellularDataService();
         ServiceInfo serviceInfo = new ServiceInfo();
         serviceInfo.packageName = "com.android.phone";
         serviceInfo.permission = "android.permission.BIND_TELEPHONY_DATA_SERVICE";
@@ -272,7 +271,7 @@ public class DataConnectionTest extends TelephonyTest {
                 DataService.SERVICE_INTERFACE,
                 null,
                 "com.android.phone",
-                cellularDataService.mBinder,
+                mCellularDataService.mBinder,
                 serviceInfo,
                 filter);
     }
@@ -280,9 +279,8 @@ public class DataConnectionTest extends TelephonyTest {
 
     @Before
     public void setUp() throws Exception {
-        logd("+Setup!");
         super.setUp(getClass().getSimpleName());
-        mServiceManagerMockedServices.put("package", mMockPackageManagerInternal);
+        logd("+Setup!");
         doReturn("fake.action_detached").when(mPhone).getActionDetached();
         replaceInstance(ConnectionParams.class, "mApnContext", mCp, mApnContext);
         replaceInstance(ConnectionParams.class, "mRilRat", mCp,
@@ -293,8 +291,8 @@ public class DataConnectionTest extends TelephonyTest {
         mDcFailBringUp.saveParameters(0, 0, -2);
         doReturn(mDcFailBringUp).when(mDcTesterFailBringUpAll).getDcFailBringUp();
 
-        mContextFixture.putStringArrayResource(com.android.internal.R.array.
-                config_mobile_tcp_buffers, new String[]{
+        mContextFixture.putStringArrayResource(com.android.internal.R.array
+                .config_mobile_tcp_buffers, new String[]{
                 "umts:131072,262144,1452032,4096,16384,399360",
                 "hspa:131072,262144,2441216,4096,16384,399360",
                 "hsupa:131072,262144,2441216,4096,16384,399360",
@@ -310,7 +308,6 @@ public class DataConnectionTest extends TelephonyTest {
                 "com.android.phone");
 
         mDcp.mApnContext = mApnContext;
-
         addDataService();
 
         mDataConnectionTestHandler = new DataConnectionTestHandler(getClass().getSimpleName());
@@ -326,6 +323,8 @@ public class DataConnectionTest extends TelephonyTest {
         mDc = null;
         mDcc = null;
         mDataConnectionTestHandler.quit();
+        mDataConnectionTestHandler.join();
+        mCellularDataService.onDestroy();
         super.tearDown();
     }
 
@@ -420,77 +419,138 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testModemSuggestRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse(0, 0, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
-
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(0)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(response.getSuggestedRetryTime(), getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, 1000, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(1000)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(response.getSuggestedRetryTime(), getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, 9999, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(9999)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(response.getSuggestedRetryTime(), getSuggestedRetryDelay(response));
     }
 
     @Test
     @SmallTest
     public void testModemNotSuggestRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
-
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(-1)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, -5, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(-5)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, Integer.MIN_VALUE, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(Integer.MIN_VALUE)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(response));
     }
 
     @Test
     @SmallTest
     public void testModemSuggestNoRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse(0, Integer.MAX_VALUE, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(Integer.MAX_VALUE)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
         assertEquals(RetryManager.NO_RETRY, getSuggestedRetryDelay(response));
     }
 
@@ -504,6 +564,12 @@ public class DataConnectionTest extends TelephonyTest {
         Method method = DataConnection.class.getDeclaredMethod("getNetworkCapabilities");
         method.setAccessible(true);
         return (NetworkCapabilities) method.invoke(mDc);
+    }
+
+    private int getDisallowedApnTypes() throws Exception {
+        Method method = DataConnection.class.getDeclaredMethod("getDisallowedApnTypes");
+        method.setAccessible(true);
+        return (int) method.invoke(mDc);
     }
 
     @Test
@@ -522,6 +588,10 @@ public class DataConnectionTest extends TelephonyTest {
         assertFalse("capabilities: " + getNetworkCapabilities(), getNetworkCapabilities()
                 .hasCapability(NetworkCapabilities.NET_CAPABILITY_MMS));
 
+        mContextFixture.getCarrierConfigBundle().putStringArray(
+                CarrierConfigManager.KEY_CARRIER_WWAN_DISALLOWED_APN_TYPES_STRING_ARRAY,
+                new String[] {"supl"});
+
         mDc.sendMessage(DataConnection.EVENT_DISCONNECT, mDcp);
         waitForMs(100);
         doReturn(mApn1).when(mApnContext).getApnSetting();
@@ -532,7 +602,7 @@ public class DataConnectionTest extends TelephonyTest {
                 .hasCapability(NetworkCapabilities.NET_CAPABILITY_DUN));
         assertTrue("capabilities: " + getNetworkCapabilities(), getNetworkCapabilities()
                 .hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
-        assertTrue("capabilities: " + getNetworkCapabilities(), getNetworkCapabilities()
+        assertFalse("capabilities: " + getNetworkCapabilities(), getNetworkCapabilities()
                 .hasCapability(NetworkCapabilities.NET_CAPABILITY_SUPL));
     }
 
@@ -546,8 +616,8 @@ public class DataConnectionTest extends TelephonyTest {
 
         testConnectEvent();
 
-        assertFalse(getNetworkCapabilities()
-                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
+        assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
+        assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_TEMPORARILY_NOT_METERED));
     }
 
     @Test
@@ -561,8 +631,7 @@ public class DataConnectionTest extends TelephonyTest {
 
         testConnectEvent();
 
-        assertTrue(getNetworkCapabilities()
-                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
+        assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
     }
 
     @Test
@@ -572,17 +641,18 @@ public class DataConnectionTest extends TelephonyTest {
                 new String[] { "default" });
         testConnectEvent();
 
-        assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
+        assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_TEMPORARILY_NOT_METERED));
         assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
 
-        mDc.onSubscriptionOverride(OVERRIDE_UNMETERED, OVERRIDE_UNMETERED);
+        mDc.onSubscriptionOverride(SUBSCRIPTION_OVERRIDE_UNMETERED,
+                SUBSCRIPTION_OVERRIDE_UNMETERED);
 
-        assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
+        assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_TEMPORARILY_NOT_METERED));
         assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
 
-        mDc.onSubscriptionOverride(OVERRIDE_UNMETERED, 0);
+        mDc.onSubscriptionOverride(SUBSCRIPTION_OVERRIDE_UNMETERED, 0);
 
-        assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
+        assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_TEMPORARILY_NOT_METERED));
         assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
     }
 
@@ -596,12 +666,13 @@ public class DataConnectionTest extends TelephonyTest {
         assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
         assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
 
-        mDc.onSubscriptionOverride(OVERRIDE_CONGESTED, OVERRIDE_CONGESTED);
+        mDc.onSubscriptionOverride(SUBSCRIPTION_OVERRIDE_CONGESTED,
+                SUBSCRIPTION_OVERRIDE_CONGESTED);
 
         assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
         assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
 
-        mDc.onSubscriptionOverride(OVERRIDE_CONGESTED, 0);
+        mDc.onSubscriptionOverride(SUBSCRIPTION_OVERRIDE_CONGESTED, 0);
 
         assertFalse(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_METERED));
         assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
@@ -660,14 +731,22 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testSetLinkProperties() throws Exception {
-
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(-1)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
 
         LinkProperties linkProperties = new LinkProperties();
         assertEquals(SetupResult.SUCCESS, setLinkProperties(response, linkProperties));
@@ -676,28 +755,28 @@ public class DataConnectionTest extends TelephonyTest {
         assertEquals(response.getAddresses().size(), linkProperties.getAddresses().size());
         for (int i = 0; i < response.getAddresses().size(); ++i) {
             assertEquals(response.getAddresses().get(i).getAddress(),
-                    NetworkUtils.numericToInetAddress(linkProperties.getLinkAddresses().get(i)
+                    InetAddresses.parseNumericAddress(linkProperties.getLinkAddresses().get(i)
                             .getAddress().getHostAddress()));
         }
 
         assertEquals(response.getDnsAddresses().size(), linkProperties.getDnsServers().size());
         for (int i = 0; i < response.getDnsAddresses().size(); ++i) {
             assertEquals("i = " + i, response.getDnsAddresses().get(i),
-                    NetworkUtils.numericToInetAddress(
+                    InetAddresses.parseNumericAddress(
                             linkProperties.getDnsServers().get(i).getHostAddress()));
         }
 
         assertEquals(response.getGatewayAddresses().size(), linkProperties.getRoutes().size());
         for (int i = 0; i < response.getGatewayAddresses().size(); ++i) {
             assertEquals("i = " + i, response.getGatewayAddresses().get(i),
-                    NetworkUtils.numericToInetAddress(linkProperties.getRoutes().get(i)
+                    InetAddresses.parseNumericAddress(linkProperties.getRoutes().get(i)
                             .getGateway().getHostAddress()));
         }
 
         assertEquals(response.getPcscfAddresses().size(), linkProperties.getPcscfServers().size());
         for (int i = 0; i < response.getPcscfAddresses().size(); ++i) {
             assertEquals("i = " + i, response.getPcscfAddresses().get(i),
-                    NetworkUtils.numericToInetAddress(linkProperties.getPcscfServers().get(i)
+                    InetAddresses.parseNumericAddress(linkProperties.getPcscfServers().get(i)
                             .getHostAddress()));
         }
 
@@ -707,33 +786,45 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testSetLinkPropertiesEmptyAddress() throws Exception {
-
         // 224.224.224.224 is an invalid address.
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                null,
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(-1)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
 
         LinkProperties linkProperties = new LinkProperties();
-        assertEquals(SetupResult.ERROR_INVALID_ARG,
-                setLinkProperties(response, linkProperties));
+        assertEquals(SetupResult.ERROR_INVALID_ARG, setLinkProperties(response, linkProperties));
     }
 
     @Test
     @SmallTest
     public void testSetLinkPropertiesEmptyDns() throws Exception {
-
         // Empty dns entry.
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
-                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
-                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
-                null,
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
-                1440);
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setSuggestedRetryTime(-1)
+                .setId(1)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
 
         // Make sure no exception was thrown
         LinkProperties linkProperties = new LinkProperties();
@@ -756,9 +847,9 @@ public class DataConnectionTest extends TelephonyTest {
         // Construct a new KeepalivePacketData request as we would receive from a Network Agent,
         // and check that the packet is sent to the RIL.
         KeepalivePacketData kd = NattKeepalivePacketData.nattKeepalivePacket(
-                NetworkUtils.numericToInetAddress("1.2.3.4"),
+                InetAddresses.parseNumericAddress("1.2.3.4"),
                 1234,
-                NetworkUtils.numericToInetAddress("8.8.8.8"),
+                InetAddresses.parseNumericAddress("8.8.8.8"),
                 4500);
         mDc.obtainMessage(
                 DataConnection.EVENT_KEEPALIVE_START_REQUEST, slotId, interval, kd).sendToTarget();
@@ -780,9 +871,9 @@ public class DataConnectionTest extends TelephonyTest {
         // Construct a new KeepalivePacketData request as we would receive from a Network Agent,
         // and check that the packet is sent to the RIL.
         KeepalivePacketData kd = NattKeepalivePacketData.nattKeepalivePacket(
-                NetworkUtils.numericToInetAddress("1.2.3.4"),
+                InetAddresses.parseNumericAddress("1.2.3.4"),
                 1234,
-                NetworkUtils.numericToInetAddress("8.8.8.8"),
+                InetAddresses.parseNumericAddress("8.8.8.8"),
                 4500);
         mDc.obtainMessage(
                 DataConnection.EVENT_KEEPALIVE_START_REQUEST, slotId, interval, kd).sendToTarget();
@@ -859,9 +950,9 @@ public class DataConnectionTest extends TelephonyTest {
         // Construct a new KeepalivePacketData request as we would receive from a Network Agent,
         // and check that the packet is sent to the RIL.
         KeepalivePacketData kd = NattKeepalivePacketData.nattKeepalivePacket(
-                NetworkUtils.numericToInetAddress("1.2.3.4"),
+                InetAddresses.parseNumericAddress("1.2.3.4"),
                 1234,
-                NetworkUtils.numericToInetAddress("8.8.8.8"),
+                InetAddresses.parseNumericAddress("8.8.8.8"),
                 4500);
         mDc.obtainMessage(
                 DataConnection.EVENT_KEEPALIVE_START_REQUEST, slotId, interval, kd).sendToTarget();
@@ -931,5 +1022,17 @@ public class DataConnectionTest extends TelephonyTest {
                 new String[] { "default" });
 
         assertTrue(isUnmeteredUseOnly());
+    }
+
+    @Test
+    @SmallTest
+    public void testGetDisallowedApnTypes() throws Exception {
+        mContextFixture.getCarrierConfigBundle().putStringArray(
+                CarrierConfigManager.KEY_CARRIER_WWAN_DISALLOWED_APN_TYPES_STRING_ARRAY,
+                new String[] { "mms", "supl", "fota" });
+        testConnectEvent();
+
+        assertEquals(ApnSetting.TYPE_MMS | ApnSetting.TYPE_SUPL | ApnSetting.TYPE_FOTA,
+                getDisallowedApnTypes());
     }
 }

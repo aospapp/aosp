@@ -65,7 +65,7 @@ public class MenuInflater_Delegate {
             // We suppress this error for AppCompat menus since we do not support them in the menu
             // editor yet.
             Bridge.getLog().warning(LayoutLog.TAG_BROKEN,
-                    "Action Bar Menu rendering may be incorrect.", null);
+                    "Action Bar Menu rendering may be incorrect.", null, null);
         }
 
     }

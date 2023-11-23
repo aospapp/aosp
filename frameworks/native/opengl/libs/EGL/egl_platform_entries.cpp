@@ -23,19 +23,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <hardware/gralloc1.h>
-
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <EGL/eglext_angle.h>
 
-#include <android/hardware_buffer.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
+#include <android/hardware_buffer.h>
 #include <graphicsenv/GraphicsEnv.h>
 #include <private/android/AHardwareBufferHelpers.h>
 
 #include <cutils/compiler.h>
-#include <cutils/properties.h>
 #include <log/log.h>
 
 #include <condition_variable>
@@ -61,7 +59,7 @@ namespace android {
 
 using nsecs_t = int64_t;
 
-struct extention_map_t {
+struct extension_map_t {
     const char* name;
     __eglMustCastToProperFunctionPointerType address;
 };
@@ -98,7 +96,7 @@ char const * const gBuiltinExtensionString =
         "EGL_EXT_surface_CTA861_3_metadata "
         ;
 
-// Whitelist of extensions exposed to applications if implemented in the vendor driver.
+// Allowed list of extensions exposed to applications if implemented in the vendor driver.
 char const * const gExtensionString  =
         "EGL_KHR_image "                        // mandatory
         "EGL_KHR_image_base "                   // mandatory
@@ -154,7 +152,7 @@ char const * const gClientExtensionString =
  * (keep in sync with gExtensionString above)
  *
  */
-static const extention_map_t sExtensionMap[] = {
+static const extension_map_t sExtensionMap[] = {
     // EGL_KHR_lock_surface
     { "eglLockSurfaceKHR",
             (__eglMustCastToProperFunctionPointerType)&eglLockSurfaceKHR },
@@ -257,13 +255,14 @@ static const extention_map_t sExtensionMap[] = {
          !strcmp((procname), "eglAwakenProcessIMG"))
 
 // accesses protected by sExtensionMapMutex
-static std::unordered_map<std::string, __eglMustCastToProperFunctionPointerType> sGLExtentionMap;
+static std::unordered_map<std::string, __eglMustCastToProperFunctionPointerType> sGLExtensionMap;
+static std::unordered_map<std::string, int> sGLExtensionSlotMap;
 
-static int sGLExtentionSlot = 0;
+static int sGLExtensionSlot = 0;
 static pthread_mutex_t sExtensionMapMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void(*findProcAddress(const char* name,
-        const extention_map_t* map, size_t n))() {
+        const extension_map_t* map, size_t n))() {
     for (uint32_t i=0 ; i<n ; i++) {
         if (!strcmp(name, map[i].name)) {
             return map[i].address;
@@ -382,10 +381,7 @@ EGLBoolean eglChooseConfigImpl( EGLDisplay dpy, const EGLint *attrib_list,
     egl_connection_t* const cnx = &gEGLImpl;
     if (cnx->dso) {
         if (attrib_list) {
-            char value[PROPERTY_VALUE_MAX];
-            property_get("debug.egl.force_msaa", value, "false");
-
-            if (!strcmp(value, "true")) {
+            if (base::GetBoolProperty("debug.egl.force_msaa", false)) {
                 size_t attribCount = 0;
                 EGLint attrib = attrib_list[0];
 
@@ -720,7 +716,7 @@ EGLSurface eglCreateWindowSurfaceTmpl(egl_display_ptr dp, egl_connection_t* cnx,
 
     // NOTE: When using Vulkan backend, the Vulkan runtime makes all the
     // native_window_* calls, so don't do them here.
-    if (cnx->angleBackend != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE) {
+    if (!cnx->useAngle) {
         int result = native_window_api_connect(window, NATIVE_WINDOW_API_EGL);
         if (result < 0) {
             ALOGE("eglCreateWindowSurface: native_window_api_connect (win=%p) "
@@ -739,14 +735,14 @@ EGLSurface eglCreateWindowSurfaceTmpl(egl_display_ptr dp, egl_connection_t* cnx,
     std::vector<AttrType> strippedAttribList;
     if (!processAttributes<AttrType>(dp, window, attrib_list, &colorSpace, &strippedAttribList)) {
         ALOGE("error invalid colorspace: %d", colorSpace);
-        if (cnx->angleBackend != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE) {
+        if (!cnx->useAngle) {
             native_window_api_disconnect(window, NATIVE_WINDOW_API_EGL);
         }
         return EGL_NO_SURFACE;
     }
     attrib_list = strippedAttribList.data();
 
-    if (cnx->angleBackend != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE) {
+    if (!cnx->useAngle) {
         int err = native_window_set_buffers_format(window, format);
         if (err != 0) {
             ALOGE("error setting native window pixel format: %s (%d)", strerror(-err), err);
@@ -778,7 +774,7 @@ EGLSurface eglCreateWindowSurfaceTmpl(egl_display_ptr dp, egl_connection_t* cnx,
     }
 
     // EGLSurface creation failed
-    if (cnx->angleBackend != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE) {
+    if (!cnx->useAngle) {
         native_window_set_buffers_format(window, 0);
         native_window_api_disconnect(window, NATIVE_WINDOW_API_EGL);
     }
@@ -975,22 +971,21 @@ EGLContext eglCreateContextImpl(EGLDisplay dpy, EGLConfig config,
                 dp->disp.dpy, config, share_list, attrib_list);
         if (context != EGL_NO_CONTEXT) {
             // figure out if it's a GLESv1 or GLESv2
-            int version = 0;
+            int version = egl_connection_t::GLESv1_INDEX;
             if (attrib_list) {
                 while (*attrib_list != EGL_NONE) {
                     GLint attr = *attrib_list++;
                     GLint value = *attrib_list++;
-                    if (attr == EGL_CONTEXT_CLIENT_VERSION) {
-                        if (value == 1) {
-                            version = egl_connection_t::GLESv1_INDEX;
-                        } else if (value == 2 || value == 3) {
-                            version = egl_connection_t::GLESv2_INDEX;
-                        }
+                    if (attr == EGL_CONTEXT_CLIENT_VERSION && (value == 2 || value == 3)) {
+                        version = egl_connection_t::GLESv2_INDEX;
                     }
                 };
             }
-            egl_context_t* c = new egl_context_t(dpy, context, config, cnx,
-                    version);
+            if (version == egl_connection_t::GLESv1_INDEX) {
+                android::GraphicsEnv::getInstance().setTargetStats(
+                        android::GpuStatsInfo::Stats::GLES_1_IN_USE);
+            }
+            egl_context_t* c = new egl_context_t(dpy, context, config, cnx, version);
             return c;
         }
     }
@@ -1223,7 +1218,7 @@ __eglMustCastToProperFunctionPointerType eglGetProcAddressImpl(const char *procn
     addr = findBuiltinWrapper(procname);
     if (addr) return addr;
 
-    // this protects accesses to sGLExtentionMap and sGLExtentionSlot
+    // this protects accesses to sGLExtensionMap, sGLExtensionSlot, and sGLExtensionSlotMap
     pthread_mutex_lock(&sExtensionMapMutex);
 
     /*
@@ -1244,51 +1239,69 @@ __eglMustCastToProperFunctionPointerType eglGetProcAddressImpl(const char *procn
      */
 
     const std::string name(procname);
-
-    auto& extentionMap = sGLExtentionMap;
-    auto pos = extentionMap.find(name);
-    addr = (pos != extentionMap.end()) ? pos->second : nullptr;
-    const int slot = sGLExtentionSlot;
-
-    ALOGE_IF(slot >= MAX_NUMBER_OF_GL_EXTENSIONS,
-             "no more slots for eglGetProcAddress(\"%s\")",
-             procname);
-
+    auto& extensionMap = sGLExtensionMap;
+    auto& extensionSlotMap = sGLExtensionSlotMap;
     egl_connection_t* const cnx = &gEGLImpl;
     LayerLoader& layer_loader(LayerLoader::getInstance());
 
-    if (!addr && (slot < MAX_NUMBER_OF_GL_EXTENSIONS)) {
+    // See if we've already looked up this extension
+    auto pos = extensionMap.find(name);
+    addr = (pos != extensionMap.end()) ? pos->second : nullptr;
 
-        if (cnx->dso && cnx->egl.eglGetProcAddress) {
+    if (!addr) {
+        // This is the first time we've looked this function up
+        // Ensure we have room to track it
+        const int slot = sGLExtensionSlot;
+        if (slot < MAX_NUMBER_OF_GL_EXTENSIONS) {
 
-            // Extensions are independent of the bound context
-            addr = cnx->egl.eglGetProcAddress(procname);
-            if (addr) {
+            if (cnx->dso && cnx->egl.eglGetProcAddress) {
 
-                // purposefully track the bottom of the stack in extensionMap
-                extentionMap[name] = addr;
+                // Extensions are independent of the bound context
+                addr = cnx->egl.eglGetProcAddress(procname);
+                if (addr) {
 
-                // Apply layers
-                addr = layer_loader.ApplyLayers(procname, addr);
+                    // purposefully track the bottom of the stack in extensionMap
+                    extensionMap[name] = addr;
 
-                // Track the top most entry point
-                cnx->hooks[egl_connection_t::GLESv1_INDEX]->ext.extensions[slot] =
-                cnx->hooks[egl_connection_t::GLESv2_INDEX]->ext.extensions[slot] = addr;
-                addr = gExtensionForwarders[slot];
-                sGLExtentionSlot++;
+                    // Apply layers
+                    addr = layer_loader.ApplyLayers(procname, addr);
+
+                    // Track the top most entry point return the extension forwarder
+                    cnx->hooks[egl_connection_t::GLESv1_INDEX]->ext.extensions[slot] =
+                    cnx->hooks[egl_connection_t::GLESv2_INDEX]->ext.extensions[slot] = addr;
+                    addr = gExtensionForwarders[slot];
+
+                    // Remember the slot for this extension
+                    extensionSlotMap[name] = slot;
+
+                    // Increment the global extension index
+                    sGLExtensionSlot++;
+                }
             }
+        } else {
+            // The extension forwarder has a fixed number of slots
+            ALOGE("no more slots for eglGetProcAddress(\"%s\")", procname);
         }
 
-    } else if (slot < MAX_NUMBER_OF_GL_EXTENSIONS) {
+    } else {
+        // We tracked an address, so we've seen this func before
+        // Look up the slot for this extension
+        auto slot_pos = extensionSlotMap.find(name);
+        int ext_slot = (slot_pos != extensionSlotMap.end()) ? slot_pos->second : -1;
+        if (ext_slot < 0) {
+            // Something has gone wrong, this should not happen
+            ALOGE("No extension slot found for %s", procname);
+            return nullptr;
+        }
 
-        // We've seen this func before, but we tracked the bottom, so re-apply layers
-        // More layers might have been enabled
+        // We tracked the bottom of the stack, so re-apply layers since
+        // more layers might have been enabled
         addr = layer_loader.ApplyLayers(procname, addr);
 
-        // Track the top most entry point
-        cnx->hooks[egl_connection_t::GLESv1_INDEX]->ext.extensions[slot] =
-        cnx->hooks[egl_connection_t::GLESv2_INDEX]->ext.extensions[slot] = addr;
-        addr = gExtensionForwarders[slot];
+        // Track the top most entry point and return the extension forwarder
+        cnx->hooks[egl_connection_t::GLESv1_INDEX]->ext.extensions[ext_slot] =
+        cnx->hooks[egl_connection_t::GLESv2_INDEX]->ext.extensions[ext_slot] = addr;
+        addr = gExtensionForwarders[ext_slot];
     }
 
     pthread_mutex_unlock(&sExtensionMapMutex);
@@ -1379,6 +1392,9 @@ EGLBoolean eglSwapBuffersWithDamageKHRImpl(EGLDisplay dpy, EGLSurface draw,
     if (!_s.get())
         return setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
 
+    if (n_rects < 0 || (n_rects > 0 && rects == NULL))
+        return setError(EGL_BAD_PARAMETER, (EGLBoolean)EGL_FALSE);
+
     egl_surface_t* const s = get_surface(draw);
 
     if (CC_UNLIKELY(dp->traceGpuCompletion)) {
@@ -1398,7 +1414,7 @@ EGLBoolean eglSwapBuffersWithDamageKHRImpl(EGLDisplay dpy, EGLSurface draw,
         }
     }
 
-    if (s->cnx->angleBackend != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE) {
+    if (!s->cnx->useAngle) {
         if (!sendSurfaceMetadata(s)) {
             native_window_api_disconnect(s->getNativeWindow(), NATIVE_WINDOW_API_EGL);
             return setError(EGL_BAD_NATIVE_WINDOW, (EGLBoolean)EGL_FALSE);
@@ -1423,7 +1439,7 @@ EGLBoolean eglSwapBuffersWithDamageKHRImpl(EGLDisplay dpy, EGLSurface draw,
         androidRect.bottom = y;
         androidRects.push_back(androidRect);
     }
-    if (s->cnx->angleBackend != EGL_PLATFORM_ANGLE_TYPE_VULKAN_ANGLE) {
+    if (!s->cnx->useAngle) {
         native_window_set_surface_damage(s->getNativeWindow(), androidRects.data(),
                                          androidRects.size());
     }

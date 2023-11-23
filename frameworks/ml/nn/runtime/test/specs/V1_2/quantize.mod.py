@@ -60,10 +60,9 @@ model = model.Operation("ROI_ALIGN", i1, tmp1, tmp2, 2, 2, 2.0, 2.0, 4, 4, layou
 o3 = Output("out", "TENSOR_QUANT8_ASYMM", "{0, 2, 2, 1}, 0.1f, 128") # out
 model = model.Operation("QUANTIZE", zero_sized).To(o3)
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddVariations("relaxed", "float16")

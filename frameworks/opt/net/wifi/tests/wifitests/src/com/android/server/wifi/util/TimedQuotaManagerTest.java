@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
+import com.android.server.wifi.WifiBaseTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +36,7 @@ import java.time.Duration;
  * Unit tests for {@link TimedQuotaManager}.
  */
 @SmallTest
-public class TimedQuotaManagerTest {
+public class TimedQuotaManagerTest extends WifiBaseTest {
 
     private static final long DAY_MILLIS = Duration.ofDays(1).toMillis();
 

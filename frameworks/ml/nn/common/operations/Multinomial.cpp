@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
 #include "Multinomial.h"
 
 #include "CpuExecutor.h"
@@ -25,12 +27,17 @@
 #include "philox_random.h"
 #include "simple_philox.h"
 
-#include "unsupported/Eigen/CXX11/Tensor"
+#include <algorithm>
+#include <limits>
+#include <unsupported/Eigen/CXX11/Tensor>
+#include <vector>
 
 namespace android {
 namespace nn {
 
 namespace {
+
+using namespace hal;
 
 template <typename T>
 inline T* GetBuffer(RunTimeOperandInfo* operand) {
@@ -44,7 +51,7 @@ inline const T* GetBuffer(const RunTimeOperandInfo* operand) {
 
 }  // namespace
 
-Multinomial::Multinomial(const Operation& operation, std::vector<RunTimeOperandInfo>& operands) {
+Multinomial::Multinomial(const Operation& operation, RunTimeOperandInfo* operands) {
     NNTRACE_TRANS("Multinomial::Multinomial");
     input_ = GetInput(operation, operands, kInputTensor);
     sample_count_ = getScalarData<int>(*GetInput(operation, operands, kSampleCountParam));
@@ -53,7 +60,7 @@ Multinomial::Multinomial(const Operation& operation, std::vector<RunTimeOperandI
     output_ = GetOutput(operation, operands, kOutputTensor);
 }
 
-bool Multinomial::Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
+bool Multinomial::Prepare(const Operation& operation, RunTimeOperandInfo* operands,
                           Shape* outputShape) {
     NNTRACE_TRANS("Multinomial::Prepare");
     NN_CHECK_EQ(NumInputsWithValues(operation, operands), 3);

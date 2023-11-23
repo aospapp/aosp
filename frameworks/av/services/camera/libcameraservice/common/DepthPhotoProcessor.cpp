@@ -410,7 +410,7 @@ std::unique_ptr<dynamic_depth::DepthMap> processDepthMapFrame(DepthPhotoInputFra
     return DepthMap::FromData(depthParams, items);
 }
 
-extern "C" int processDepthPhotoFrame(DepthPhotoInputFrame inputFrame, size_t depthPhotoBufferSize,
+int processDepthPhotoFrame(DepthPhotoInputFrame inputFrame, size_t depthPhotoBufferSize,
         void* depthPhotoBuffer /*out*/, size_t* depthPhotoActualSize /*out*/) {
     if ((inputFrame.mMainJpegBuffer == nullptr) || (inputFrame.mDepthMapBuffer == nullptr) ||
             (depthPhotoBuffer == nullptr) || (depthPhotoActualSize == nullptr)) {
@@ -419,7 +419,7 @@ extern "C" int processDepthPhotoFrame(DepthPhotoInputFrame inputFrame, size_t de
 
     std::vector<std::unique_ptr<Item>> items;
     std::vector<std::unique_ptr<Camera>> cameraList;
-    auto image = Image::FromDataForPrimaryImage("android/mainimage", &items);
+    auto image = Image::FromDataForPrimaryImage("image/jpeg", &items);
     std::unique_ptr<CameraParams> cameraParams(new CameraParams(std::move(image)));
     if (cameraParams == nullptr) {
         ALOGE("%s: Failed to initialize camera parameters", __FUNCTION__);

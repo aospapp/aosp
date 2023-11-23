@@ -16,11 +16,18 @@
 
 package android.media.audiofx;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
+import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityThread;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.media.AudioDeviceAttributes;
+import android.media.AudioDeviceInfo;
+import android.media.AudioSystem;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -349,10 +356,14 @@ public class AudioEffect {
     public static final String EFFECT_AUXILIARY = "Auxiliary";
     /**
      * Effect connection mode is pre processing.
-     * The audio pre processing effects are attached to an audio input (AudioRecord).
-     * @hide
+     * The audio pre processing effects are attached to an audio input stream or device
      */
     public static final String EFFECT_PRE_PROCESSING = "Pre Processing";
+    /**
+     * Effect connection mode is post processing.
+     * The audio post processing effects are attached to an audio output stream or device
+     */
+    public static final String EFFECT_POST_PROCESSING = "Post Processing";
 
     // --------------------------------------------------------------------------
     // Member variables
@@ -448,12 +459,54 @@ public class AudioEffect {
     public AudioEffect(UUID type, UUID uuid, int priority, int audioSession)
             throws IllegalArgumentException, UnsupportedOperationException,
             RuntimeException {
+        this(type, uuid, priority, audioSession, null);
+    }
+
+    /**
+     * Constructs an AudioEffect attached to a particular audio device.
+     * The device does not have to be attached when the effect is created. The effect will only
+     * be applied when the device is actually selected for playback or capture.
+     * @param uuid unique identifier of a particular effect implementation.
+     * @param device the device the effect must be attached to.
+     *
+     * @throws java.lang.IllegalArgumentException
+     * @throws java.lang.UnsupportedOperationException
+     * @throws java.lang.RuntimeException
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.MODIFY_DEFAULT_AUDIO_EFFECTS)
+    public AudioEffect(@NonNull UUID uuid, @NonNull AudioDeviceAttributes device) {
+        this(EFFECT_TYPE_NULL, Objects.requireNonNull(uuid),
+                0, -2, Objects.requireNonNull(device));
+    }
+
+    private AudioEffect(UUID type, UUID uuid, int priority,
+            int audioSession, @Nullable AudioDeviceAttributes device)
+            throws IllegalArgumentException, UnsupportedOperationException,
+            RuntimeException {
+        this(type, uuid, priority, audioSession, device, false);
+    }
+
+    private AudioEffect(UUID type, UUID uuid, int priority,
+            int audioSession, @Nullable AudioDeviceAttributes device, boolean probe)
+            throws IllegalArgumentException, UnsupportedOperationException,
+            RuntimeException {
         int[] id = new int[1];
         Descriptor[] desc = new Descriptor[1];
+
+        int deviceType = AudioSystem.DEVICE_NONE;
+        String deviceAddress = "";
+        if (device != null) {
+            deviceType = AudioDeviceInfo.convertDeviceTypeToInternalDevice(device.getType());
+            deviceAddress = device.getAddress();
+        }
+
         // native initialization
         int initResult = native_setup(new WeakReference<AudioEffect>(this),
-                type.toString(), uuid.toString(), priority, audioSession, id,
-                desc, ActivityThread.currentOpPackageName());
+                type.toString(), uuid.toString(), priority, audioSession,
+                deviceType, deviceAddress,
+                id, desc, ActivityThread.currentOpPackageName(), probe);
         if (initResult != SUCCESS && initResult != ALREADY_EXISTS) {
             Log.e(TAG, "Error code " + initResult
                     + " when initializing AudioEffect.");
@@ -472,8 +525,33 @@ public class AudioEffect {
         }
         mId = id[0];
         mDescriptor = desc[0];
-        synchronized (mStateLock) {
-            mState = STATE_INITIALIZED;
+        if (!probe) {
+            synchronized (mStateLock) {
+                mState = STATE_INITIALIZED;
+            }
+        }
+    }
+
+    /**
+     * Checks if an AudioEffect identified by the supplied uuid can be attached
+     * to an audio device described by the supplied AudioDeviceAttributes.
+     * @param uuid unique identifier of a particular effect implementation.
+     * @param device the device the effect would be attached to.
+     * @return true if possible, false otherwise.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.MODIFY_DEFAULT_AUDIO_EFFECTS)
+    public static boolean isEffectSupportedForDevice(
+            @NonNull UUID uuid, @NonNull AudioDeviceAttributes device) {
+        try {
+            AudioEffect fx = new AudioEffect(
+                    EFFECT_TYPE_NULL, Objects.requireNonNull(uuid),
+                    0, -2, Objects.requireNonNull(device), true);
+            fx.release();
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -1293,8 +1371,9 @@ public class AudioEffect {
     private static native final void native_init();
 
     private native final int native_setup(Object audioeffect_this, String type,
-            String uuid, int priority, int audioSession, int[] id, Object[] desc,
-            String opPackageName);
+            String uuid, int priority, int audioSession,
+            int deviceType, String deviceAddress, int[] id, Object[] desc,
+            String opPackageName, boolean probe);
 
     private native final void native_finalize();
 

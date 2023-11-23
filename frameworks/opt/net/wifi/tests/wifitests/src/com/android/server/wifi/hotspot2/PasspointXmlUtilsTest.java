@@ -29,6 +29,7 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.wifi.WifiBaseTest;
 
 import org.junit.Test;
 import org.xmlpull.v1.XmlPullParser;
@@ -50,7 +51,7 @@ import java.util.Map;
  * Unit tests for {@link com.android.server.wifi.hotspot2.PasspointXmlUtilsTest}.
  */
 @SmallTest
-public class PasspointXmlUtilsTest {
+public class PasspointXmlUtilsTest extends WifiBaseTest {
 
     /**
      * Helper function for generating a {@link PasspointConfiguration} for testing the XML

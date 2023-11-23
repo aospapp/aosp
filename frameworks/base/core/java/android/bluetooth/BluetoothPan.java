@@ -16,15 +16,23 @@
 
 package android.bluetooth;
 
+import android.Manifest;
+import android.annotation.IntDef;
+import android.annotation.NonNull;
+import android.annotation.RequiresPermission;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.SuppressLint;
+import android.annotation.SystemApi;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +48,7 @@ import java.util.List;
  *
  * @hide
  */
+@SystemApi
 public final class BluetoothPan implements BluetoothProfile {
     private static final String TAG = "BluetoothPan";
     private static final boolean DBG = true;
@@ -67,6 +76,7 @@ public final class BluetoothPan implements BluetoothProfile {
      * <p>Requires {@link android.Manifest.permission#BLUETOOTH} permission to
      * receive.
      */
+    @SuppressLint("ActionValue")
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String ACTION_CONNECTION_STATE_CHANGED =
             "android.bluetooth.pan.profile.action.CONNECTION_STATE_CHANGED";
@@ -76,19 +86,32 @@ public final class BluetoothPan implements BluetoothProfile {
      * The local role of the PAN profile that the remote device is bound to.
      * It can be one of {@link #LOCAL_NAP_ROLE} or {@link #LOCAL_PANU_ROLE}.
      */
+    @SuppressLint("ActionValue")
     public static final String EXTRA_LOCAL_ROLE = "android.bluetooth.pan.extra.LOCAL_ROLE";
+
+    /** @hide */
+    @IntDef({PAN_ROLE_NONE, LOCAL_NAP_ROLE, LOCAL_PANU_ROLE})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface LocalPanRole {}
 
     public static final int PAN_ROLE_NONE = 0;
     /**
      * The local device is acting as a Network Access Point.
      */
     public static final int LOCAL_NAP_ROLE = 1;
-    public static final int REMOTE_NAP_ROLE = 1;
 
     /**
      * The local device is acting as a PAN User.
      */
     public static final int LOCAL_PANU_ROLE = 2;
+
+    /** @hide */
+    @IntDef({PAN_ROLE_NONE, REMOTE_NAP_ROLE, REMOTE_PANU_ROLE})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface RemotePanRole {}
+
+    public static final int REMOTE_NAP_ROLE = 1;
+
     public static final int REMOTE_PANU_ROLE = 2;
 
     /**
@@ -118,6 +141,8 @@ public final class BluetoothPan implements BluetoothProfile {
      */
     public static final int PAN_OPERATION_SUCCESS = 1004;
 
+    private final Context mContext;
+
     private BluetoothAdapter mAdapter;
     private final BluetoothProfileConnector<IBluetoothPan> mProfileConnector =
             new BluetoothProfileConnector(this, BluetoothProfile.PAN,
@@ -132,15 +157,21 @@ public final class BluetoothPan implements BluetoothProfile {
     /**
      * Create a BluetoothPan proxy object for interacting with the local
      * Bluetooth Service which handles the Pan profile
+     *
+     * @hide
      */
     @UnsupportedAppUsage
     /*package*/ BluetoothPan(Context context, ServiceListener listener) {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mContext = context;
         mProfileConnector.connect(context, listener);
     }
 
+    /**
+     * Closes the connection to the service and unregisters callbacks
+     */
     @UnsupportedAppUsage
-    /*package*/ void close() {
+    void close() {
         if (VDBG) log("close()");
         mProfileConnector.disconnect();
     }
@@ -149,7 +180,7 @@ public final class BluetoothPan implements BluetoothProfile {
         return mProfileConnector.getService();
     }
 
-
+    /** @hide */
     protected void finalize() {
         close();
     }
@@ -163,9 +194,6 @@ public final class BluetoothPan implements BluetoothProfile {
      * connection state intent for the profile will be broadcasted with
      * the state. Users can get the connection state of the profile
      * from this intent.
-     *
-     * <p>Requires {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-     * permission.
      *
      * @param device Remote Bluetooth Device
      * @return false on immediate error, true otherwise
@@ -205,9 +233,6 @@ public final class BluetoothPan implements BluetoothProfile {
      * {@link #STATE_DISCONNECTING} can be used to distinguish between the
      * two scenarios.
      *
-     * <p>Requires {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-     * permission.
-     *
      * @param device Remote Bluetooth Device
      * @return false on immediate error, true otherwise
      * @hide
@@ -229,10 +254,48 @@ public final class BluetoothPan implements BluetoothProfile {
     }
 
     /**
-     * {@inheritDoc}
+     * Set connection policy of the profile
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of {@link #CONNECTION_POLICY_ALLOWED},
+     * {@link #CONNECTION_POLICY_FORBIDDEN}, {@link #CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     * @hide
      */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
+    public boolean setConnectionPolicy(@NonNull BluetoothDevice device,
+            @ConnectionPolicy int connectionPolicy) {
+        if (DBG) log("setConnectionPolicy(" + device + ", " + connectionPolicy + ")");
+        try {
+            final IBluetoothPan service = getService();
+            if (service != null && isEnabled()
+                    && isValidDevice(device)) {
+                if (connectionPolicy != BluetoothProfile.CONNECTION_POLICY_FORBIDDEN
+                        && connectionPolicy != BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+                    return false;
+                }
+                return service.setConnectionPolicy(device, connectionPolicy);
+            }
+            if (service == null) Log.w(TAG, "Proxy not attached to service");
+            return false;
+        } catch (RemoteException e) {
+            Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
+            return false;
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     * @hide
+     */
+    @SystemApi
     @Override
-    public List<BluetoothDevice> getConnectedDevices() {
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
+    public @NonNull List<BluetoothDevice> getConnectedDevices() {
         if (VDBG) log("getConnectedDevices()");
         final IBluetoothPan service = getService();
         if (service != null && isEnabled()) {
@@ -249,8 +312,10 @@ public final class BluetoothPan implements BluetoothProfile {
 
     /**
      * {@inheritDoc}
+     * @hide
      */
     @Override
+    @RequiresPermission(Manifest.permission.BLUETOOTH)
     public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         if (VDBG) log("getDevicesMatchingStates()");
         final IBluetoothPan service = getService();
@@ -268,9 +333,12 @@ public final class BluetoothPan implements BluetoothProfile {
 
     /**
      * {@inheritDoc}
+     * @hide
      */
+    @SystemApi
     @Override
-    public int getConnectionState(BluetoothDevice device) {
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
+    public int getConnectionState(@NonNull BluetoothDevice device) {
         if (VDBG) log("getState(" + device + ")");
         final IBluetoothPan service = getService();
         if (service != null && isEnabled() && isValidDevice(device)) {
@@ -285,20 +353,35 @@ public final class BluetoothPan implements BluetoothProfile {
         return BluetoothProfile.STATE_DISCONNECTED;
     }
 
-    @UnsupportedAppUsage
+    /**
+     * Turns on/off bluetooth tethering
+     *
+     * @param value is whether to enable or disable bluetooth tethering
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
     public void setBluetoothTethering(boolean value) {
-        if (DBG) log("setBluetoothTethering(" + value + ")");
+        String pkgName = mContext.getOpPackageName();
+        if (DBG) log("setBluetoothTethering(" + value + "), calling package:" + pkgName);
         final IBluetoothPan service = getService();
         if (service != null && isEnabled()) {
             try {
-                service.setBluetoothTethering(value);
+                service.setBluetoothTethering(value, pkgName);
             } catch (RemoteException e) {
                 Log.e(TAG, "Stack:" + Log.getStackTraceString(new Throwable()));
             }
         }
     }
 
-    @UnsupportedAppUsage
+    /**
+     * Determines whether tethering is enabled
+     *
+     * @return true if tethering is on, false if not or some error occurred
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
     public boolean isTetheringOn() {
         if (VDBG) log("isTetheringOn()");
         final IBluetoothPan service = getService();

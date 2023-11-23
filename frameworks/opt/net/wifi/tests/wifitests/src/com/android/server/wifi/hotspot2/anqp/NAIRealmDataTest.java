@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -30,7 +32,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.NAIRealmData}.
  */
 @SmallTest
-public class NAIRealmDataTest {
+public class NAIRealmDataTest extends WifiBaseTest {
     /**
      * Verify that BufferUnderflowException will be thrown when parsing from an empty buffer.
      *

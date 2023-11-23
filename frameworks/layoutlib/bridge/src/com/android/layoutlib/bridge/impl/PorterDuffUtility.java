@@ -48,7 +48,7 @@ public final class PorterDuffUtility {
             return PorterDuff.intToMode(porterDuffMode);
         }
         Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                String.format("Unknown PorterDuff.Mode: %1$d", porterDuffMode), null);
+                String.format("Unknown PorterDuff.Mode: %1$d", porterDuffMode), null, null);
         assert false;
         return Mode.SRC_OVER;
     }
@@ -99,7 +99,7 @@ public final class PorterDuffUtility {
             default:
                 Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN,
                         String.format("Unsupported PorterDuff Mode: %1$s", mode.name()),
-                        null, null /*data*/);
+                        null, null, null /*data*/);
 
                 return AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha1);
         }

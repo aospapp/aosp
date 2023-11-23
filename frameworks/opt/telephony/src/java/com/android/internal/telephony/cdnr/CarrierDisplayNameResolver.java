@@ -32,13 +32,13 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.text.TextUtils;
 import android.util.LocalLog;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.GsmCdmaPhone;
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.cdnr.EfData.EFSource;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 import com.android.internal.telephony.uicc.IccRecords;
@@ -48,6 +48,7 @@ import com.android.internal.telephony.uicc.IccRecords.PlmnNetworkName;
 import com.android.internal.telephony.uicc.RuimRecords;
 import com.android.internal.telephony.uicc.SIMRecords;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.telephony.Rlog;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -336,7 +337,7 @@ public class CarrierDisplayNameResolver {
         if (useRootLocale) r.getConfiguration().setLocale(Locale.ROOT);
         String[] wfcSpnFormats = r.getStringArray(com.android.internal.R.array.wfcSpnFormats);
         WfcCarrierNameFormatter wfcFormatter = new WfcCarrierNameFormatter(config, wfcSpnFormats,
-                getServiceState().getVoiceRegState() == ServiceState.STATE_POWER_OFF);
+                getServiceState().getState() == ServiceState.STATE_POWER_OFF);
 
         // Override the spn, data spn, plmn by wifi-calling
         String wfcSpn = wfcFormatter.formatVoiceName(rawCarrierDisplayNameData.getSpn());
@@ -376,12 +377,11 @@ public class CarrierDisplayNameResolver {
         String plmn = null;
         boolean isSimReady = mPhone.getUiccCardApplication() != null
                 && mPhone.getUiccCardApplication().getState() == AppState.APPSTATE_READY;
-        boolean forceDisplayNoService = mContext.getResources().getBoolean(
-                com.android.internal.R.bool.config_display_no_service_when_sim_unready)
-                && !isSimReady;
+        boolean forceDisplayNoService =
+                mPhone.getServiceStateTracker().shouldForceDisplayNoService() && !isSimReady;
         ServiceState ss = getServiceState();
-        if (ss.getVoiceRegState() == ServiceState.STATE_POWER_OFF || !ss.isEmergencyOnly()
-                || forceDisplayNoService) {
+        if (ss.getState() == ServiceState.STATE_POWER_OFF
+                || forceDisplayNoService || !Phone.isEmergencyCallOnly()) {
             plmn = mContext.getResources().getString(
                     com.android.internal.R.string.lockscreen_carrier_default);
         } else {
@@ -545,7 +545,7 @@ public class CarrierDisplayNameResolver {
      * @param ss service state.
      */
     private static int getCombinedRegState(ServiceState ss) {
-        if (ss.getVoiceRegState() != ServiceState.STATE_IN_SERVICE) return ss.getDataRegState();
-        return ss.getVoiceRegState();
+        if (ss.getState() != ServiceState.STATE_IN_SERVICE) return ss.getDataRegistrationState();
+        return ss.getState();
     }
 }

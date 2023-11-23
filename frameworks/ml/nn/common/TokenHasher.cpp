@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "TokenHasher"
+
 #include "TokenHasher.h"
 
 #include "NeuralNetworks.h"

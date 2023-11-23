@@ -21,33 +21,31 @@ import android.Manifest;
 import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
+import android.annotation.SuppressAutoDoc;
+import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
-import android.content.Context;
-import android.content.pm.IPackageManager;
-import android.content.pm.PackageManager;
-import android.net.Uri;
+import android.annotation.TestApi;
 import android.os.Binder;
 import android.os.RemoteException;
-import android.os.ServiceManager;
+import android.os.ServiceSpecificException;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
-import android.telephony.ims.aidl.IImsRegistrationCallback;
 import android.telephony.ims.feature.ImsFeature;
 import android.telephony.ims.feature.MmTelFeature;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
-import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.IIntegerConsumer;
 import com.android.internal.telephony.ITelephony;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * A manager for the MmTel (Multimedia Telephony) feature of an IMS network, given an associated
@@ -57,13 +55,10 @@ import java.util.concurrent.Executor;
  * registration and MmTel capability status callbacks, as well as query/modify user settings for the
  * associated subscription.
  *
- * @see #createForSubscriptionId(int)
- * @hide
+ * Use {@link android.telephony.ims.ImsManager#getImsMmTelManager(int)} to get an instance of this
+ * manager.
  */
-@SystemApi
-public class ImsMmTelManager {
-
-    private static final String TAG = "ImsMmTelManager";
+public class ImsMmTelManager implements RegistrationManager {
 
     /**
      * @hide
@@ -96,105 +91,30 @@ public class ImsMmTelManager {
      * Callback class for receiving IMS network Registration callback events.
      * @see #registerImsRegistrationCallback(Executor, RegistrationCallback) (RegistrationCallback)
      * @see #unregisterImsRegistrationCallback(RegistrationCallback)
+     * @deprecated Use {@link RegistrationManager.RegistrationCallback} instead.
+     * @hide
      */
-    public static class RegistrationCallback {
-
-        private static class RegistrationBinder extends IImsRegistrationCallback.Stub {
-
-            // Translate ImsRegistrationImplBase API to new AccessNetworkConstant because WLAN
-            // and WWAN are more accurate constants.
-            private static final Map<Integer, Integer> IMS_REG_TO_ACCESS_TYPE_MAP =
-                    new HashMap<Integer, Integer>() {{
-                        // Map NONE to -1 to make sure that we handle the REGISTRATION_TECH_NONE
-                        // case, since it is defined.
-                        put(ImsRegistrationImplBase.REGISTRATION_TECH_NONE, -1);
-                        put(ImsRegistrationImplBase.REGISTRATION_TECH_LTE,
-                                AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
-                        put(ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN,
-                                AccessNetworkConstants.TRANSPORT_TYPE_WLAN);
-                    }};
-
-            private final RegistrationCallback mLocalCallback;
-            private Executor mExecutor;
-
-            RegistrationBinder(RegistrationCallback localCallback) {
-                mLocalCallback = localCallback;
-            }
-
-            @Override
-            public void onRegistered(int imsRadioTech) {
-                if (mLocalCallback == null) return;
-
-                Binder.withCleanCallingIdentity(() -> mExecutor.execute(() ->
-                        mLocalCallback.onRegistered(getAccessType(imsRadioTech))));
-            }
-
-            @Override
-            public void onRegistering(int imsRadioTech) {
-                if (mLocalCallback == null) return;
-
-                Binder.withCleanCallingIdentity(() -> mExecutor.execute(() ->
-                        mLocalCallback.onRegistering(getAccessType(imsRadioTech))));
-            }
-
-            @Override
-            public void onDeregistered(ImsReasonInfo info) {
-                if (mLocalCallback == null) return;
-
-                Binder.withCleanCallingIdentity(() ->
-                        mExecutor.execute(() -> mLocalCallback.onUnregistered(info)));
-            }
-
-            @Override
-            public void onTechnologyChangeFailed(int imsRadioTech, ImsReasonInfo info) {
-                if (mLocalCallback == null) return;
-
-                Binder.withCleanCallingIdentity(() ->
-                        mExecutor.execute(() -> mLocalCallback.onTechnologyChangeFailed(
-                                getAccessType(imsRadioTech), info)));
-            }
-
-            @Override
-            public void onSubscriberAssociatedUriChanged(Uri[] uris) {
-                if (mLocalCallback == null) return;
-
-                Binder.withCleanCallingIdentity(() ->
-                        mExecutor.execute(() ->
-                                mLocalCallback.onSubscriberAssociatedUriChanged(uris)));
-            }
-
-            private void setExecutor(Executor executor) {
-                mExecutor = executor;
-            }
-
-            private static int getAccessType(int regType) {
-                if (!IMS_REG_TO_ACCESS_TYPE_MAP.containsKey(regType)) {
-                    Log.w("ImsMmTelManager", "RegistrationBinder - invalid regType returned: "
-                            + regType);
-                    return -1;
-                }
-                return IMS_REG_TO_ACCESS_TYPE_MAP.get(regType);
-            }
-        }
-
-        private final RegistrationBinder mBinder = new RegistrationBinder(this);
+    // Do not add to this class, add to RegistrationManager.RegistrationCallback instead.
+    @Deprecated
+    @SystemApi @TestApi
+    public static class RegistrationCallback extends RegistrationManager.RegistrationCallback {
 
         /**
          * Notifies the framework when the IMS Provider is registered to the IMS network.
          *
-         * @param imsTransportType the radio access technology. Valid values are defined in
-         * {@link android.telephony.AccessNetworkConstants.TransportType}.
+         * @param imsTransportType the radio access technology.
          */
-        public void onRegistered(int imsTransportType) {
+        @Override
+        public void onRegistered(@AccessNetworkConstants.TransportType int imsTransportType) {
         }
 
         /**
          * Notifies the framework when the IMS Provider is trying to register the IMS network.
          *
-         * @param imsTransportType the radio access technology. Valid values are defined in
-         * {@link android.telephony.AccessNetworkConstants.TransportType}.
+         * @param imsTransportType the radio access technology.
          */
-        public void onRegistering(int imsTransportType) {
+        @Override
+        public void onRegistering(@AccessNetworkConstants.TransportType int imsTransportType) {
         }
 
         /**
@@ -202,48 +122,25 @@ public class ImsMmTelManager {
          *
          * @param info the {@link ImsReasonInfo} associated with why registration was disconnected.
          */
-        public void onUnregistered(@Nullable ImsReasonInfo info) {
+        @Override
+        public void onUnregistered(@NonNull ImsReasonInfo info) {
         }
 
         /**
-         * A failure has occurred when trying to handover registration to another technology type,
-         * defined in {@link android.telephony.AccessNetworkConstants.TransportType}
+         * A failure has occurred when trying to handover registration to another technology type.
          *
-         * @param imsTransportType The
-         *         {@link android.telephony.AccessNetworkConstants.TransportType}
-         *         transport type that has failed to handover registration to.
+         * @param imsTransportType The transport type that has failed to handover registration to.
          * @param info A {@link ImsReasonInfo} that identifies the reason for failure.
          */
-        public void onTechnologyChangeFailed(int imsTransportType, @Nullable ImsReasonInfo info) {
-        }
-
-        /**
-         * Returns a list of subscriber {@link Uri}s associated with this IMS subscription when
-         * it changes. Per RFC3455, an associated URI is a URI that the service provider has
-         * allocated to a user for their own usage. A user's phone number is typically one of the
-         * associated URIs.
-         * @param uris new array of subscriber {@link Uri}s that are associated with this IMS
-         *         subscription.
-         * @hide
-         */
-        public void onSubscriberAssociatedUriChanged(@Nullable Uri[] uris) {
-        }
-
-        /**@hide*/
-        public final IImsRegistrationCallback getBinder() {
-            return mBinder;
-        }
-
-        /**@hide*/
-        //Only exposed as public for compatibility with deprecated ImsManager APIs.
-        public void setExecutor(Executor executor) {
-            mBinder.setExecutor(executor);
+        @Override
+        public void onTechnologyChangeFailed(
+                @AccessNetworkConstants.TransportType int imsTransportType,
+                @NonNull ImsReasonInfo info) {
         }
     }
 
     /**
-     * Receives IMS capability status updates from the ImsService. This information is also
-     * available via the {@link #isAvailable(int, int)} method below.
+     * Receives IMS capability status updates from the ImsService.
      *
      * @see #registerMmTelCapabilityCallback(Executor, CapabilityCallback) (CapabilityCallback)
      * @see #unregisterMmTelCapabilityCallback(CapabilityCallback)
@@ -263,9 +160,13 @@ public class ImsMmTelManager {
             public void onCapabilitiesStatusChanged(int config) {
                 if (mLocalCallback == null) return;
 
-                Binder.withCleanCallingIdentity(() ->
-                        mExecutor.execute(() -> mLocalCallback.onCapabilitiesStatusChanged(
-                                new MmTelFeature.MmTelCapabilities(config))));
+                long callingIdentity = Binder.clearCallingIdentity();
+                try {
+                    mExecutor.execute(() -> mLocalCallback.onCapabilitiesStatusChanged(
+                            new MmTelFeature.MmTelCapabilities(config)));
+                } finally {
+                    restoreCallingIdentity(callingIdentity);
+                }
             }
 
             @Override
@@ -292,8 +193,6 @@ public class ImsMmTelManager {
          * If unavailable, the feature is not able to support the unavailable capability at this
          * time.
          *
-         * This information can also be queried using the {@link #isAvailable(int, int)} API.
-         *
          * @param capabilities The new availability of the capabilities.
          */
         public void onCapabilitiesStatusChanged(
@@ -313,15 +212,32 @@ public class ImsMmTelManager {
         }
     }
 
-    private int mSubId;
+    private final int mSubId;
 
     /**
      * Create an instance of {@link ImsMmTelManager} for the subscription id specified.
      *
      * @param subId The ID of the subscription that this ImsMmTelManager will use.
      * @see android.telephony.SubscriptionManager#getActiveSubscriptionInfoList()
+     *
+     * <p>Requires Permission: {@link android.Manifest.permission#READ_PRECISE_PHONE_STATE
+     * READ_PRECISE_PHONE_STATE} or that the calling app has carrier privileges
+     * (see {@link android.telephony.TelephonyManager#hasCarrierPrivileges}).
+     *
      * @throws IllegalArgumentException if the subscription is invalid.
+     * @deprecated Use {@link android.telephony.ims.ImsManager#getImsMmTelManager(int)} to get an
+     * instance of this class.
+     * @hide
      */
+    @SystemApi
+    @TestApi
+    @Deprecated
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE
+    })
+    @SuppressLint("ManagerLookup")
     public static @NonNull ImsMmTelManager createForSubscriptionId(int subId) {
         if (!SubscriptionManager.isValidSubscriptionId(subId)) {
             throw new IllegalArgumentException("Invalid subscription ID");
@@ -331,7 +247,7 @@ public class ImsMmTelManager {
     }
 
     /**
-     * Only visible for testing, use {@link #createForSubscriptionId(int)} instead.
+     * Only visible for testing, use {@link ImsManager#getImsMmTelManager(int)} instead.
      * @hide
      */
     @VisibleForTesting
@@ -341,7 +257,7 @@ public class ImsMmTelManager {
 
     /**
      * Registers a {@link RegistrationCallback} with the system, which will provide registration
-     * updates for the subscription specified in {@link #createForSubscriptionId(int)}. Use
+     * updates for the subscription specified in {@link ImsManager#getImsMmTelManager(int)}. Use
      * {@link SubscriptionManager.OnSubscriptionsChangedListener} to listen to Subscription changed
      * events and call {@link #unregisterImsRegistrationCallback(RegistrationCallback)} to clean up.
      *
@@ -358,7 +274,12 @@ public class ImsMmTelManager {
      * the {@link ImsService} associated with the subscription is not available. This can happen if
      * the service crashed, for example. See {@link ImsException#getCode()} for a more detailed
      * reason.
+     * @deprecated Use {@link RegistrationManager#registerImsRegistrationCallback(Executor,
+     * RegistrationManager.RegistrationCallback)} instead.
+     * @hide
      */
+    @Deprecated
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     public void registerImsRegistrationCallback(@NonNull @CallbackExecutor Executor executor,
             @NonNull RegistrationCallback c) throws ImsException {
@@ -368,13 +289,62 @@ public class ImsMmTelManager {
         if (executor == null) {
             throw new IllegalArgumentException("Must include a non-null Executor.");
         }
-        if (!isImsAvailableOnDevice()) {
-            throw new ImsException("IMS not available on device.",
-                    ImsException.CODE_ERROR_UNSUPPORTED_OPERATION);
+        c.setExecutor(executor);
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new ImsException("Could not find Telephony Service.",
+                    ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
+        }
+
+        try {
+            iTelephony.registerImsRegistrationCallback(mSubId, c.getBinder());
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new ImsException(e.getMessage(), e.errorCode);
+            }
+        } catch (RemoteException | IllegalStateException e) {
+            throw new ImsException(e.getMessage(), ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
+        }
+    }
+
+     /**
+     *
+     * <p>Requires Permission: {@link android.Manifest.permission#READ_PRECISE_PHONE_STATE
+     * READ_PRECISE_PHONE_STATE} or that the calling app has carrier privileges
+     * (see {@link android.telephony.TelephonyManager#hasCarrierPrivileges}).
+     *
+     * {@inheritDoc}
+     *
+     */
+    @Override
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
+    public void registerImsRegistrationCallback(@NonNull @CallbackExecutor Executor executor,
+            @NonNull RegistrationManager.RegistrationCallback c) throws ImsException {
+        if (c == null) {
+            throw new IllegalArgumentException("Must include a non-null RegistrationCallback.");
+        }
+        if (executor == null) {
+            throw new IllegalArgumentException("Must include a non-null Executor.");
         }
         c.setExecutor(executor);
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new ImsException("Could not find Telephony Service.",
+                    ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
+        }
+
         try {
-            getITelephony().registerImsRegistrationCallback(mSubId, c.getBinder());
+            iTelephony.registerImsRegistrationCallback(mSubId, c.getBinder());
+        } catch (ServiceSpecificException e) {
+            throw new ImsException(e.getMessage(), e.errorCode);
         } catch (RemoteException | IllegalStateException e) {
             throw new ImsException(e.getMessage(), ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
         }
@@ -390,16 +360,131 @@ public class ImsMmTelManager {
      * @param c The {@link RegistrationCallback} to be removed.
      * @see SubscriptionManager.OnSubscriptionsChangedListener
      * @see #registerImsRegistrationCallback(Executor, RegistrationCallback)
-     * @throws IllegalArgumentException if the subscription ID associated with this callback is
-     * invalid.
+     * @deprecated Use {@link #unregisterImsRegistrationCallback(
+     * RegistrationManager.RegistrationCallback)}.
+     * @hide
      */
+    @Deprecated
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     public void unregisterImsRegistrationCallback(@NonNull RegistrationCallback c) {
         if (c == null) {
             throw new IllegalArgumentException("Must include a non-null RegistrationCallback.");
         }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().unregisterImsRegistrationCallback(mSubId, c.getBinder());
+            iTelephony.unregisterImsRegistrationCallback(mSubId, c.getBinder());
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+    }
+
+     /**
+     *
+     * <p>Requires Permission: {@link android.Manifest.permission#READ_PRECISE_PHONE_STATE
+     * READ_PRECISE_PHONE_STATE} or that the calling app has carrier privileges
+     * (see {@link android.telephony.TelephonyManager#hasCarrierPrivileges}).
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     *{@inheritDoc}
+     */
+    @Override
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
+    public void unregisterImsRegistrationCallback(
+            @NonNull RegistrationManager.RegistrationCallback c) {
+        if (c == null) {
+            throw new IllegalArgumentException("Must include a non-null RegistrationCallback.");
+        }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
+        try {
+            iTelephony.unregisterImsRegistrationCallback(mSubId, c.getBinder());
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     * @hide
+     */
+    @Override
+    @SystemApi @TestApi
+    @RequiresPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    public void getRegistrationState(@NonNull @CallbackExecutor Executor executor,
+            @NonNull @ImsRegistrationState Consumer<Integer> stateCallback) {
+        if (stateCallback == null) {
+            throw new IllegalArgumentException("Must include a non-null callback.");
+        }
+        if (executor == null) {
+            throw new IllegalArgumentException("Must include a non-null Executor.");
+        }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
+        try {
+            iTelephony.getImsMmTelRegistrationState(mSubId, new IIntegerConsumer.Stub() {
+                @Override
+                public void accept(int result) {
+                    executor.execute(() -> stateCallback.accept(result));
+                }
+            });
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+    }
+
+    /**
+     * <p>Requires Permission: {@link android.Manifest.permission#READ_PRECISE_PHONE_STATE
+     * READ_PRECISE_PHONE_STATE} or that the calling app has carrier privileges
+     * (see {@link android.telephony.TelephonyManager#hasCarrierPrivileges}).
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     *{@inheritDoc}
+     */
+    @Override
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
+    public void getRegistrationTransportType(@NonNull @CallbackExecutor Executor executor,
+            @NonNull @AccessNetworkConstants.TransportType
+                    Consumer<Integer> transportTypeCallback) {
+        if (transportTypeCallback == null) {
+            throw new IllegalArgumentException("Must include a non-null callback.");
+        }
+        if (executor == null) {
+            throw new IllegalArgumentException("Must include a non-null Executor.");
+        }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
+        try {
+            iTelephony.getImsMmTelRegistrationTransportType(mSubId,
+                    new IIntegerConsumer.Stub() {
+                        @Override
+                        public void accept(int result) {
+                            executor.execute(() -> transportTypeCallback.accept(result));
+                        }
+                    });
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -408,12 +493,24 @@ public class ImsMmTelManager {
     /**
      * Registers a {@link CapabilityCallback} with the system, which will provide MmTel service
      * availability updates for the subscription specified in
-     * {@link #createForSubscriptionId(int)}. The method {@link #isAvailable(int, int)}
-     * can also be used to query this information at any time.
+     * {@link ImsManager#getImsMmTelManager(int)}.
      *
      * Use {@link SubscriptionManager.OnSubscriptionsChangedListener} to listen to
      * subscription changed events and call
-     * {@link #unregisterImsRegistrationCallback(RegistrationCallback)} to clean up.
+     * {@link #unregisterMmTelCapabilityCallback(CapabilityCallback)} to clean up.
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
      *
      * When the callback is registered, it will initiate the callback c to be called with the
      * current capabilities.
@@ -421,15 +518,15 @@ public class ImsMmTelManager {
      * @param executor The executor the callback events should be run on.
      * @param c The MmTel {@link CapabilityCallback} to be registered.
      * @see #unregisterMmTelCapabilityCallback(CapabilityCallback)
-     * @throws IllegalArgumentException if the subscription associated with this callback is not
-     * active (SIM is not inserted, ESIM inactive) or invalid, or a null {@link Executor} or
-     * {@link CapabilityCallback} callback.
      * @throws ImsException if the subscription associated with this callback is valid, but
      * the {@link ImsService} associated with the subscription is not available. This can happen if
      * the service crashed, for example. See {@link ImsException#getCode()} for a more detailed
      * reason.
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
     public void registerMmTelCapabilityCallback(@NonNull @CallbackExecutor Executor executor,
             @NonNull CapabilityCallback c) throws ImsException {
         if (c == null) {
@@ -438,13 +535,18 @@ public class ImsMmTelManager {
         if (executor == null) {
             throw new IllegalArgumentException("Must include a non-null Executor.");
         }
-        if (!isImsAvailableOnDevice()) {
-            throw new ImsException("IMS not available on device.",
-                    ImsException.CODE_ERROR_UNSUPPORTED_OPERATION);
-        }
         c.setExecutor(executor);
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new ImsException("Could not find Telephony Service.",
+                    ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
+        }
+
         try {
-            getITelephony().registerMmTelCapabilityCallback(mSubId, c.getBinder());
+            iTelephony.registerMmTelCapabilityCallback(mSubId, c.getBinder());
+        } catch (ServiceSpecificException e) {
+            throw new ImsException(e.getMessage(), e.errorCode);
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }  catch (IllegalStateException e) {
@@ -458,18 +560,39 @@ public class ImsMmTelManager {
      * When the subscription associated with this callback is removed (SIM removed, ESIM swap,
      * etc...), this callback will automatically be removed. If this method is called for an
      * inactive subscription, it will result in a no-op.
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
      * @param c The MmTel {@link CapabilityCallback} to be removed.
      * @see #registerMmTelCapabilityCallback(Executor, CapabilityCallback)
-     * @throws IllegalArgumentException if the subscription ID associated with this callback is
-     * invalid.
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
     public void unregisterMmTelCapabilityCallback(@NonNull CapabilityCallback c) {
         if (c == null) {
             throw new IllegalArgumentException("Must include a non-null RegistrationCallback.");
         }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().unregisterMmTelCapabilityCallback(mSubId, c.getBinder());
+            iTelephony.unregisterMmTelCapabilityCallback(mSubId, c.getBinder());
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -482,25 +605,51 @@ public class ImsMmTelManager {
      * be enabled as long as the carrier has provisioned these services for the specified
      * subscription. Other IMS services (SMS/UT) are not affected by this user setting and depend on
      * carrier requirements.
-     *
-     * Modifying this value may also trigger an IMS registration or deregistration, depending on
-     * whether or not the new value is enabled or disabled.
-     *
+     * <p>
      * Note: If the carrier configuration for advanced calling is not editable or hidden, this
-     * method will do nothing and will instead always use the default value.
+     * method will always return the default value.
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
      *
      * @see android.telephony.CarrierConfigManager#KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL
      * @see android.telephony.CarrierConfigManager#KEY_EDITABLE_ENHANCED_4G_LTE_BOOL
      * @see android.telephony.CarrierConfigManager#KEY_HIDE_ENHANCED_4G_LTE_BOOL
      * @see android.telephony.CarrierConfigManager#KEY_ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL
      * @see android.telephony.CarrierConfigManager#KEY_CARRIER_VOLTE_AVAILABLE_BOOL
-     * @see #setAdvancedCallingSettingEnabled(boolean)
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @return true if the user's setting for advanced calling is enabled, false otherwise.
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
     public boolean isAdvancedCallingSettingEnabled() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().isAdvancedCallingSettingEnabled(mSubId);
+            return iTelephony.isAdvancedCallingSettingEnabled(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -526,12 +675,27 @@ public class ImsMmTelManager {
      * @see android.telephony.CarrierConfigManager#KEY_ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL
      * @see android.telephony.CarrierConfigManager#KEY_CARRIER_VOLTE_AVAILABLE_BOOL
      * @see #isAdvancedCallingSettingEnabled()
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
+     * @hide
      */
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
+    @SystemApi @TestApi
     public void setAdvancedCallingSettingEnabled(boolean isEnabled) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setAdvancedCallingSettingEnabled(mSubId, isEnabled);
-            return;
+            iTelephony.setAdvancedCallingSettingEnabled(mSubId, isEnabled);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -552,17 +716,24 @@ public class ImsMmTelManager {
      *         {@link ImsRegistrationImplBase#REGISTRATION_TECH_IWLAN}
      * @param capability The IMS MmTel capability to query, can be one of the following:
      *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_VOICE},
-     *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_VIDEO,
+     *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_VIDEO},
      *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_UT},
      *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_SMS}
      * @return {@code true} if the MmTel IMS capability is capable for this subscription, false
      *         otherwise.
+     * @hide
      */
     @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SystemApi @TestApi
     public boolean isCapable(@MmTelFeature.MmTelCapabilities.MmTelCapability int capability,
             @ImsRegistrationImplBase.ImsRegistrationTech int imsRegTech) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().isCapable(mSubId, capability, imsRegTech);
+            return iTelephony.isCapable(mSubId, capability, imsRegTech);
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -579,31 +750,121 @@ public class ImsMmTelManager {
      *         {@link ImsRegistrationImplBase#REGISTRATION_TECH_IWLAN}
      * @param capability The IMS MmTel capability to query, can be one of the following:
      *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_VOICE},
-     *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_VIDEO,
+     *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_VIDEO},
      *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_UT},
      *         {@link MmTelFeature.MmTelCapabilities#CAPABILITY_TYPE_SMS}
      * @return {@code true} if the MmTel IMS capability is available for this subscription, false
      *         otherwise.
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     public boolean isAvailable(@MmTelFeature.MmTelCapabilities.MmTelCapability int capability,
             @ImsRegistrationImplBase.ImsRegistrationTech int imsRegTech) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().isAvailable(mSubId, capability, imsRegTech);
+            return iTelephony.isAvailable(mSubId, capability, imsRegTech);
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
     }
 
     /**
-     * The user's setting for whether or not they have enabled the "Video Calling" setting.
-     * @return true if the user’s “Video Calling” setting is currently enabled.
-     * @see #setVtSettingEnabled(boolean)
+     * Query whether or not the requested MmTel capability is supported by the carrier on the
+     * specified network transport.
+     * <p>
+     * This is a configuration option and does not change. The only time this may change is if a
+     * new IMS configuration is loaded when there is a
+     * {@link CarrierConfigManager#ACTION_CARRIER_CONFIG_CHANGED} broadcast for this subscription.
+     * @param capability The capability that is being queried for support on the carrier network.
+     * @param transportType The transport type of the capability to check support for.
+     * @param executor The executor that the callback will be called with.
+     * @param callback A consumer containing a Boolean result specifying whether or not the
+     *                 capability is supported on this carrier network for the transport specified.
+     * @throws ImsException if the subscription is no longer valid or the IMS service is not
+     * available.
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
-    public boolean isVtSettingEnabled() {
+    public void isSupported(@MmTelFeature.MmTelCapabilities.MmTelCapability int capability,
+            @AccessNetworkConstants.TransportType int transportType,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull Consumer<Boolean> callback) throws ImsException {
+        if (callback == null) {
+            throw new IllegalArgumentException("Must include a non-null Consumer.");
+        }
+        if (executor == null) {
+            throw new IllegalArgumentException("Must include a non-null Executor.");
+        }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new ImsException("Could not find Telephony Service.",
+                    ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
+        }
+
         try {
-            return getITelephony().isVtSettingEnabled(mSubId);
+            getITelephony().isMmTelCapabilitySupported(mSubId, new IIntegerConsumer.Stub() {
+                @Override
+                public void accept(int result) {
+                    executor.execute(() -> callback.accept(result == 1));
+                }
+            }, capability, transportType);
+        } catch (ServiceSpecificException sse) {
+            throw new ImsException(sse.getMessage(), sse.errorCode);
+        } catch (RemoteException e) {
+            e.rethrowAsRuntimeException();
+        }
+    }
+
+    /**
+     * The user's setting for whether or not they have enabled the "Video Calling" setting.
+     *
+     * <p>
+     * Note: If the carrier configuration for advanced calling is not editable or hidden, this
+     * method will always return the default value.
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
+     * @return true if the user’s “Video Calling” setting is currently enabled.
+     */
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    public boolean isVtSettingEnabled() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
+        try {
+            return iTelephony.isVtSettingEnabled(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -611,13 +872,29 @@ public class ImsMmTelManager {
 
     /**
      * Change the user's setting for Video Telephony and enable the Video Telephony capability.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see #isVtSettingEnabled()
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setVtSettingEnabled(boolean isEnabled) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setVtSettingEnabled(mSubId, isEnabled);
-            return;
+            iTelephony.setVtSettingEnabled(mSubId, isEnabled);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -625,12 +902,43 @@ public class ImsMmTelManager {
 
     /**
      * @return true if the user's setting for Voice over WiFi is enabled and false if it is not.
-     * @see #setVoWiFiSettingEnabled(boolean)
+     *
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
     public boolean isVoWiFiSettingEnabled() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().isVoWiFiSettingEnabled(mSubId);
+            return iTelephony.isVoWiFiSettingEnabled(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -638,28 +946,76 @@ public class ImsMmTelManager {
 
     /**
      * Sets the user's setting for whether or not Voice over WiFi is enabled.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @param isEnabled true if the user's setting for Voice over WiFi is enabled, false otherwise=
      * @see #isVoWiFiSettingEnabled()
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setVoWiFiSettingEnabled(boolean isEnabled) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setVoWiFiSettingEnabled(mSubId, isEnabled);
-            return;
+            iTelephony.setVoWiFiSettingEnabled(mSubId, isEnabled);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
     }
 
     /**
+     * Returns the user's voice over WiFi roaming setting associated with the current subscription.
+     *
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @return true if the user's setting for Voice over WiFi while roaming is enabled, false
      * if disabled.
-     * @see #setVoWiFiRoamingSettingEnabled(boolean)
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
     public boolean isVoWiFiRoamingSettingEnabled() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().isVoWiFiRoamingSettingEnabled(mSubId);
+            return iTelephony.isVoWiFiRoamingSettingEnabled(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -667,15 +1023,31 @@ public class ImsMmTelManager {
 
     /**
      * Change the user's setting for Voice over WiFi while roaming.
+     *
      * @param isEnabled true if the user's setting for Voice over WiFi while roaming is enabled,
      *     false otherwise.
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see #isVoWiFiRoamingSettingEnabled()
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setVoWiFiRoamingSettingEnabled(boolean isEnabled) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setVoWiFiRoamingSettingEnabled(mSubId, isEnabled);
-            return;
+            iTelephony.setVoWiFiRoamingSettingEnabled(mSubId, isEnabled);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -691,30 +1063,77 @@ public class ImsMmTelManager {
      * - {@link #WIFI_MODE_WIFI_ONLY}
      * - {@link #WIFI_MODE_CELLULAR_PREFERRED}
      * - {@link #WIFI_MODE_WIFI_PREFERRED}
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see #setVoWiFiSettingEnabled(boolean)
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setVoWiFiNonPersistent(boolean isCapable, int mode) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setVoWiFiNonPersistent(mSubId, isCapable, mode);
-            return;
+            iTelephony.setVoWiFiNonPersistent(mSubId, isCapable, mode);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
     }
 
     /**
+     * Returns the user's voice over WiFi Roaming mode setting associated with the device.
+     *
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @return The Voice over WiFi Mode preference set by the user, which can be one of the
      * following:
      * - {@link #WIFI_MODE_WIFI_ONLY}
      * - {@link #WIFI_MODE_CELLULAR_PREFERRED}
      * - {@link #WIFI_MODE_WIFI_PREFERRED}
-     * @see #setVoWiFiSettingEnabled(boolean)
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
     public @WiFiCallingMode int getVoWiFiModeSetting() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().getVoWiFiModeSetting(mSubId);
+            return iTelephony.getVoWiFiModeSetting(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -727,13 +1146,28 @@ public class ImsMmTelManager {
      * - {@link #WIFI_MODE_WIFI_ONLY}
      * - {@link #WIFI_MODE_CELLULAR_PREFERRED}
      * - {@link #WIFI_MODE_WIFI_PREFERRED}
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see #getVoWiFiModeSetting()
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setVoWiFiModeSetting(@WiFiCallingMode int mode) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setVoWiFiModeSetting(mSubId, mode);
-            return;
+            iTelephony.setVoWiFiModeSetting(mSubId, mode);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -748,12 +1182,28 @@ public class ImsMmTelManager {
      *     - {@link #WIFI_MODE_WIFI_ONLY}
      *     - {@link #WIFI_MODE_CELLULAR_PREFERRED}
      *     - {@link #WIFI_MODE_WIFI_PREFERRED}
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see #setVoWiFiRoamingSettingEnabled(boolean)
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     public @WiFiCallingMode int getVoWiFiRoamingModeSetting() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().getVoWiFiRoamingModeSetting(mSubId);
+            return iTelephony.getVoWiFiRoamingModeSetting(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -768,13 +1218,28 @@ public class ImsMmTelManager {
      *     - {@link #WIFI_MODE_WIFI_ONLY}
      *     - {@link #WIFI_MODE_CELLULAR_PREFERRED}
      *     - {@link #WIFI_MODE_WIFI_PREFERRED}
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see #getVoWiFiRoamingModeSetting()
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setVoWiFiRoamingModeSetting(@WiFiCallingMode int mode) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setVoWiFiRoamingModeSetting(mSubId, mode);
-            return;
+            iTelephony.setVoWiFiRoamingModeSetting(mSubId, mode);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -787,13 +1252,28 @@ public class ImsMmTelManager {
      * {@link android.provider.Settings.Secure#RTT_CALLING_MODE}, which is the global user setting
      * for RTT. That value is enabled/disabled separately by the user through the Accessibility
      * settings.
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @param isEnabled if true RTT should be enabled during calls made on this subscription.
+     * @hide
      */
+    @SystemApi @TestApi
     @RequiresPermission(Manifest.permission.MODIFY_PHONE_STATE)
     public void setRttCapabilitySetting(boolean isEnabled) {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            getITelephony().setRttCapabilitySetting(mSubId, isEnabled);
-            return;
+            iTelephony.setRttCapabilitySetting(mSubId, isEnabled);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
@@ -801,40 +1281,99 @@ public class ImsMmTelManager {
 
     /**
      * @return true if TTY over VoLTE is supported
-     * @see android.telecom.TelecomManager#getCurrentTtyMode
+     *
+     * <p>This API requires one of the following:
+     * <ul>
+     *     <li>The caller holds the READ_PRECISE_PHONE_STATE permission.</li>
+     *     <li>If the caller is the device or profile owner, the caller holds the
+     *     {@link Manifest.permission#READ_PRECISE_PHONE_STATE} permission.</li>
+     *     <li>The caller has carrier privileges (see
+     *     {@link android.telephony.TelephonyManager#hasCarrierPrivileges}) on any
+     *     active subscription.</li>
+     *     <li>The caller is the default SMS app for the device.</li>
+     * </ul>
+     * <p>The profile owner is an app that owns a managed profile on the device; for more details
+     * see <a href="https://developer.android.com/work/managed-profiles">Work profiles</a>.
+     * Access by profile owners is deprecated and will be removed in a future release.
+     *
+     * @throws IllegalArgumentException if the subscription associated with this operation is not
+     * active (SIM is not inserted, ESIM inactive) or invalid.
      * @see android.telephony.CarrierConfigManager#KEY_CARRIER_VOLTE_TTY_SUPPORTED_BOOL
      */
-    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
-    boolean isTtyOverVolteEnabled() {
+    @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
+    @RequiresPermission(anyOf = {
+            android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
+            android.Manifest.permission.READ_PRECISE_PHONE_STATE})
+    public boolean isTtyOverVolteEnabled() {
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new RuntimeException("Could not find Telephony Service.");
+        }
+
         try {
-            return getITelephony().isTtyOverVolteEnabled(mSubId);
+            return iTelephony.isTtyOverVolteEnabled(mSubId);
+        } catch (ServiceSpecificException e) {
+            if (e.errorCode == ImsException.CODE_ERROR_INVALID_SUBSCRIPTION) {
+                // Rethrow as runtime error to keep API compatible.
+                throw new IllegalArgumentException(e.getMessage());
+            } else {
+                throw new RuntimeException(e.getMessage());
+            }
         } catch (RemoteException e) {
             throw e.rethrowAsRuntimeException();
         }
     }
 
-    private static boolean isImsAvailableOnDevice() {
-        IPackageManager pm = IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
-        if (pm == null) {
-            // For some reason package manger is not available.. This will fail internally anyways,
-            // so do not throw error and allow.
-            return true;
+    /**
+     * Get the status of the MmTel Feature registered on this subscription.
+     * @param executor The executor that will be used to call the callback.
+     * @param callback A callback containing an Integer describing the current state of the
+     *                 MmTel feature, Which will be one of the following:
+     *                 {@link ImsFeature#STATE_UNAVAILABLE},
+     *                {@link ImsFeature#STATE_INITIALIZING},
+     *                {@link ImsFeature#STATE_READY}. Will be called using the executor
+     *                 specified when the service state has been retrieved from the IMS service.
+     * @throws ImsException if the IMS service associated with this subscription is not available or
+     * the IMS service is not available.
+     * @hide
+     */
+    @SystemApi @TestApi
+    @RequiresPermission(Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
+    public void getFeatureState(@NonNull @CallbackExecutor Executor executor,
+            @NonNull @ImsFeature.ImsState Consumer<Integer> callback) throws ImsException {
+        if (executor == null) {
+            throw new IllegalArgumentException("Must include a non-null Executor.");
         }
+        if (callback == null) {
+            throw new IllegalArgumentException("Must include a non-null Consumer.");
+        }
+
+        ITelephony iTelephony = getITelephony();
+        if (iTelephony == null) {
+            throw new ImsException("Could not find Telephony Service.",
+                    ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
+        }
+
         try {
-            return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_IMS, 0);
+            iTelephony.getImsMmTelFeatureState(mSubId, new IIntegerConsumer.Stub() {
+                @Override
+                public void accept(int result) {
+                    executor.execute(() -> callback.accept(result));
+                }
+            });
+        } catch (ServiceSpecificException sse) {
+            throw new ImsException(sse.getMessage(), sse.errorCode);
         } catch (RemoteException e) {
-            // For some reason package manger is not available.. This will fail internally anyways,
-            // so do not throw error and allow.
+            e.rethrowAsRuntimeException();
         }
-        return true;
     }
 
     private static ITelephony getITelephony() {
         ITelephony binder = ITelephony.Stub.asInterface(
-                ServiceManager.getService(Context.TELEPHONY_SERVICE));
-        if (binder == null) {
-            throw new RuntimeException("Could not find Telephony Service.");
-        }
+                TelephonyFrameworkInitializer
+                        .getTelephonyServiceManager()
+                        .getTelephonyServiceRegisterer()
+                        .get());
         return binder;
     }
 }

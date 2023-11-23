@@ -17,25 +17,25 @@
 
 package android.os;
 
-import androidx.test.filters.MediumTest;
-
 import junit.framework.TestCase;
 
 public class ProcessTest extends TestCase {
 
-    @MediumTest
+    private static final int BAD_PID = 0;
+
     public void testProcessGetUidFromName() throws Exception {
         assertEquals(android.os.Process.SYSTEM_UID, Process.getUidForName("system"));
         assertEquals(Process.BLUETOOTH_UID, Process.getUidForName("bluetooth"));
         assertEquals(Process.FIRST_APPLICATION_UID, Process.getUidForName("u0_a0"));
         assertEquals(UserHandle.getUid(1, Process.SYSTEM_UID), Process.getUidForName("u1_system"));
-        assertEquals(UserHandle.getUid(2, Process.FIRST_ISOLATED_UID),
+        assertEquals(UserHandle.getUid(2, Process.FIRST_APP_ZYGOTE_ISOLATED_UID),
                 Process.getUidForName("u2_i0"));
+        assertEquals(UserHandle.getUid(2, Process.FIRST_ISOLATED_UID),
+                Process.getUidForName("u2_i9000"));
         assertEquals(UserHandle.getUid(3, Process.FIRST_APPLICATION_UID + 100),
                 Process.getUidForName("u3_a100"));
     }
 
-    @MediumTest
     public void testProcessGetUidFromNameFailure() throws Exception {
         // Failure cases
         assertEquals(-1, Process.getUidForName("u2a_foo"));
@@ -45,6 +45,31 @@ public class ProcessTest extends TestCase {
         assertEquals(-1, Process.getUidForName("akjhwiuefhiuhsf"));
         assertEquals(-1, Process.getUidForName("u5_radio5"));
         assertEquals(-1, Process.getUidForName("u2jhsajhfkjhsafkhskafhkashfkjashfkjhaskjfdhakj3"));
+    }
+
+    /**
+     * Tests getUidForPid() by ensuring that it returns the correct value when the process queried
+     * doesn't exist.
+     */
+    public void testGetUidForPidInvalidPid() {
+        assertEquals(-1, Process.getUidForPid(BAD_PID));
+    }
+
+    /**
+     * Tests getParentPid() by ensuring that it returns the correct value when the process queried
+     * doesn't exist.
+     */
+    public void testGetParentPidInvalidPid() {
+        assertEquals(-1, Process.getParentPid(BAD_PID));
+    }
+
+    /**
+     * Tests getThreadGroupLeader() by ensuring that it returns the correct value when the
+     * thread queried doesn't exist.
+     */
+    public void testGetThreadGroupLeaderInvalidTid() {
+        // This function takes a TID instead of a PID but BAD_PID should also be a bad TID.
+        assertEquals(-1, Process.getThreadGroupLeader(BAD_PID));
     }
 
 }

@@ -16,6 +16,9 @@
 
 package com.android.server.wifi;
 
+import static com.android.server.wifi.WifiConfigurationTestUtil.SECURITY_PSK;
+import static com.android.server.wifi.WifiConfigurationTestUtil.SECURITY_SAE;
+import static com.android.server.wifi.WifiConfigurationTestUtil.SECURITY_WAPI_PSK;
 import static com.android.server.wifi.WifiConfigurationTestUtil.generateWifiConfig;
 
 import static org.junit.Assert.*;
@@ -28,24 +31,27 @@ import android.net.ScoredNetwork;
 import android.net.WifiKey;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
-import android.net.wifi.WifiNetworkScoreCache;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiSsid;
 import android.text.TextUtils;
 
+import com.android.server.wifi.hotspot2.NetworkDetail;
+import com.android.server.wifi.util.InformationElementUtil;
 import com.android.server.wifi.util.NativeUtil;
 import com.android.server.wifi.util.ScanResultUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper for WifiNetworkSelector unit tests.
  */
 public class WifiNetworkSelectorTestUtil {
-
+    private static final String TAG = "WifiNetworkSelectorTestUtil";
     /**
      * A class that holds a list of scanDetail and their associated WifiConfiguration.
      */
@@ -85,12 +91,77 @@ public class WifiNetworkSelectorTestUtil {
                 String[] bssids, int[] freqs, String[] caps, int[] levels, int[] securities,
                 WifiConfigManager wifiConfigManager, Clock clock) {
         List<ScanDetail> scanDetails = buildScanDetails(ssids, bssids, freqs, caps, levels, clock);
+
         WifiConfiguration[] savedConfigs = generateWifiConfigurations(ssids, securities);
-        checkConsistencyOfScanDetailsAndWifiConfigs(scanDetails, savedConfigs);
-        prepareConfigStore(wifiConfigManager, savedConfigs);
-        scanResultLinkConfiguration(wifiConfigManager, savedConfigs, scanDetails);
+
+        addWifiConfigAndLinkScanResult(wifiConfigManager, savedConfigs, scanDetails);
 
         return new ScanDetailsAndWifiConfigs(scanDetails, savedConfigs);
+    }
+
+    public static ScanDetailsAndWifiConfigs setupScanDetailsAndConfigStore(String[] ssids,
+                String[] bssids, int[] freqs, String[] caps, int[] levels,
+                int[] securities, WifiConfigManager wifiConfigManager, Clock clock,
+                byte[][] iesByteStream) {
+
+        if (iesByteStream == null) {
+            throw new IllegalArgumentException("Null ies");
+        }
+
+        List<ScanDetail> scanDetails = buildScanDetailsWithNetworkDetails(ssids, bssids, freqs,
+                caps, levels, iesByteStream, clock);
+
+        WifiConfiguration[] savedConfigs = generateWifiConfigurations(ssids, securities);
+
+        addWifiConfigAndLinkScanResult(wifiConfigManager, savedConfigs, scanDetails);
+
+        return new ScanDetailsAndWifiConfigs(scanDetails, savedConfigs);
+    }
+
+    /**
+     * Build a list of ScanDetail based on the caller supplied network SSID, BSSID,
+     * frequency and RSSI level information. Create the EAP-SIM authticated
+     * WifiConfiguration for these networks and set up the mocked WifiConfigManager.
+     *
+     * @param ssids an array of SSIDs
+     * @param bssids an array of BSSIDs
+     * @param freqs an array of the network's frequency
+     * @param levels an array of the network's RSSI levels
+     * @param wifiConfigManager the mocked WifiConfigManager
+     * @return the constructed ScanDetail list and WifiConfiguration array
+     */
+    public static ScanDetailsAndWifiConfigs setupScanDetailsAndConfigForEapSimNetwork(
+            String[] ssids,
+            String[] bssids, int[] freqs, int[] levels,
+            WifiConfigManager wifiConfigManager, Clock clock) {
+        assertNotNull(ssids);
+        String[] caps = new String[ssids.length];
+        for (int i = 0; i < ssids.length; i++) {
+            caps[i] = "[EAP][ESS]";
+        }
+        List<ScanDetail> scanDetails = buildScanDetails(ssids, bssids, freqs, caps, levels, clock);
+        WifiConfiguration[] savedConfigs = new WifiConfiguration[ssids.length];
+        Set<String> ssidSet = new HashSet<>();
+        for (int i = 0; i < ssids.length; i++) {
+            // do not allow duplicated ssid
+            assertFalse(ssidSet.contains(ssids[i]));
+            ssidSet.add(ssids[i]);
+            savedConfigs[i] = WifiConfigurationTestUtil.createEapNetwork(
+                    WifiEnterpriseConfig.Eap.SIM, WifiEnterpriseConfig.Phase2.NONE);
+            savedConfigs[i].SSID = ssids[i];
+            savedConfigs[i].networkId = i;
+        }
+
+        addWifiConfigAndLinkScanResult(wifiConfigManager, savedConfigs, scanDetails);
+
+        return new ScanDetailsAndWifiConfigs(scanDetails, savedConfigs);
+    }
+
+    private static void addWifiConfigAndLinkScanResult(WifiConfigManager wifiConfigManager,
+            WifiConfiguration[] configs, List<ScanDetail> scanDetails) {
+        checkConsistencyOfScanDetailsAndWifiConfigs(scanDetails, configs);
+        prepareConfigStore(wifiConfigManager, configs);
+        scanResultLinkConfiguration(wifiConfigManager, configs, scanDetails);
     }
 
     private static void checkConsistencyOfScanDetailsAndWifiConfigs(
@@ -145,6 +216,38 @@ public class WifiNetworkSelectorTestUtil {
         return scanDetailList;
     }
 
+    /**
+     * Build a list of scanDetails along with network details based
+     * on the caller supplied network SSID, BSSID, frequency,
+     * capability, byte stream of IEs and RSSI level information.
+     *
+     * @param ssids an array of SSIDs
+     * @param bssids an array of BSSIDs
+     * @param freqs an array of the network's frequency
+     * @param caps an array of the network's capability
+     * @param levels an array of the network's RSSI levels
+     * @return the constructed list of ScanDetail
+     */
+    public static List<ScanDetail> buildScanDetailsWithNetworkDetails(String[] ssids,
+                String[] bssids, int[] freqs,
+                String[] caps, int[] levels, byte[][] iesByteStream, Clock clock) {
+        List<ScanDetail> scanDetailList = new ArrayList<ScanDetail>();
+
+        long timeStamp = clock.getElapsedSinceBootMillis();
+        for (int index = 0; index < ssids.length; index++) {
+            byte[] ssid = NativeUtil.byteArrayFromArrayList(NativeUtil.decodeSsid(ssids[index]));
+            ScanResult.InformationElement[] ies =
+                InformationElementUtil.parseInformationElements(iesByteStream[index]);
+            NetworkDetail nd = new NetworkDetail(bssids[index], ies, new ArrayList<String>(),
+                    freqs[index]);
+            ScanDetail scanDetail = new ScanDetail(nd, WifiSsid.createFromByteArray(ssid),
+                    bssids[index], caps[index], levels[index], freqs[index], timeStamp,
+                    ies, new ArrayList<String>(),
+                    ScanResults.generateIERawDatafromScanResultIE(ies));
+            scanDetailList.add(scanDetail);
+        }
+        return scanDetailList;
+    }
 
     /**
      * Generate an array of {@link android.net.wifi.WifiConfiguration} based on the caller
@@ -177,7 +280,10 @@ public class WifiNetworkSelectorTestUtil {
 
             configs[index] = generateWifiConfig(id.intValue(), 0, ssids[index], false, true, null,
                     null, securities[index]);
-            configs[index].preSharedKey = "\"PA55W0RD\""; // needed to validate with PSK
+            if (securities[index] == SECURITY_PSK || securities[index] == SECURITY_SAE
+                    || securities[index] == SECURITY_WAPI_PSK) {
+                configs[index].preSharedKey = "\"PA55W0RD\""; // needed to validate with PSK
+            }
             if (!WifiConfigurationUtil.validate(configs[index], true)) {
                 throw new IllegalArgumentException("Invalid generated config: " + configs[index]);
             }
@@ -211,7 +317,7 @@ public class WifiNetworkSelectorTestUtil {
                 .then(new AnswerWithArguments() {
                     public WifiConfiguration answer(String configKey) {
                         for (WifiConfiguration config : configs) {
-                            if (TextUtils.equals(config.configKey(), configKey)) {
+                            if (TextUtils.equals(config.getKey(), configKey)) {
                                 return new WifiConfiguration(config);
                             }
                         }
@@ -263,23 +369,17 @@ public class WifiNetworkSelectorTestUtil {
                     public boolean answer(int netId) {
                         if (netId >= 0 && netId < configs.length) {
                             configs[netId].getNetworkSelectionStatus().setConnectChoice(null);
-                            configs[netId].getNetworkSelectionStatus()
-                                    .setConnectChoiceTimestamp(
-                                            NetworkSelectionStatus
-                                                    .INVALID_NETWORK_SELECTION_DISABLE_TIMESTAMP);
                             return true;
                         } else {
                             return false;
                         }
                     }
                 });
-        when(wifiConfigManager.setNetworkConnectChoice(anyInt(), anyString(), anyLong()))
+        when(wifiConfigManager.setNetworkConnectChoice(anyInt(), anyString()))
                 .then(new AnswerWithArguments() {
-                    public boolean answer(int netId, String configKey, long timestamp) {
+                    public boolean answer(int netId, String configKey) {
                         if (netId >= 0 && netId < configs.length) {
                             configs[netId].getNetworkSelectionStatus().setConnectChoice(configKey);
-                            configs[netId].getNetworkSelectionStatus().setConnectChoiceTimestamp(
-                                    timestamp);
                             return true;
                         } else {
                             return false;
@@ -365,7 +465,7 @@ public class WifiNetworkSelectorTestUtil {
             networks.add(scoredNetwork);
         }
 
-        scoreCache.updateScores(networks);
+        scoreCache.onScoresUpdated(networks);
     }
 
     /**
@@ -408,11 +508,11 @@ public class WifiNetworkSelectorTestUtil {
                     }
                 });
         when(wifiConfigManager.updateNetworkSelectionStatus(eq(networkId),
-                eq(WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLE)))
+                eq(WifiConfiguration.NetworkSelectionStatus.DISABLED_NONE)))
                 .then(new AnswerWithArguments() {
                     public boolean answer(int netId, int status) {
                         config.getNetworkSelectionStatus().setNetworkSelectionStatus(
-                                WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLE);
+                                WifiConfiguration.NetworkSelectionStatus.DISABLED_NONE);
                         return true;
                     }
                 });

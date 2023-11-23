@@ -18,7 +18,9 @@
 #include <android/hardware/configstore/1.1/ISurfaceFlingerConfigs.h>
 #include <android/hardware/configstore/1.1/types.h>
 #include <configstore/Utils.h>
+#include <utils/Log.h>
 
+#include <log/log.h>
 #include <cstdlib>
 #include <tuple>
 
@@ -66,6 +68,22 @@ int64_t max_frame_buffer_acquired_buffers(int64_t defaultValue) {
     }
     return getInt64<ISurfaceFlingerConfigs, &ISurfaceFlingerConfigs::maxFrameBufferAcquiredBuffers>(
             defaultValue);
+}
+
+int32_t max_graphics_width(int32_t defaultValue) {
+    auto temp = SurfaceFlingerProperties::max_graphics_width();
+    if (temp.has_value()) {
+        return *temp;
+    }
+    return defaultValue;
+}
+
+int32_t max_graphics_height(int32_t defaultValue) {
+    auto temp = SurfaceFlingerProperties::max_graphics_height();
+    if (temp.has_value()) {
+        return *temp;
+    }
+    return defaultValue;
 }
 
 bool has_wide_color_display(bool defaultValue) {
@@ -218,6 +236,26 @@ int32_t wcg_composition_pixel_format(PixelFormat defaultValue) {
     return static_cast<int32_t>(defaultValue);
 }
 
+int64_t color_space_agnostic_dataspace(Dataspace defaultValue) {
+    auto temp = SurfaceFlingerProperties::color_space_agnostic_dataspace();
+    if (temp.has_value()) {
+        return *temp;
+    }
+    return static_cast<int64_t>(defaultValue);
+}
+
+bool refresh_rate_switching(bool defaultValue) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    auto temp = SurfaceFlingerProperties::refresh_rate_switching();
+#pragma clang diagnostic pop
+    if (temp.has_value()) {
+        ALOGW("Using deprecated refresh_rate_switching sysprop. Value: %d", *temp);
+        return *temp;
+    }
+    return defaultValue;
+}
+
 int32_t set_idle_timer_ms(int32_t defaultValue) {
     auto temp = SurfaceFlingerProperties::set_idle_timer_ms();
     if (temp.has_value()) {
@@ -234,8 +272,25 @@ int32_t set_touch_timer_ms(int32_t defaultValue) {
     return defaultValue;
 }
 
-bool use_smart_90_for_video(bool defaultValue) {
-    auto temp = SurfaceFlingerProperties::use_smart_90_for_video();
+int32_t set_display_power_timer_ms(int32_t defaultValue) {
+    auto temp = SurfaceFlingerProperties::set_display_power_timer_ms();
+    if (temp.has_value()) {
+        return *temp;
+    }
+    return defaultValue;
+}
+
+bool use_content_detection_for_refresh_rate(bool defaultValue) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    auto smart_90_deprecated = SurfaceFlingerProperties::use_smart_90_for_video();
+#pragma clang diagnostic pop
+    if (smart_90_deprecated.has_value()) {
+        ALOGW("Using deprecated use_smart_90_for_video sysprop. Value: %d", *smart_90_deprecated);
+        return *smart_90_deprecated;
+    }
+
+    auto temp = SurfaceFlingerProperties::use_content_detection_for_refresh_rate();
     if (temp.has_value()) {
         return *temp;
     }
@@ -252,6 +307,22 @@ bool enable_protected_contents(bool defaultValue) {
 
 bool support_kernel_idle_timer(bool defaultValue) {
     auto temp = SurfaceFlingerProperties::support_kernel_idle_timer();
+    if (temp.has_value()) {
+        return *temp;
+    }
+    return defaultValue;
+}
+
+bool use_frame_rate_api(bool defaultValue) {
+    auto temp = SurfaceFlingerProperties::use_frame_rate_api();
+    if (temp.has_value()) {
+        return *temp;
+    }
+    return defaultValue;
+}
+
+int32_t display_update_imminent_timeout_ms(int32_t defaultValue) {
+    auto temp = SurfaceFlingerProperties::display_update_imminent_timeout_ms();
     if (temp.has_value()) {
         return *temp;
     }

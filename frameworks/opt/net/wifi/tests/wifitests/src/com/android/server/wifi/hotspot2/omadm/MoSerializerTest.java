@@ -22,6 +22,8 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.w3c.dom.Document;
@@ -35,7 +37,7 @@ import java.util.List;
  * Unit tests for {@link MoSerializer}.
  */
 @SmallTest
-public class MoSerializerTest {
+public class MoSerializerTest extends WifiBaseTest {
     MoSerializer mMoSerializer;
     Document mDocument;
     static final String TEST_NODE = "test_node";

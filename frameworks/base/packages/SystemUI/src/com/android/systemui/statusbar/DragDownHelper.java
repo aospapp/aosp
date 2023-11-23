@@ -29,7 +29,6 @@ import com.android.systemui.ExpandHelper;
 import com.android.systemui.Gefingerpoken;
 import com.android.systemui.Interpolators;
 import com.android.systemui.R;
-import com.android.systemui.classifier.FalsingManagerFactory;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.statusbar.notification.row.ExpandableView;
 
@@ -49,7 +48,8 @@ public class DragDownHelper implements Gefingerpoken {
     private float mInitialTouchX;
     private float mInitialTouchY;
     private boolean mDraggingDown;
-    private float mTouchSlop;
+    private final float mTouchSlop;
+    private final float mSlopMultiplier;
     private DragDownCallback mDragDownCallback;
     private View mHost;
     private final int[] mTemp2 = new int[2];
@@ -59,14 +59,17 @@ public class DragDownHelper implements Gefingerpoken {
     private FalsingManager mFalsingManager;
 
     public DragDownHelper(Context context, View host, ExpandHelper.Callback callback,
-            DragDownCallback dragDownCallback) {
+            DragDownCallback dragDownCallback,
+            FalsingManager falsingManager) {
         mMinDragDistance = context.getResources().getDimensionPixelSize(
                 R.dimen.keyguard_drag_down_min_distance);
-        mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        final ViewConfiguration configuration = ViewConfiguration.get(context);
+        mTouchSlop = configuration.getScaledTouchSlop();
+        mSlopMultiplier = configuration.getScaledAmbiguousGestureMultiplier();
         mCallback = callback;
         mDragDownCallback = dragDownCallback;
         mHost = host;
-        mFalsingManager = FalsingManagerFactory.getInstance(context);
+        mFalsingManager = falsingManager;
     }
 
     @Override
@@ -85,14 +88,19 @@ public class DragDownHelper implements Gefingerpoken {
 
             case MotionEvent.ACTION_MOVE:
                 final float h = y - mInitialTouchY;
-                if (h > mTouchSlop && h > Math.abs(x - mInitialTouchX)) {
+                // Adjust the touch slop if another gesture may be being performed.
+                final float touchSlop =
+                        event.getClassification() == MotionEvent.CLASSIFICATION_AMBIGUOUS_GESTURE
+                        ? mTouchSlop * mSlopMultiplier
+                        : mTouchSlop;
+                if (h > touchSlop && h > Math.abs(x - mInitialTouchX)) {
                     mFalsingManager.onNotificatonStartDraggingDown();
                     mDraggingDown = true;
                     captureStartingChild(mInitialTouchX, mInitialTouchY);
                     mInitialTouchY = y;
                     mInitialTouchX = x;
                     mDragDownCallback.onTouchSlopExceeded();
-                    return true;
+                    return mStartingChild != null || mDragDownCallback.isDragDownAnywhereEnabled();
                 }
                 break;
         }
@@ -162,7 +170,11 @@ public class DragDownHelper implements Gefingerpoken {
         if (mStartingChild == null) {
             mStartingChild = findView(x, y);
             if (mStartingChild != null) {
-                mCallback.setUserLockedChild(mStartingChild, true);
+                if (mDragDownCallback.isDragDownEnabledForView(mStartingChild)) {
+                    mCallback.setUserLockedChild(mStartingChild, true);
+                } else {
+                    mStartingChild = null;
+                }
             }
         }
     }
@@ -237,6 +249,10 @@ public class DragDownHelper implements Gefingerpoken {
         return mDraggingDown;
     }
 
+    public boolean isDragDownEnabled() {
+        return mDragDownCallback.isDragDownEnabledForView(null);
+    }
+
     public interface DragDownCallback {
 
         /**
@@ -253,5 +269,16 @@ public class DragDownHelper implements Gefingerpoken {
         void onTouchSlopExceeded();
         void setEmptyDragAmount(float amount);
         boolean isFalsingCheckNeeded();
+
+        /**
+         * Is dragging down enabled on a given view
+         * @param view The view to check or {@code null} to check if it's enabled at all
+         */
+        boolean isDragDownEnabledForView(ExpandableView view);
+
+        /**
+         * @return if drag down is enabled anywhere, not just on selected views.
+         */
+        boolean isDragDownAnywhereEnabled();
     }
 }

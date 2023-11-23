@@ -43,13 +43,12 @@
 #include <codec2/hidl/client.h>
 #include <cutils/native_handle.h>
 #include <media/omx/1.0/WOmxNode.h>
-#include <media/stagefright/MediaCodecConstants.h>
 #include <media/stagefright/foundation/ALookup.h>
 #include <media/stagefright/foundation/MediaDefs.h>
 #include <media/stagefright/omx/OMXUtils.h>
 #include <media/stagefright/xmlparser/MediaCodecsXmlParser.h>
-
-#include "Codec2InfoBuilder.h"
+#include <media/stagefright/Codec2InfoBuilder.h>
+#include <media/stagefright/MediaCodecConstants.h>
 
 namespace android {
 
@@ -117,8 +116,9 @@ void addSupportedProfileLevels(
         }
     }
 
-    // For VP9, the static info is always propagated by framework.
+    // For VP9/AV1, the static info is always propagated by framework.
     supportsHdr |= (mediaType == MIMETYPE_VIDEO_VP9);
+    supportsHdr |= (mediaType == MIMETYPE_VIDEO_AV1);
 
     for (C2Value::Primitive profile : profileQuery[0].values.values) {
         pl.profile = (C2Config::profile_t)profile.ref<uint32_t>();
@@ -319,10 +319,11 @@ status_t Codec2InfoBuilder::buildMediaCodecList(MediaCodecListWriter* writer) {
     // Obtain Codec2Client
     std::vector<Traits> traits = Codec2Client::ListComponents();
 
-    // parse APEX XML first, followed by vendor XML
+    // parse APEX XML first, followed by vendor XML.
+    // Note: APEX XML names do not depend on ro.media.xml_variant.* properties.
     MediaCodecsXmlParser parser;
     parser.parseXmlFilesInSearchDirs(
-            parser.getDefaultXmlNames(),
+            { "media_codecs.xml", "media_codecs_performance.xml" },
             { "/apex/com.android.media.swcodec/etc" });
 
     // TODO: remove these c2-specific files once product moved to default file names

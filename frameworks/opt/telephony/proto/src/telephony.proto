@@ -242,6 +242,17 @@ message TelephonyServiceState {
     optional string numeric = 3;
   }
 
+  message NetworkRegistrationInfo {
+    // Network domain
+    optional Domain domain = 1;
+
+    // Network transport
+    optional Transport transport = 2;
+
+    // Radio access technology
+    optional RadioAccessTechnology rat = 3;
+  }
+
   // Roaming type
   enum RoamingType {
 
@@ -260,6 +271,69 @@ message TelephonyServiceState {
 
     // In international roaming network
     ROAMING_TYPE_INTERNATIONAL = 3;
+  }
+
+  // Frequency range
+  enum FrequencyRange {
+    // Unknown. The default value.
+    FREQUENCY_RANGE_UNKNOWN = 0;
+
+    // Frequency range is below 1GHz.
+    FREQUENCY_RANGE_LOW = 1;
+
+    // Frequency range is between 1GHz and 3GHz.
+    FREQUENCY_RANGE_MID = 2;
+
+    // Frequency range is between 3GHz and 6GHz.
+    FREQUENCY_RANGE_HIGH = 3;
+
+    // Frequency range is above 6GHz (millimeter wave frequency).
+    FREQUENCY_RANGE_MMWAVE = 4;
+  }
+
+  // NR (5G) state
+  enum NrState {
+    // The device isn't camped on an LTE cell
+    // or the LTE cell doesn't support EN-DC.
+    NR_STATE_NONE = 0;
+
+    // The device is camped on an LTE cell that supports EN-DC
+    // but either DCNR is restricted
+    // or NR is not supported by the selected PLMN.
+    NR_STATE_RESTRICTED = 1;
+
+    // The device is camped on an LTE cell that supports EN-DC
+    // and both DCNR is not restricted and NR is supported
+    // by the selected PLMN.
+    NR_STATE_NOT_RESTRICTED = 2;
+
+    // The device is camped on an LTE cell that supports EN-DC
+    // and connected to at least one 5G cell
+    // as a secondary serving cell.
+    NR_STATE_CONNECTED = 3;
+  }
+
+  // Domain type
+  enum Domain {
+    // Unknown
+    DOMAIN_UNKNOWN = 0;
+
+    // Circuit switching domain
+    DOMAIN_CS = 1;
+
+    // Packet switching domain
+    DOMAIN_PS = 2;
+  }
+
+  enum Transport {
+    // Unknown
+    TRANSPORT_UNKNOWN = 0;
+
+    // Transport type for Wireless Wide Area Networks (i.e. Cellular)
+    TRANSPORT_WWAN = 1;
+
+    // Transport type for Wireless Local Area Networks (i.e. Wifi)
+    TRANSPORT_WLAN = 2;
   }
 
   // Current registered operator
@@ -282,6 +356,15 @@ message TelephonyServiceState {
 
   // Current Channel Number
   optional int32 channel_number = 7;
+
+  // Current NR frequency range
+  optional FrequencyRange nr_frequency_range = 8;
+
+  // Current NR state
+  optional NrState nr_state = 9;
+
+  // Network registration info
+  repeated NetworkRegistrationInfo networkRegistrationInfo = 10;
 }
 
 // Radio access families
@@ -331,6 +414,8 @@ enum RadioAccessTechnology {
   RAT_IWLAN = 18;
 
   RAT_LTE_CA = 19;
+
+  RAT_NR = 20;
 }
 
 // The information about IMS errors
@@ -716,7 +801,7 @@ message TelephonyEvent {
     // along with the event if it is available
     MODEM_RESTART = 11;
 
-    // System time overwritten by NITZ (Network time)
+    // A system time update suggestion was made from a received NITZ (Network time) signal
     NITZ_TIME = 12;
 
     // Carrier Identification Matching Event
@@ -745,6 +830,12 @@ message TelephonyEvent {
 
     // Emergency Number update event (Device HAL >= 1.4).
     EMERGENCY_NUMBER_REPORT = 21;
+
+    // Network capabilities change event.
+    NETWORK_CAPABILITIES_CHANGED = 22;
+
+    // Signal strength
+    SIGNAL_STRENGTH = 23;
   }
 
   enum ApnType {
@@ -1647,6 +1738,11 @@ message TelephonyEvent {
     optional string preferApn = 12;
   }
 
+  message NetworkCapabilitiesInfo {
+    // Is network unmetered
+    optional bool is_network_unmetered = 1;
+  }
+
   // Time when event happened on device, in milliseconds since epoch
   optional int64 timestamp_millis = 1;
 
@@ -1689,7 +1785,7 @@ message TelephonyEvent {
   // Modem restart event
   optional ModemRestart modem_restart = 14;
 
-  // NITZ time in milliseconds
+  // NITZ time in milliseconds (see TelephonyEvent.Type.NITZ_TIME)
   optional int64 nitz_timestamp_millis = 15;
 
   // Carrier id matching event
@@ -1719,6 +1815,19 @@ message TelephonyEvent {
 
   // Updated Emergency Call info.
   optional EmergencyNumberInfo updated_emergency_number = 25;
+
+  // NetworkCapabilities changed info.
+  optional NetworkCapabilitiesInfo network_capabilities = 26;
+
+  // Signal strength
+  optional int32 signal_strength = 27;
+
+  // Indicate the version of emergency number database in Android platform
+  optional int32 emergency_number_database_version = 28;
+  // [
+  //  (datapol.semantic_type) = ST_SOFTWARE_ID,
+  //  (datapol.qualifier) = { is_public: true }
+  //]
 }
 
 message ActiveSubscriptionInfo {
@@ -1730,6 +1839,14 @@ message ActiveSubscriptionInfo {
 
   /** whether subscription is opportunistic (0 - false, 1 - true, -1 - unknown). */
   optional int32 is_opportunistic = 3;
+
+  /** The mccmnc associated with the subscription. Useful for differentiating
+   * between subscriptions with different mccmnc but same carrier_id (eg. Fi
+   * Sprint vs. Fi T-Mobile).*/
+  optional string sim_mccmnc = 4 /*[
+    (datapol.semantic_type) = ST_LOCATION,
+    (datapol.location_qualifier) = { precise_location: false }
+  ]*/;
 };
 
 enum SimState {
@@ -2028,6 +2145,13 @@ message TelephonyCallSession {
 
       // Indicate the emergency call information dialed from the CS call
       optional EmergencyNumberInfo emergency_number_info = 8;
+
+      // Indicate the version of emergency number database in Android platform
+      optional int32 emergency_number_database_version = 9;
+      // [
+      //  (datapol.semantic_type) = ST_SOFTWARE_ID,
+      //  (datapol.qualifier) = { is_public: true }
+      //]
     }
 
     // Single Radio Voice Call Continuity(SRVCC) progress state
@@ -2124,6 +2248,18 @@ message TelephonyCallSession {
 
       // the codec type of an ongoing call
       optional AudioCodec codec_type = 11;
+
+      // true if no incoming RTP is received for a continuous duration of 4 seconds
+      optional bool rtp_inactivity_detected = 12;
+
+      // true if only silence RTP packets are received for 20 seconds immediately
+      // after call is connected
+      optional bool rx_silence_detected = 13;
+
+      // true if only silence RTP packets are sent for 20 seconds immediately
+      // after call is connected
+      optional bool tx_silence_detected = 14;
+
     }
 
     message CallQualitySummary {
@@ -2254,6 +2390,13 @@ message TelephonyCallSession {
 
     // Emergency call info
     optional EmergencyNumberInfo ims_emergency_number_info = 27;
+
+    // Indicate the version of emergency number database in Android platform
+    optional int32 emergency_number_database_version = 28;
+    // [
+    //  (datapol.semantic_type) = ST_SOFTWARE_ID,
+    //  (datapol.qualifier) = { is_public: true }
+    //]
   }
 
   // Time when call has started, in minutes since epoch,
@@ -2468,6 +2611,9 @@ message SmsSession {
 
     // Indicates if the incoming SMS was blocked
     optional bool blocked = 17;
+
+    // Optional xMS message unique id
+    optional int64 message_id = 18;
   }
 
   // Time when session has started, in minutes since epoch,

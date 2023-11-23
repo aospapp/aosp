@@ -8,10 +8,16 @@ cc_library_shared {
     srcs: ["MediaExtractorService.cpp"],
 
     shared_libs: [
+        "libdatasource",
         "libmedia",
         "libstagefright",
+        "libstagefright_foundation",
         "libbinder",
         "libutils",
+        "liblog",
+    ],
+    header_libs: [
+        "libmediametrics_headers",
     ],
 }
 
@@ -23,10 +29,14 @@ cc_binary {
     shared_libs: [
         "libmedia",
         "libmediaextractorservice",
+        "libmediautils",
         "libbinder",
         "libutils",
         "liblog",
         "libavservices_minijail",
+    ],
+    header_libs: [
+        "bionic_libc_platform_headers",
     ],
     target: {
         android: {
@@ -41,12 +51,12 @@ cc_binary {
     },
     init_rc: ["mediaextractor.rc"],
 
-    include_dirs: ["frameworks/av/media/libmedia"],
-
     cflags: [
         "-Wall",
         "-Werror",
     ],
+
+    required: ["mediaextractor.policy"],
 }
 
 prebuilt_etc {
@@ -66,6 +76,9 @@ prebuilt_etc {
             src: "seccomp_policy/mediaextractor-x86_64.policy",
         },
     },
-    required: ["crash_dump.policy"],
+    required: [
+        "crash_dump.policy",
+        "code_coverage.policy",
+    ],
 }
 

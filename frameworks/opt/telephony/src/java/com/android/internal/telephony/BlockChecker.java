@@ -3,7 +3,8 @@ package com.android.internal.telephony;
 import android.content.Context;
 import android.os.Bundle;
 import android.provider.BlockedNumberContract;
-import android.telephony.Rlog;
+
+import com.android.telephony.Rlog;
 
 /**
  * {@hide} Checks for blocked phone numbers against {@link BlockedNumberContract}
@@ -75,7 +76,6 @@ public class BlockChecker {
         } catch (Exception e) {
             Rlog.e(TAG, "Exception checking for blocked number: " + e);
         }
-
         int durationMillis = (int) ((System.nanoTime() - startTimeNano) / 1000000);
         if (durationMillis > 500 || VDBG) {
             Rlog.d(TAG, "Blocked number lookup took: " + durationMillis + " ms.");

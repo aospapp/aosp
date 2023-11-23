@@ -18,13 +18,16 @@ package com.android.server.display;
 
 import android.util.Slog;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.PrintWriter;
 import java.util.Arrays;
 
 /**
  * A helper class for handling access to illuminance hysteresis level values.
  */
-final class HysteresisLevels {
+@VisibleForTesting
+public class HysteresisLevels {
     private static final String TAG = "HysteresisLevels";
 
     // Default hysteresis constraints for brightening or darkening.
@@ -60,9 +63,9 @@ final class HysteresisLevels {
     /**
      * Return the brightening hysteresis threshold for the given value level.
      */
-    float getBrighteningThreshold(float value) {
-        float brightConstant = getReferenceLevel(value, mBrighteningThresholds);
-        float brightThreshold = value * (1.0f + brightConstant);
+    public float getBrighteningThreshold(float value) {
+        final float brightConstant = getReferenceLevel(value, mBrighteningThresholds);
+        final float brightThreshold = value * (1.0f + brightConstant);
         if (DEBUG) {
             Slog.d(TAG, "bright hysteresis constant=" + brightConstant + ", threshold="
                     + brightThreshold + ", value=" + value);
@@ -73,9 +76,9 @@ final class HysteresisLevels {
     /**
      * Return the darkening hysteresis threshold for the given value level.
      */
-    float getDarkeningThreshold(float value) {
-        float darkConstant = getReferenceLevel(value, mDarkeningThresholds);
-        float darkThreshold = value * (1.0f - darkConstant);
+    public float getDarkeningThreshold(float value) {
+        final float darkConstant = getReferenceLevel(value, mDarkeningThresholds);
+        final float darkThreshold = value * (1.0f - darkConstant);
         if (DEBUG) {
             Slog.d(TAG, "dark hysteresis constant=: " + darkConstant + ", threshold="
                     + darkThreshold + ", value=" + value);

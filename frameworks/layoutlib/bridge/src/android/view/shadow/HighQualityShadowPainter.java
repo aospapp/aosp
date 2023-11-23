@@ -23,11 +23,13 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.DisplayMetrics;
 import android.view.ViewGroup;
+import android.view.math.Math3DHelper;
 
 import static android.view.shadow.ShadowConstants.MIN_ALPHA;
 import static android.view.shadow.ShadowConstants.SCALE_DOWN;
 
 public class HighQualityShadowPainter {
+    private static final float sRoundedGap = (float) (1.0 - Math.sqrt(2.0) / 2.0);
 
     private HighQualityShadowPainter() { }
 
@@ -66,11 +68,103 @@ public class HighQualityShadowPainter {
 
         // ensure alpha doesn't go over 1
         alpha = (alpha > 1.0f) ? 1.0f : alpha;
+        boolean isOpaque = outline.getAlpha() * alpha == 1.0f;
         float[] poly = getPoly(rectScaled, elevation / SCALE_DOWN, radius);
 
-        paintAmbientShadow(poly, canvas, width, height, alpha, rectOriginal, radius);
-        paintSpotShadow(poly, rectScaled, elevation / SCALE_DOWN,
-                canvas, densityDpi, width, height, alpha, rectOriginal, radius);
+        AmbientShadowConfig ambientConfig = new AmbientShadowConfig.Builder()
+                .setPolygon(poly)
+                .setLightSourcePosition(
+                        (rectScaled.left + rectScaled.right) / 2.0f,
+                        (rectScaled.top + rectScaled.bottom) / 2.0f)
+                .setEdgeScale(ShadowConstants.AMBIENT_SHADOW_EDGE_SCALE)
+                .setShadowBoundRatio(ShadowConstants.AMBIENT_SHADOW_SHADOW_BOUND)
+                .setShadowStrength(ShadowConstants.AMBIENT_SHADOW_STRENGTH * alpha)
+                .build();
+
+        AmbientShadowTriangulator ambientTriangulator = new AmbientShadowTriangulator(ambientConfig);
+        ambientTriangulator.triangulate();
+
+        SpotShadowTriangulator spotTriangulator = null;
+        float lightZHeightPx = ShadowConstants.SPOT_SHADOW_LIGHT_Z_HEIGHT_DP * (densityDpi / DisplayMetrics.DENSITY_DEFAULT);
+        if (lightZHeightPx - elevation / SCALE_DOWN >= ShadowConstants.SPOT_SHADOW_LIGHT_Z_EPSILON) {
+
+            float lightX = (rectScaled.left + rectScaled.right) / 2;
+            float lightY = rectScaled.top;
+            // Light shouldn't be bigger than the object by too much.
+            int dynamicLightRadius = Math.min(rectScaled.width(), rectScaled.height());
+
+            SpotShadowConfig spotConfig = new SpotShadowConfig.Builder()
+                    .setLightCoord(lightX, lightY, lightZHeightPx)
+                    .setLightRadius(dynamicLightRadius)
+                    .setShadowStrength(ShadowConstants.SPOT_SHADOW_STRENGTH * alpha)
+                    .setPolygon(poly, poly.length / ShadowConstants.COORDINATE_SIZE)
+                    .build();
+
+            spotTriangulator = new SpotShadowTriangulator(spotConfig);
+            spotTriangulator.triangulate();
+        }
+
+        int translateX = 0;
+        int translateY = 0;
+        int imgW = 0;
+        int imgH = 0;
+
+        if (ambientTriangulator.isValid()) {
+            float[] shadowBounds = Math3DHelper.flatBound(ambientTriangulator.getVertices(), 2);
+            // Move the shadow to the left top corner to occupy the least possible bitmap
+
+            translateX = -(int) Math.floor(shadowBounds[0]);
+            translateY = -(int) Math.floor(shadowBounds[1]);
+
+            // create bitmap of the least possible size that covers the entire shadow
+            imgW = (int) Math.ceil(shadowBounds[2] + translateX);
+            imgH = (int) Math.ceil(shadowBounds[3] + translateY);
+        }
+
+        if (spotTriangulator != null && spotTriangulator.validate()) {
+
+            // Bit of a hack to re-adjust spot shadow to fit correctly within parent canvas.
+            // Problem is that outline passed is not a final position, which throws off our
+            // whereas our shadow rendering algorithm, which requires pre-set range for
+            // optimization purposes.
+            float[] shadowBounds = Math3DHelper.flatBound(spotTriangulator.getStrips()[0], 3);
+
+            if ((shadowBounds[2] - shadowBounds[0]) > width ||
+                    (shadowBounds[3] - shadowBounds[1]) > height) {
+                // Spot shadow to be casted is larger than the parent canvas,
+                // We'll let ambient shadow do the trick and skip spot shadow here.
+                spotTriangulator = null;
+            }
+
+            translateX = Math.max(-(int) Math.floor(shadowBounds[0]), translateX);
+            translateY = Math.max(-(int) Math.floor(shadowBounds[1]), translateY);
+
+            // create bitmap of the least possible size that covers the entire shadow
+            imgW = Math.max((int) Math.ceil(shadowBounds[2] + translateX), imgW);
+            imgH = Math.max((int) Math.ceil(shadowBounds[3] + translateY), imgH);
+        }
+
+        TriangleBuffer renderer = new TriangleBuffer();
+        renderer.setSize(imgW, imgH, 0);
+
+        if (ambientTriangulator.isValid()) {
+
+            Math3DHelper.translate(ambientTriangulator.getVertices(), translateX, translateY, 2);
+            renderer.drawTriangles(ambientTriangulator.getIndices(), ambientTriangulator.getVertices(),
+                    ambientTriangulator.getColors(), ambientConfig.getShadowStrength());
+        }
+
+        if (spotTriangulator != null && spotTriangulator.validate()) {
+            float[][] strips = spotTriangulator.getStrips();
+            for (int i = 0; i < strips.length; ++i) {
+                Math3DHelper.translate(strips[i], translateX, translateY, 3);
+                renderer.drawTriangles(strips[i], ShadowConstants.SPOT_SHADOW_STRENGTH * alpha);
+            }
+        }
+
+        Bitmap img = renderer.createImage();
+
+        drawScaled(canvas, img, translateX, translateY, rectOriginal, radius, isOpaque);
     }
 
     /**
@@ -90,102 +184,14 @@ public class HighQualityShadowPainter {
     }
 
     /**
-     * @param polygon - polygon of the shadow caster
-     * @param canvas - canvas to draw
-     * @param width - scaled canvas (parent) width
-     * @param height - scaled canvas (parent) height
-     * @param alpha - 0-1 scale
-     * @param shadowCasterOutline - unscaled original shadow caster outline.
-     * @param radius
-     */
-    private static void paintAmbientShadow(float[] polygon, Canvas canvas, int width, int height,
-            float alpha, Rect shadowCasterOutline, float radius) {
-        // TODO: Consider re-using the triangle buffer here since the world stays consistent.
-        // TODO: Reduce the buffer size based on shadow bounds.
-
-        AmbientShadowConfig config = new AmbientShadowConfig.Builder()
-                .setSize(width, height)
-                .setPolygon(polygon)
-                .setEdgeScale(ShadowConstants.AMBIENT_SHADOW_EDGE_SCALE)
-                .setShadowBoundRatio(ShadowConstants.AMBIENT_SHADOW_SHADOW_BOUND)
-                .setShadowStrength(ShadowConstants.AMBIENT_SHADOW_STRENGTH * alpha)
-                .setRays(ShadowConstants.AMBIENT_SHADOW_RAYS)
-                .setLayers(ShadowConstants.AMBIENT_SHADOW_LAYERS)
-                .build();
-
-        AmbientShadowBitmapGenerator generator = new AmbientShadowBitmapGenerator(config);
-        generator.populateShadow();
-
-        if (!generator.isValid()) {
-            return;
-        }
-
-        drawScaled(
-                canvas, generator.getBitmap(), (int) generator.getTranslateX(),
-                (int) generator.getTranslateY(), width, height,
-                shadowCasterOutline, radius);
-    }
-
-    /**
-     * @param poly - polygon of the shadow caster
-     * @param rectBound - scaled bounds of shadow caster.
-     * @param canvas - canvas to draw
-     * @param width - scaled canvas (parent) width
-     * @param height - scaled canvas (parent) height
-     * @param alpha - 0-1 scale
-     * @param shadowCasterOutline - unscaled original shadow caster outline.
-     * @param radius
-     */
-    private static void paintSpotShadow(float[] poly, Rect rectBound, float elevation, Canvas canvas,
-            float densityDpi, int width, int height, float alpha, Rect shadowCasterOutline,
-            float radius) {
-
-        // TODO: Use alpha later
-        float lightZHeightPx = ShadowConstants.SPOT_SHADOW_LIGHT_Z_HEIGHT_DP * (densityDpi / DisplayMetrics.DENSITY_DEFAULT);
-        if (lightZHeightPx - elevation < ShadowConstants.SPOT_SHADOW_LIGHT_Z_EPSILON) {
-            // If the view is above or too close to the light source then return.
-            // This is done to somewhat simulate android behaviour.
-            return;
-        }
-
-        float lightX = (rectBound.left + rectBound.right) / 2;
-        float lightY = rectBound.top;
-        // Light shouldn't be bigger than the object by too much.
-        int dynamicLightRadius = Math.min(rectBound.width(), rectBound.height());
-
-        SpotShadowConfig config = new SpotShadowConfig.Builder()
-                .setSize(width, height)
-                .setLayers(ShadowConstants.SPOT_SHADOW_LAYERS)
-                .setRays(ShadowConstants.SPOT_SHADOW_RAYS)
-                .setLightCoord(lightX, lightY, lightZHeightPx)
-                .setLightRadius(dynamicLightRadius)
-                .setLightSourcePoints(ShadowConstants.SPOT_SHADOW_LIGHT_SOURCE_POINTS)
-                .setShadowStrength(ShadowConstants.SPOT_SHADOW_STRENGTH * alpha)
-                .setPolygon(poly, poly.length / ShadowConstants.COORDINATE_SIZE)
-                .build();
-
-        SpotShadowBitmapGenerator generator = new SpotShadowBitmapGenerator(config);
-        generator.populateShadow();
-
-        if (!generator.validate()) {
-            return;
-        }
-
-        drawScaled(canvas, generator.getBitmap(), (int) generator.getTranslateX(),
-                (int) generator.getTranslateY(), width, height, shadowCasterOutline, radius);
-    }
-
-    /**
      * Draw the bitmap scaled up.
      * @param translateX - offset in x axis by which the bitmap is shifted.
      * @param translateY - offset in y axis by which the bitmap is shifted.
-     * @param width  - scaled width of canvas (parent)
-     * @param height - scaled height of canvas (parent)
      * @param shadowCaster - unscaled outline of shadow caster
      * @param radius
      */
     private static void drawScaled(Canvas canvas, Bitmap bitmap, int translateX, int translateY,
-            int width, int height, Rect shadowCaster, float radius) {
+            Rect shadowCaster, float radius, boolean isOpaque) {
         int unscaledTranslateX = translateX * SCALE_DOWN;
         int unscaledTranslateY = translateY * SCALE_DOWN;
 
@@ -193,11 +199,16 @@ public class HighQualityShadowPainter {
         Rect dest = new Rect(
                 -unscaledTranslateX,
                 -unscaledTranslateY,
-                (width * SCALE_DOWN) - unscaledTranslateX,
-                (height * SCALE_DOWN) - unscaledTranslateY);
-        Rect destSrc = new Rect(0, 0, width, height);
-
-        if (radius > 0) {
+                (bitmap.getWidth() * SCALE_DOWN) - unscaledTranslateX,
+                (bitmap.getHeight() * SCALE_DOWN) - unscaledTranslateY);
+        Rect destSrc = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
+        // We can skip drawing the shadows behind the caster if either
+        // 1) radius is 0, the shadow caster is rectangle and we can have a perfect cut
+        // 2) shadow caster is opaque and even if remove shadow only partially it won't affect
+        // the visual quality, otherwise we will observe shadow part through the translucent caster
+        // This can be improved by:
+        // TODO: do not draw the shadow behind the caster at all during the tesselation phase
+        if (radius > 0 && !isOpaque) {
             // Rounded edge.
             int save = canvas.save();
             canvas.drawBitmap(bitmap, destSrc, dest, null);
@@ -223,7 +234,13 @@ public class HighQualityShadowPainter {
          * dest == top + left + shadow caster + right + bottom
          * Visually, canvas.drawBitmap(bitmap, destSrc, dest, paint) would achieve the same result.
          */
-        Rect left = new Rect(dest.left, shadowCaster.top, shadowCaster.left, shadowCaster.bottom);
+        int gap = (int) Math.ceil(radius * SCALE_DOWN * sRoundedGap);
+        shadowCaster.bottom -= gap;
+        shadowCaster.top += gap;
+        shadowCaster.left += gap;
+        shadowCaster.right -= gap;
+        Rect left = new Rect(dest.left, shadowCaster.top, shadowCaster.left,
+                shadowCaster.bottom);
         int leftScaled = left.width() / SCALE_DOWN + destSrc.left;
 
         Rect top = new Rect(dest.left, dest.top, dest.right, shadowCaster.top);
@@ -231,10 +248,10 @@ public class HighQualityShadowPainter {
 
         Rect right = new Rect(shadowCaster.right, shadowCaster.top, dest.right,
                 shadowCaster.bottom);
-        int rightScaled = (shadowCaster.right + unscaledTranslateX) / SCALE_DOWN + destSrc.left;
+        int rightScaled = (shadowCaster.right - dest.left) / SCALE_DOWN + destSrc.left;
 
         Rect bottom = new Rect(dest.left, shadowCaster.bottom, dest.right, dest.bottom);
-        int bottomScaled = (bottom.bottom - bottom.height()) / SCALE_DOWN + destSrc.top;
+        int bottomScaled = (shadowCaster.bottom - dest.top) / SCALE_DOWN + destSrc.top;
 
         // calculate parts of the middle ground that can be ignored.
         Rect leftSrc = new Rect(destSrc.left, topScaled, leftScaled, bottomScaled);

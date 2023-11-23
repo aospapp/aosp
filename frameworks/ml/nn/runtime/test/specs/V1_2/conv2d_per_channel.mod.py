@@ -15,7 +15,7 @@
 
 # TEST 1: No layout param specified
 i1 = Input("op1", "TENSOR_QUANT8_ASYMM", "{1, 3, 1, 2}, 0.5f, 128")
-f1 = Parameter("op2", "TENSOR_QUANT8_SYMM_PER_CHANNEL", "{3, 1, 1, 2}, 0.0f, 0",
+f1 = Parameter("op2", "TENSOR_QUANT8_SYMM_PER_CHANNEL", "{3, 1, 1, 2}",
                [1, 2, 1, 2, 1, 2], extraParams = SymmPerChannelQuantParams(channelDim=0, scales=[0.5, 0.75, 1.0]))
 b1 = Parameter("op3", "TENSOR_INT32", "{3}", [4, 4, 4])
 o1 = Output("op4", "TENSOR_QUANT8_ASYMM", "{1, 3, 1, 3}, 1.f, 128")
@@ -25,12 +25,12 @@ Model().Operation("CONV_2D", i1, f1, b1, 0, 0, 0, 0, 1, 1, 0).To(o1)
 Example({
     i1: [138, 138, 138, 138, 138, 138],
     o1: [137, 141, 145, 137, 141, 145, 137, 141, 145]
-}).AddInput(f1, b1)
+})
 
 # TEST 2: layout param, NHWC/NCHW layouts
 layout = BoolScalar("layout", False) # NHWC
 i2 = Input("op1", "TENSOR_QUANT8_ASYMM", "{1, 3, 1, 2}, 0.5f, 128")
-f2 = Parameter("op2", "TENSOR_QUANT8_SYMM_PER_CHANNEL", "{3, 1, 1, 2}, 0.0f, 0",
+f2 = Parameter("op2", "TENSOR_QUANT8_SYMM_PER_CHANNEL", "{3, 1, 1, 2}",
                [1, 2, 1, 2, 1, 2], extraParams = SymmPerChannelQuantParams(channelDim=0, scales=[0.5, 0.75, 1.0]))
 b2 = Parameter("op3", "TENSOR_INT32", "{3}", [4, 4, 4])
 o2 = Output("op4", "TENSOR_QUANT8_ASYMM", "{1, 3, 1, 3}, 1.f, 128")
@@ -40,7 +40,7 @@ Model("layouts").Operation("CONV_2D", i2, f2, b2, 0, 0, 0, 0, 1, 1, 0, layout).T
 Example({
     i2: [138, 108, 138, 108, 138, 108],
     o2: [121, 118, 115, 121, 118, 115, 121, 118, 115]
-}).AddNchw(i2, o2, layout).AddInput(f2, b2)
+}).AddNchw(i2, o2, layout)
 
 # TEST 3: zero-sized input
 
@@ -59,16 +59,15 @@ zero_sized = Internal("featureMap", "TENSOR_QUANT8_ASYMM", "{0, 2, 2, 2}, 0.5f, 
 model = model.Operation("ROI_ALIGN", i1, tmp1, tmp2, 2, 2, 2.0, 2.0, 4, 4, layout).To(zero_sized)
 
 # CONV_2D op with numBatches = 0.
-w = Parameter("weights", "TENSOR_QUANT8_SYMM_PER_CHANNEL", "{3, 1, 1, 2}, 0.0f, 0",
+w = Parameter("weights", "TENSOR_QUANT8_SYMM_PER_CHANNEL", "{3, 1, 1, 2}",
               [1, 2, 1, 2, 1, 2], extraParams = SymmPerChannelQuantParams(channelDim=0, scales=[0.5, 0.75, 1.0]))
 b = Parameter("bias", "TENSOR_INT32", "{3}", [4, 4, 4])
 o3 = Output("out", "TENSOR_QUANT8_ASYMM", "{0, 2, 2, 3}, 1.f, 128") # out
 model = model.Operation("CONV_2D", zero_sized, w, b, 0, 0, 0, 0, 1, 1, 0, layout).To(o3)
 
-# Create test case with dummy values.
 Example({
     i1: [130, 130],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout)

@@ -32,10 +32,14 @@ import androidx.test.filters.SmallTest;
 
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.plugins.DarkIconDispatcher;
+import com.android.systemui.plugins.statusbar.StatusBarStateController;
+import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.HeadsUpStatusBarView;
-import com.android.systemui.statusbar.NotificationTestHelper;
+import com.android.systemui.statusbar.notification.NotificationWakeUpCoordinator;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
+import com.android.systemui.statusbar.notification.row.NotificationTestHelper;
 import com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -49,34 +53,53 @@ public class HeadsUpAppearanceControllerTest extends SysuiTestCase {
 
     private final NotificationStackScrollLayout mStackScroller =
             mock(NotificationStackScrollLayout.class);
-    private final NotificationPanelView mPanelView = mock(NotificationPanelView.class);
+    private final NotificationPanelViewController mPanelView =
+            mock(NotificationPanelViewController.class);
     private final DarkIconDispatcher mDarkIconDispatcher = mock(DarkIconDispatcher.class);
     private HeadsUpAppearanceController mHeadsUpAppearanceController;
     private ExpandableNotificationRow mFirst;
     private HeadsUpStatusBarView mHeadsUpStatusBarView;
     private HeadsUpManagerPhone mHeadsUpManager;
     private View mOperatorNameView;
+    private StatusBarStateController mStatusbarStateController;
+    private KeyguardBypassController mBypassController;
+    private NotificationWakeUpCoordinator mWakeUpCoordinator;
+    private KeyguardStateController mKeyguardStateController;
+    private CommandQueue mCommandQueue;
 
     @Before
     public void setUp() throws Exception {
-        com.android.systemui.util.Assert.sMainLooper = TestableLooper.get(this).getLooper();
-        NotificationTestHelper testHelper = new NotificationTestHelper(getContext());
+        allowTestableLooperAsMainThread();
+        NotificationTestHelper testHelper = new NotificationTestHelper(
+                mContext,
+                mDependency,
+                TestableLooper.get(this));
         mFirst = testHelper.createRow();
         mDependency.injectTestDependency(DarkIconDispatcher.class, mDarkIconDispatcher);
         mHeadsUpStatusBarView = new HeadsUpStatusBarView(mContext, mock(View.class),
                 mock(TextView.class));
         mHeadsUpManager = mock(HeadsUpManagerPhone.class);
         mOperatorNameView = new View(mContext);
+        mStatusbarStateController = mock(StatusBarStateController.class);
+        mBypassController = mock(KeyguardBypassController.class);
+        mWakeUpCoordinator = mock(NotificationWakeUpCoordinator.class);
+        mKeyguardStateController = mock(KeyguardStateController.class);
+        mCommandQueue = mock(CommandQueue.class);
         mHeadsUpAppearanceController = new HeadsUpAppearanceController(
                 mock(NotificationIconAreaController.class),
                 mHeadsUpManager,
+                mStatusbarStateController,
+                mBypassController,
+                mWakeUpCoordinator,
+                mKeyguardStateController,
+                mCommandQueue,
                 mHeadsUpStatusBarView,
                 mStackScroller,
                 mPanelView,
                 new View(mContext),
                 mOperatorNameView,
                 new View(mContext));
-        mHeadsUpAppearanceController.setExpandedHeight(0.0f, 0.0f);
+        mHeadsUpAppearanceController.setAppearFraction(0.0f, 0.0f);
     }
 
     @Test
@@ -139,11 +162,16 @@ public class HeadsUpAppearanceControllerTest extends SysuiTestCase {
 
     @Test
     public void testHeaderReadFromOldController() {
-        mHeadsUpAppearanceController.setExpandedHeight(1.0f, 1.0f);
+        mHeadsUpAppearanceController.setAppearFraction(1.0f, 1.0f);
 
         HeadsUpAppearanceController newController = new HeadsUpAppearanceController(
                 mock(NotificationIconAreaController.class),
                 mHeadsUpManager,
+                mStatusbarStateController,
+                mBypassController,
+                mWakeUpCoordinator,
+                mKeyguardStateController,
+                mCommandQueue,
                 mHeadsUpStatusBarView,
                 mStackScroller,
                 mPanelView,
@@ -154,8 +182,8 @@ public class HeadsUpAppearanceControllerTest extends SysuiTestCase {
 
         Assert.assertEquals(mHeadsUpAppearanceController.mExpandedHeight,
                 newController.mExpandedHeight, 0.0f);
-        Assert.assertEquals(mHeadsUpAppearanceController.mExpandFraction,
-                newController.mExpandFraction, 0.0f);
+        Assert.assertEquals(mHeadsUpAppearanceController.mAppearFraction,
+                newController.mAppearFraction, 0.0f);
         Assert.assertEquals(mHeadsUpAppearanceController.mIsExpanded,
                 newController.mIsExpanded);
     }
@@ -172,7 +200,7 @@ public class HeadsUpAppearanceControllerTest extends SysuiTestCase {
         verify(mPanelView).removeVerticalTranslationListener(any());
         verify(mPanelView).removeTrackingHeadsUpListener(any());
         verify(mPanelView).setHeadsUpAppearanceController(any());
-        verify(mStackScroller).removeOnExpandedHeightListener(any());
+        verify(mStackScroller).removeOnExpandedHeightChangedListener(any());
         verify(mStackScroller).removeOnLayoutChangeListener(any());
     }
 }

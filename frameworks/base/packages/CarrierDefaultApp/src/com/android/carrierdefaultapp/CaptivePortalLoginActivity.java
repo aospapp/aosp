@@ -35,8 +35,8 @@ import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Bundle;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
@@ -49,8 +49,6 @@ import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.TrafficStatsConstants;
 
@@ -204,11 +202,11 @@ public class CaptivePortalLoginActivity extends Activity {
     }
 
     private URL getUrlForCaptivePortal() {
-        String url = getIntent().getStringExtra(TelephonyIntents.EXTRA_REDIRECTION_URL_KEY);
+        String url = getIntent().getStringExtra(TelephonyManager.EXTRA_REDIRECTION_URL);
         if (TextUtils.isEmpty(url)) url = mCm.getCaptivePortalServerUrl();
         final CarrierConfigManager configManager = getApplicationContext()
                 .getSystemService(CarrierConfigManager.class);
-        final int subId = getIntent().getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        final int subId = getIntent().getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         final String[] portalURLs = configManager.getConfigForSubId(subId).getStringArray(
                 CarrierConfigManager.KEY_CARRIER_DEFAULT_REDIRECTION_URL_STRING_ARRAY);
@@ -477,11 +475,11 @@ public class CaptivePortalLoginActivity extends Activity {
     }
 
     private static void logd(String s) {
-        Rlog.d(TAG, s);
+        Log.d(TAG, s);
     }
 
     private static void loge(String s) {
-        Rlog.d(TAG, s);
+        Log.d(TAG, s);
     }
 
 }

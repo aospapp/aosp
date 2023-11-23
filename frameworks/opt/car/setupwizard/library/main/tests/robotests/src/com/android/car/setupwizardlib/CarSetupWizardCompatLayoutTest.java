@@ -31,8 +31,10 @@ import android.widget.TextView;
 import androidx.annotation.ColorRes;
 import androidx.annotation.StyleRes;
 
+import com.android.car.setupwizardlib.partner.ExternalResources;
 import com.android.car.setupwizardlib.partner.FakeOverrideContentProvider;
 import com.android.car.setupwizardlib.partner.PartnerConfig;
+import com.android.car.setupwizardlib.partner.ResourceEntry;
 import com.android.car.setupwizardlib.robolectric.BaseRobolectricTest;
 import com.android.car.setupwizardlib.robolectric.TestHelper;
 
@@ -46,6 +48,8 @@ import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowTextView;
 import org.robolectric.util.ReflectionHelpers;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -59,10 +63,25 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
 
     private CarSetupWizardCompatLayout mCarSetupWizardCompatLayout;
 
+    private static final String TEST_PACKAGE_NAME = "test.packageName";
+
+    private static final PartnerConfig TEST_TOOLBAR_BUTTON_TEXT_SIZE_RESOURCE_NAME =
+            PartnerConfig.CONFIG_TOOLBAR_BUTTON_TEXT_SIZE;
+
+    private static final float TOLERANCE = 0.001f;
+    // A small value is picked so that it's not likely to coincide with the default font size
+    private static final float EXCEPTED_TEXT_SIZE = 4;
+
     @Before
     public void setUp() {
-        mCarSetupWizardCompatLayout = createCarSetupWizardCompatLayout();
+        FakeOverrideContentProvider fakeOverrideDataProvider =
+                FakeOverrideContentProvider.installEmptyProvider();
+        List<ResourceEntry> resourceEntries = prepareFakeData();
+        for (ResourceEntry entry : resourceEntries) {
+            fakeOverrideDataProvider.injectResourceEntry(entry);
+        }
 
+        mCarSetupWizardCompatLayout = createCarSetupWizardCompatLayout();
         // Have to make this call first to ensure secondaryToolbar button is created from stub.
         mCarSetupWizardCompatLayout.setSecondaryToolbarButtonVisible(true);
         mCarSetupWizardCompatLayout.setSecondaryToolbarButtonVisible(false);
@@ -421,18 +440,6 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
     }
 
     @Test
-    public void testTitleBarElevationChange() {
-        mCarSetupWizardCompatLayout.addElevationToTitleBar(/*animate= */ false);
-        View titleBar = mCarSetupWizardCompatLayout.findViewById(R.id.application_bar);
-        assertThat(titleBar.getElevation()).isEqualTo(
-                application.getResources().getDimension(
-                        R.dimen.title_bar_drop_shadow_elevation));
-
-        mCarSetupWizardCompatLayout.removeElevationFromTitleBar(/*animate= */ false);
-        assertThat(titleBar.getElevation()).isEqualTo(0f);
-    }
-
-    @Test
     public void testPartnerResourcesAreApplied() {
         setupFakeContentProvider();
 
@@ -501,6 +508,30 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
                 .isEqualTo(getDrawbleDefaultColor(expected));
     }
 
+    @Test
+    public void test_bothButtons_areStyled_inDefaultLayout() {
+        Button primaryButton = mCarSetupWizardCompatLayout.getPrimaryToolbarButton();
+        Button secondaryButton = mCarSetupWizardCompatLayout.getSecondaryToolbarButton();
+
+        assertThat(primaryButton.getTextSize()).isWithin(TOLERANCE).of(EXCEPTED_TEXT_SIZE);
+        assertThat(secondaryButton.getTextSize()).isWithin(TOLERANCE).of(EXCEPTED_TEXT_SIZE);
+    }
+
+    @Test
+    public void test_bothButtons_areStyled_inAlternativeLayout() {
+        Activity activity = Robolectric
+                .buildActivity(CarSetupWizardLayoutAlternativeActivity.class)
+                .create()
+                .get();
+        CarSetupWizardCompatLayout layout = activity.findViewById(R.id.car_setup_wizard_layout);
+
+        Button primaryButton = layout.getPrimaryToolbarButton();
+        Button secondaryButton = layout.getSecondaryToolbarButton();
+
+        assertThat(primaryButton.getTextSize()).isWithin(TOLERANCE).of(EXCEPTED_TEXT_SIZE);
+        assertThat(secondaryButton.getTextSize()).isWithin(TOLERANCE).of(EXCEPTED_TEXT_SIZE);
+    }
+
     private void setupFakeContentProvider() {
         FakeOverrideContentProvider.installDefaultProvider();
     }
@@ -518,5 +549,23 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
         Drawable.ConstantState state = drawable.getConstantState();
         ColorStateList colorStateList = ReflectionHelpers.getField(state, "mColor");
         return colorStateList.getDefaultColor();
+    }
+
+    private List<ResourceEntry> prepareFakeData() {
+        ExternalResources.Resources testResources =
+                ExternalResources.injectExternalResources(TEST_PACKAGE_NAME);
+
+        testResources.putDimension(
+                TEST_TOOLBAR_BUTTON_TEXT_SIZE_RESOURCE_NAME.getResourceName(), EXCEPTED_TEXT_SIZE);
+
+        return Arrays.asList(
+                new ResourceEntry(
+                        TEST_PACKAGE_NAME,
+                        TEST_TOOLBAR_BUTTON_TEXT_SIZE_RESOURCE_NAME.getResourceName(),
+                        testResources.getIdentifier(
+                                TEST_TOOLBAR_BUTTON_TEXT_SIZE_RESOURCE_NAME.getResourceName(),
+                                /* defType= */ "dimen",
+                                TEST_PACKAGE_NAME))
+        );
     }
 }

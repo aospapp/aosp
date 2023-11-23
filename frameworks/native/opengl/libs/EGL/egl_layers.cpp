@@ -18,9 +18,9 @@
 
 #include <EGL/egl.h>
 #include <android-base/file.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android/dlext.h>
-#include <cutils/properties.h>
 #include <dlfcn.h>
 #include <graphicsenv/GraphicsEnv.h>
 #include <log/log.h>
@@ -151,15 +151,13 @@ LayerLoader& LayerLoader::getInstance() {
 const char kSystemLayerLibraryDir[] = "/data/local/debug/gles";
 
 std::string LayerLoader::GetDebugLayers() {
-    // Layers can be specified at the Java level in GraphicsEnvironemnt
+    // Layers can be specified at the Java level in GraphicsEnvironment
     // gpu_debug_layers_gles = layer1:layer2:layerN
     std::string debug_layers = android::GraphicsEnv::getInstance().getDebugLayersGLES();
 
     if (debug_layers.empty()) {
         // Only check system properties if Java settings are empty
-        char prop[PROPERTY_VALUE_MAX];
-        property_get("debug.gles.layers", prop, "");
-        debug_layers = prop;
+        debug_layers = base::GetProperty("debug.gles.layers", "");
     }
 
     return debug_layers;
@@ -337,7 +335,7 @@ void LayerLoader::LoadLayers() {
 
     // Only enable the system search path for non-user builds
     std::string system_path;
-    if (property_get_bool("ro.debuggable", false) && prctl(PR_GET_DUMPABLE, 0, 0, 0, 0)) {
+    if (android::GraphicsEnv::getInstance().isDebuggable()) {
         system_path = kSystemLayerLibraryDir;
     }
 
@@ -379,14 +377,12 @@ void LayerLoader::LoadLayers() {
                 // any symbol dependencies will be resolved by system libraries. They
                 // can't safely use libc++_shared, for example. Which is one reason
                 // (among several) we only allow them in non-user builds.
-                void* handle = nullptr;
                 auto app_namespace = android::GraphicsEnv::getInstance().getAppNamespace();
                 if (app_namespace && !android::base::StartsWith(layer, kSystemLayerLibraryDir)) {
-                    bool native_bridge = false;
                     char* error_message = nullptr;
-                    handle = OpenNativeLibraryInNamespace(
-                        app_namespace, layer.c_str(), &native_bridge, &error_message);
-                    if (!handle) {
+                    dlhandle_ = OpenNativeLibraryInNamespace(
+                        app_namespace, layer.c_str(), &native_bridge_, &error_message);
+                    if (!dlhandle_) {
                         ALOGE("Failed to load layer %s with error: %s", layer.c_str(),
                               error_message);
                         android::NativeLoaderFreeErrorMessage(error_message);
@@ -394,11 +390,11 @@ void LayerLoader::LoadLayers() {
                     }
 
                 } else {
-                    handle = dlopen(layer.c_str(), RTLD_NOW | RTLD_LOCAL);
+                    dlhandle_ = dlopen(layer.c_str(), RTLD_NOW | RTLD_LOCAL);
                 }
 
-                if (handle) {
-                    ALOGV("Loaded layer handle (%llu) for layer %s", (unsigned long long)handle,
+                if (dlhandle_) {
+                    ALOGV("Loaded layer handle (%llu) for layer %s", (unsigned long long)dlhandle_,
                           layers[i].c_str());
                 } else {
                     // If the layer is found but can't be loaded, try setenforce 0
@@ -411,8 +407,7 @@ void LayerLoader::LoadLayers() {
                 std::string init_func = "AndroidGLESLayer_Initialize";
                 ALOGV("Looking for entrypoint %s", init_func.c_str());
 
-                layer_init_func LayerInit =
-                        reinterpret_cast<layer_init_func>(dlsym(handle, init_func.c_str()));
+                layer_init_func LayerInit = GetTrampoline<layer_init_func>(init_func.c_str());
                 if (LayerInit) {
                     ALOGV("Found %s for layer %s", init_func.c_str(), layer.c_str());
                     layer_init_.push_back(LayerInit);
@@ -425,8 +420,7 @@ void LayerLoader::LoadLayers() {
                 std::string setup_func = "AndroidGLESLayer_GetProcAddress";
                 ALOGV("Looking for entrypoint %s", setup_func.c_str());
 
-                layer_setup_func LayerSetup =
-                        reinterpret_cast<layer_setup_func>(dlsym(handle, setup_func.c_str()));
+                layer_setup_func LayerSetup = GetTrampoline<layer_setup_func>(setup_func.c_str());
                 if (LayerSetup) {
                     ALOGV("Found %s for layer %s", setup_func.c_str(), layer.c_str());
                     layer_setup_.push_back(LayerSetup);

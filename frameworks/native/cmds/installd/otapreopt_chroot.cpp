@@ -61,19 +61,25 @@ static void CloseDescriptor(const char* descriptor_string) {
 
 static std::vector<apex::ApexFile> ActivateApexPackages() {
     // The logic here is (partially) copied and adapted from
-    // system/apex/apexd/apexd_main.cpp.
+    // system/apex/apexd/apexd.cpp.
     //
-    // Only scan the APEX directory under /system (within the chroot dir).
-    apex::scanPackagesDirAndActivate(apex::kApexPackageSystemDir);
+    // Only scan the APEX directory under /system, /system_ext and /vendor (within the chroot dir).
+    std::vector<const char*> apex_dirs{apex::kApexPackageSystemDir, apex::kApexPackageSystemExtDir,
+                                       apex::kApexPackageVendorDir};
+    for (const auto& dir : apex_dirs) {
+        // Cast call to void to suppress warn_unused_result.
+        static_cast<void>(apex::scanPackagesDirAndActivate(dir));
+    }
     return apex::getActivePackages();
 }
 
 static void DeactivateApexPackages(const std::vector<apex::ApexFile>& active_packages) {
     for (const apex::ApexFile& apex_file : active_packages) {
         const std::string& package_path = apex_file.GetPath();
-        apex::Status status = apex::deactivatePackage(package_path);
-        if (!status.Ok()) {
-            LOG(ERROR) << "Failed to deactivate " << package_path << ": " << status.ErrorMessage();
+        base::Result<void> status = apex::deactivatePackage(package_path);
+        if (!status.ok()) {
+            LOG(ERROR) << "Failed to deactivate " << package_path << ": "
+                       << status.error();
         }
     }
 }
@@ -231,8 +237,20 @@ static int otapreopt_chroot(const int argc, char **arg) {
     }
 
     // Try to mount APEX packages in "/apex" in the chroot dir. We need at least
-    // the Android Runtime APEX, as it is required by otapreopt to run dex2oat.
+    // the ART APEX, as it is required by otapreopt to run dex2oat.
     std::vector<apex::ApexFile> active_packages = ActivateApexPackages();
+
+    // Check that an ART APEX has been activated; clean up and exit
+    // early otherwise.
+    if (std::none_of(active_packages.begin(),
+                     active_packages.end(),
+                     [](const apex::ApexFile& package){
+                         return package.GetManifest().name() == "com.android.art";
+                     })) {
+        LOG(FATAL_WITHOUT_ABORT) << "No activated com.android.art APEX package.";
+        DeactivateApexPackages(active_packages);
+        exit(217);
+    }
 
     // Now go on and run otapreopt.
 

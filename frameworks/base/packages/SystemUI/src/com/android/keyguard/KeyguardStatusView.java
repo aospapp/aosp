@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.text.TextUtils;
@@ -40,6 +39,7 @@ import androidx.core.graphics.ColorUtils;
 
 import com.android.internal.widget.LockPatternUtils;
 import com.android.systemui.Dependency;
+import com.android.systemui.R;
 import com.android.systemui.statusbar.policy.ConfigurationController;
 
 import java.io.FileDescriptor;
@@ -61,6 +61,7 @@ public class KeyguardStatusView extends GridLayout implements
     private KeyguardClockSwitch mClockView;
     private TextView mOwnerInfo;
     private KeyguardSliceView mKeyguardSlice;
+    private View mNotificationIcons;
     private Runnable mPendingMarqueeStart;
     private Handler mHandler;
 
@@ -72,8 +73,8 @@ public class KeyguardStatusView extends GridLayout implements
      * Bottom margin that defines the margin between bottom of smart space and top of notification
      * icons on AOD.
      */
-    private int mBottomMargin;
-    private int mBottomMarginWithHeader;
+    private int mIconTopMargin;
+    private int mIconTopMarginWithHeader;
     private boolean mShowingHeader;
 
     private KeyguardUpdateMonitorCallback mInfoCallback = new KeyguardUpdateMonitorCallback() {
@@ -133,7 +134,7 @@ public class KeyguardStatusView extends GridLayout implements
         super(context, attrs, defStyle);
         mIActivityManager = ActivityManager.getService();
         mLockPatternUtils = new LockPatternUtils(getContext());
-        mHandler = new Handler(Looper.myLooper());
+        mHandler = new Handler();
         onDensityOrFontScaleChanged();
     }
 
@@ -142,6 +143,13 @@ public class KeyguardStatusView extends GridLayout implements
      */
     public boolean hasCustomClock() {
         return mClockView.hasCustomClock();
+    }
+
+    /**
+     * Set whether or not the lock screen is showing notifications.
+     */
+    public void setHasVisibleNotifications(boolean hasVisibleNotifications) {
+        mClockView.setHasVisibleNotifications(hasVisibleNotifications);
     }
 
     private void setEnableMarquee(boolean enabled) {
@@ -173,6 +181,7 @@ public class KeyguardStatusView extends GridLayout implements
         super.onFinishInflate();
         mStatusViewContainer = findViewById(R.id.status_view_container);
         mLogoutView = findViewById(R.id.logout);
+        mNotificationIcons = findViewById(R.id.clock_notification_icon_container);
         if (mLogoutView != null) {
             mLogoutView.setOnClickListener(this::onLogoutClicked);
         }
@@ -189,7 +198,7 @@ public class KeyguardStatusView extends GridLayout implements
         mKeyguardSlice.setContentChangeListener(this::onSliceContentChanged);
         onSliceContentChanged();
 
-        boolean shouldMarquee = KeyguardUpdateMonitor.getInstance(mContext).isDeviceInteractive();
+        boolean shouldMarquee = Dependency.get(KeyguardUpdateMonitor.class).isDeviceInteractive();
         setEnableMarquee(shouldMarquee);
         refreshFormat();
         updateOwnerInfo();
@@ -207,12 +216,14 @@ public class KeyguardStatusView extends GridLayout implements
             return;
         }
         mShowingHeader = hasHeader;
-        // Update bottom margin since header has appeared/disappeared.
-        if (mStatusViewContainer != null) {
-            MarginLayoutParams params = (MarginLayoutParams) mStatusViewContainer.getLayoutParams();
-            params.setMargins(params.leftMargin, params.topMargin, params.rightMargin,
-                    hasHeader ? mBottomMarginWithHeader : mBottomMargin);
-            mStatusViewContainer.setLayoutParams(params);
+        if (mNotificationIcons != null) {
+            // Update top margin since header has appeared/disappeared.
+            MarginLayoutParams params = (MarginLayoutParams) mNotificationIcons.getLayoutParams();
+            params.setMargins(params.leftMargin,
+                    hasHeader ? mIconTopMarginWithHeader : mIconTopMargin,
+                    params.rightMargin,
+                    params.bottomMargin);
+            mNotificationIcons.setLayoutParams(params);
         }
     }
 
@@ -303,14 +314,14 @@ public class KeyguardStatusView extends GridLayout implements
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        KeyguardUpdateMonitor.getInstance(mContext).registerCallback(mInfoCallback);
+        Dependency.get(KeyguardUpdateMonitor.class).registerCallback(mInfoCallback);
         Dependency.get(ConfigurationController.class).addCallback(this);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        KeyguardUpdateMonitor.getInstance(mContext).removeCallback(mInfoCallback);
+        Dependency.get(KeyguardUpdateMonitor.class).removeCallback(mInfoCallback);
         Dependency.get(ConfigurationController.class).removeCallback(this);
     }
 
@@ -338,8 +349,8 @@ public class KeyguardStatusView extends GridLayout implements
     }
 
     private void loadBottomMargin() {
-        mBottomMargin = getResources().getDimensionPixelSize(R.dimen.widget_vertical_padding);
-        mBottomMarginWithHeader = getResources().getDimensionPixelSize(
+        mIconTopMargin = getResources().getDimensionPixelSize(R.dimen.widget_vertical_padding);
+        mIconTopMarginWithHeader = getResources().getDimensionPixelSize(
                 R.dimen.widget_vertical_padding_with_header);
     }
 
@@ -412,6 +423,13 @@ public class KeyguardStatusView extends GridLayout implements
             int expanded = mOwnerInfo.getBottom() + mOwnerInfo.getPaddingBottom();
             int toRemove = (int) ((expanded - collapsed) * ratio);
             setBottom(getMeasuredHeight() - toRemove);
+            if (mNotificationIcons != null) {
+                // We're using scrolling in order not to overload the translation which is used
+                // when appearing the icons
+                mNotificationIcons.setScrollY(toRemove);
+            }
+        } else if (mNotificationIcons != null){
+            mNotificationIcons.setScrollY(0);
         }
     }
 
@@ -423,7 +441,7 @@ public class KeyguardStatusView extends GridLayout implements
     }
 
     private boolean shouldShowLogout() {
-        return KeyguardUpdateMonitor.getInstance(mContext).isLogoutEnabled()
+        return Dependency.get(KeyguardUpdateMonitor.class).isLogoutEnabled()
                 && KeyguardUpdateMonitor.getCurrentUser() != UserHandle.USER_SYSTEM;
     }
 

@@ -38,7 +38,11 @@ Example({
 }).AddVariations("relaxed", quant8)
 
 # TRANSPOSE of data type TENSOR_FLOAT32 and TENSOR_QUANT8_ASYMM is introduced in V1_1.
-Example.SetVersion("V1_1", "transpose_v1_2", "transpose_v1_2_quant8")
+Example.SetVersion("V1_1",
+                   "transpose_v1_2",
+                   "transpose_v1_2_all_inputs_as_internal",
+                   "transpose_v1_2_quant8",
+                   "transpose_v1_2_quant8_all_inputs_as_internal")
 
 
 # zero-sized input
@@ -72,10 +76,9 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddVariations("relaxed", quant8, "float16")

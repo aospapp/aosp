@@ -25,7 +25,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.BaseColumns;
-import android.telephony.SubscriptionManager;
+import android.provider.Telephony;
 import android.test.mock.MockContentProvider;
 import android.util.Log;
 
@@ -52,65 +52,68 @@ public class FakeTelephonyProvider extends MockContentProvider {
         // This should always be consistent with TelephonyProvider#getStringForSimInfoTableCreation.
         private String getStringForSimInfoTableCreation(String tableName) {
             return "CREATE TABLE " + tableName + "("
-                    + SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID
+                    + Telephony.SimInfo.COLUMN_UNIQUE_KEY_SUBSCRIPTION_ID
                     + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + SubscriptionManager.ICC_ID + " TEXT NOT NULL,"
-                    + SubscriptionManager.SIM_SLOT_INDEX
-                    + " INTEGER DEFAULT " + SubscriptionManager.SIM_NOT_INSERTED + ","
-                    + SubscriptionManager.DISPLAY_NAME + " TEXT,"
-                    + SubscriptionManager.CARRIER_NAME + " TEXT,"
-                    + SubscriptionManager.NAME_SOURCE
-                    + " INTEGER DEFAULT " + SubscriptionManager.NAME_SOURCE_DEFAULT_SOURCE + ","
-                    + SubscriptionManager.COLOR + " INTEGER DEFAULT "
-                    + SubscriptionManager.COLOR_DEFAULT + ","
-                    + SubscriptionManager.NUMBER + " TEXT,"
-                    + SubscriptionManager.DISPLAY_NUMBER_FORMAT
+                    + Telephony.SimInfo.COLUMN_ICC_ID + " TEXT NOT NULL,"
+                    + Telephony.SimInfo.COLUMN_SIM_SLOT_INDEX
+                    + " INTEGER DEFAULT " + Telephony.SimInfo.SIM_NOT_INSERTED + ","
+                    + Telephony.SimInfo.COLUMN_DISPLAY_NAME + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_CARRIER_NAME + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_NAME_SOURCE
+                    + " INTEGER DEFAULT " + Telephony.SimInfo.NAME_SOURCE_CARRIER_ID + ","
+                    + Telephony.SimInfo.COLUMN_COLOR + " INTEGER DEFAULT "
+                    + Telephony.SimInfo.COLOR_DEFAULT + ","
+                    + Telephony.SimInfo.COLUMN_NUMBER + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_DISPLAY_NUMBER_FORMAT
                     + " INTEGER NOT NULL DEFAULT "
-                    + SubscriptionManager.DISPLAY_NUMBER_DEFAULT + ","
-                    + SubscriptionManager.DATA_ROAMING
-                    + " INTEGER DEFAULT " + SubscriptionManager.DATA_ROAMING_DEFAULT + ","
-                    + SubscriptionManager.MCC + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.MNC + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.MCC_STRING + " TEXT,"
-                    + SubscriptionManager.MNC_STRING + " TEXT,"
-                    + SubscriptionManager.EHPLMNS + " TEXT,"
-                    + SubscriptionManager.HPLMNS + " TEXT,"
-                    + SubscriptionManager.SIM_PROVISIONING_STATUS
-                    + " INTEGER DEFAULT " + SubscriptionManager.SIM_PROVISIONED + ","
-                    + SubscriptionManager.IS_EMBEDDED + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CARD_ID + " TEXT NOT NULL,"
-                    + SubscriptionManager.ACCESS_RULES + " BLOB,"
-                    + SubscriptionManager.IS_REMOVABLE + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_EXTREME_THREAT_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_SEVERE_THREAT_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_AMBER_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_EMERGENCY_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_ALERT_SOUND_DURATION + " INTEGER DEFAULT 4,"
-                    + SubscriptionManager.CB_ALERT_REMINDER_INTERVAL + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_ALERT_VIBRATE + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_ALERT_SPEECH + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_ETWS_TEST_ALERT + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_CHANNEL_50_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_CMAS_TEST_ALERT + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_OPT_OUT_DIALOG + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.ENHANCED_4G_MODE_ENABLED + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.VT_IMS_ENABLED + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.WFC_IMS_ENABLED + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.WFC_IMS_MODE + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.WFC_IMS_ROAMING_MODE + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.WFC_IMS_ROAMING_ENABLED + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.IS_OPPORTUNISTIC + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.GROUP_UUID + " TEXT,"
-                    + SubscriptionManager.IS_METERED + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.ISO_COUNTRY_CODE + " TEXT,"
-                    + SubscriptionManager.CARRIER_ID + " INTEGER DEFAULT -1,"
-                    + SubscriptionManager.PROFILE_CLASS
-                    + " INTEGER DEFAULT " + SubscriptionManager.PROFILE_CLASS_DEFAULT + ","
-                    + SubscriptionManager.SUBSCRIPTION_TYPE + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.WHITE_LISTED_APN_DATA + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.GROUP_OWNER + " TEXT,"
-                    + SubscriptionManager.DATA_ENABLED_OVERRIDE_RULES + " TEXT"
-                    + SubscriptionManager.IMSI + " TEXT"
+                    + Telephony.SimInfo.DISPLAY_NUMBER_DEFAULT + ","
+                    + Telephony.SimInfo.COLUMN_DATA_ROAMING
+                    + " INTEGER DEFAULT " + Telephony.SimInfo.DATA_ROAMING_DISABLE + ","
+                    + Telephony.SimInfo.COLUMN_MCC + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_MNC + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_MCC_STRING + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_MNC_STRING + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_EHPLMNS + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_HPLMNS + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_SIM_PROVISIONING_STATUS
+                    + " INTEGER DEFAULT " + Telephony.SimInfo.SIM_PROVISIONED + ","
+                    + Telephony.SimInfo.COLUMN_IS_EMBEDDED + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_CARD_ID + " TEXT NOT NULL,"
+                    + Telephony.SimInfo.COLUMN_ACCESS_RULES + " BLOB,"
+                    + Telephony.SimInfo.COLUMN_IS_REMOVABLE + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_CB_EXTREME_THREAT_ALERT + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_SEVERE_THREAT_ALERT + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_AMBER_ALERT + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_EMERGENCY_ALERT + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_ALERT_SOUND_DURATION + " INTEGER DEFAULT 4,"
+                    + Telephony.SimInfo.COLUMN_CB_ALERT_REMINDER_INTERVAL + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_CB_ALERT_VIBRATE + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_ALERT_SPEECH + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_ETWS_TEST_ALERT + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_CB_CHANNEL_50_ALERT + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_CB_CMAS_TEST_ALERT + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_CB_OPT_OUT_DIALOG + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_ENHANCED_4G_MODE_ENABLED + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_VT_IMS_ENABLED + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_WFC_IMS_ENABLED + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_WFC_IMS_MODE + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_WFC_IMS_ROAMING_MODE + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_WFC_IMS_ROAMING_ENABLED + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_IS_OPPORTUNISTIC + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_GROUP_UUID + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_IS_METERED + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_ISO_COUNTRY_CODE + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_CARRIER_ID + " INTEGER DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_PROFILE_CLASS
+                    + " INTEGER DEFAULT " + Telephony.SimInfo.PROFILE_CLASS_UNSET + ","
+                    + Telephony.SimInfo.COLUMN_SUBSCRIPTION_TYPE + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_GROUP_OWNER + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_DATA_ENABLED_OVERRIDE_RULES + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_IMSI + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_ACCESS_RULES_FROM_CARRIER_CONFIGS + " BLOB,"
+                    + Telephony.SimInfo.COLUMN_UICC_APPLICATIONS_ENABLED + " INTEGER DEFAULT 1,"
+                    + Telephony.SimInfo.COLUMN_ALLOWED_NETWORK_TYPES + " BIGINT DEFAULT -1, "
+                    + Telephony.SimInfo.COLUMN_IMS_RCS_UCE_ENABLED + " INTEGER DEFAULT 0"
                     + ");";
         }
 
@@ -133,7 +136,7 @@ public class FakeTelephonyProvider extends MockContentProvider {
     public Uri insert(Uri uri, ContentValues values) {
         SQLiteDatabase db = mDbHelper.getWritableDatabase();
         long id = db.insert("siminfo", null, values);
-        return ContentUris.withAppendedId(SubscriptionManager.CONTENT_URI, id);
+        return ContentUris.withAppendedId(Telephony.SimInfo.CONTENT_URI, id);
     }
 
     @Override

@@ -16,10 +16,10 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
-import android.telephony.Rlog;
-import java.lang.Comparable;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.telephony.PhoneNumberUtils;
+
+import com.android.telephony.Rlog;
 
 /**
  * {@hide}
@@ -27,6 +27,8 @@ import android.telephony.PhoneNumberUtils;
 public class DriverCall implements Comparable<DriverCall> {
     static final String LOG_TAG = "DriverCall";
 
+    @UnsupportedAppUsage(implicitMember =
+            "values()[Lcom/android/internal/telephony/DriverCall$State;")
     public enum State {
         @UnsupportedAppUsage
         ACTIVE,

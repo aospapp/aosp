@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -30,7 +32,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.eap.ExpandedEAPMethod}.
  */
 @SmallTest
-public class ExpandedEAPMethodTest {
+public class ExpandedEAPMethodTest extends WifiBaseTest {
     private static final int TEST_VENDOR_ID = 0x123456;
     private static final long TEST_VENDOR_TYPE = 0x23456523;
     private static final byte[] TEST_DATA_BYTES =

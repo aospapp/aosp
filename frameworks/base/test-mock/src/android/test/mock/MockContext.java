@@ -16,6 +16,7 @@
 
 package android.test.mock;
 
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.app.IApplicationThread;
 import android.app.IServiceConnection;
@@ -208,6 +209,15 @@ public class MockContext extends Context {
 
     @Override
     public File getFilesDir() {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * {@inheritDoc Context#getCrateDir()}
+     * @hide
+     */
+    @Override
+    public File getCrateDir(@NonNull String crateId) {
         throw new UnsupportedOperationException();
     }
 
@@ -463,6 +473,21 @@ public class MockContext extends Context {
     }
 
     @Override
+    public void sendOrderedBroadcast(Intent intent, String receiverPermission,
+            String receiverAppOp, BroadcastReceiver resultReceiver, Handler scheduler,
+            int initialCode, String initialData, Bundle initialExtras) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** @hide */
+    @Override
+    public void sendOrderedBroadcast(Intent intent, int initialCode, String receiverPermission,
+            String receiverAppOp, BroadcastReceiver resultReceiver, Handler scheduler,
+            String initialData, Bundle initialExtras, Bundle options) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void sendStickyBroadcast(Intent intent) {
         throw new UnsupportedOperationException();
     }
@@ -523,6 +548,14 @@ public class MockContext extends Context {
     @Override
     public Intent registerReceiver(BroadcastReceiver receiver, IntentFilter filter,
             String broadcastPermission, Handler scheduler, int flags) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** @hide */
+    @Override
+    @SystemApi
+    public Intent registerReceiverForAllUsers(BroadcastReceiver receiver,
+            IntentFilter filter, String broadcastPermission, Handler scheduler) {
         throw new UnsupportedOperationException();
     }
 
@@ -758,6 +791,12 @@ public class MockContext extends Context {
 
     /** {@hide} */
     @Override
+    public Context createContextAsUser(UserHandle user, @CreatePackageOptions int flags) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@hide} */
+    @Override
     public int getUserId() {
         throw new UnsupportedOperationException();
     }
@@ -773,6 +812,11 @@ public class MockContext extends Context {
     }
 
     @Override
+    public @NonNull Context createWindowContext(int type, Bundle options) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean isRestricted() {
         throw new UnsupportedOperationException();
     }
@@ -783,9 +827,14 @@ public class MockContext extends Context {
         throw new UnsupportedOperationException();
     }
 
-    /** @hide */
     @Override
     public Display getDisplay() {
+        throw new UnsupportedOperationException();
+    }
+
+    /** @hide */
+    @Override
+    public Display getDisplayNoVerify() {
         throw new UnsupportedOperationException();
     }
 
@@ -877,6 +926,12 @@ public class MockContext extends Context {
     /** {@hide} */
     @Override
     public Handler getMainThreadHandler() {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@hide} */
+    @Override
+    public boolean isUiContext() {
         throw new UnsupportedOperationException();
     }
 }

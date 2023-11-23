@@ -119,7 +119,7 @@ public class BitmapShader_Delegate extends Shader_Delegate {
                 canvasMatrix = xform.createInverse();
             } catch (NoninvertibleTransformException e) {
                 Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_INVERSE,
-                        "Unable to inverse matrix in BitmapShader", e, null /*data*/);
+                        "Unable to inverse matrix in BitmapShader", e, null, null /*data*/);
                 canvasMatrix = new AffineTransform();
             }
 
@@ -128,7 +128,7 @@ public class BitmapShader_Delegate extends Shader_Delegate {
                 localMatrix = localMatrix.createInverse();
             } catch (NoninvertibleTransformException e) {
                 Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_INVERSE,
-                        "Unable to inverse matrix in BitmapShader", e, null /*data*/);
+                        "Unable to inverse matrix in BitmapShader", e, null, null /*data*/);
                 localMatrix = new AffineTransform();
             }
 

@@ -126,12 +126,20 @@ bool ParseOpusHeader(const uint8_t* data, size_t data_size, OpusHeader* header) 
     }
     header->num_streams = data[kOpusHeaderNumStreamsOffset];
     header->num_coupled = data[kOpusHeaderNumCoupledStreamsOffset];
-    if (header->num_streams + header->num_coupled != header->channels) {
-        ALOGV("Inconsistent channel mapping.");
+    if (header->num_coupled > header->num_streams ||
+        header->num_streams + header->num_coupled != header->channels) {
+        ALOGV("Inconsistent channel mapping, streams: %d coupled: %d channels: %d",
+        header->num_streams, header->num_coupled, header->channels);
         return false;
     }
-    for (int i = 0; i < header->channels; ++i)
-        header->stream_map[i] = data[kOpusHeaderStreamMapOffset + i];
+    for (int i = 0; i < header->channels; ++i) {
+        uint8_t value = data[kOpusHeaderStreamMapOffset + i];
+        if (value != 255 && value >= header->channels) {
+            ALOGV("Invalid channel mapping for index %i : %d", i, value);
+            return false;
+        }
+        header->stream_map[i] = value;
+    }
     return true;
 }
 
@@ -292,6 +300,10 @@ bool GetOpusHeaderBuffers(const uint8_t *data, size_t data_size,
         *opusHeadSize = data_size;
         return true;
     } else if (memcmp(AOPUS_CSD_MARKER_PREFIX, data, AOPUS_CSD_MARKER_PREFIX_SIZE) == 0) {
+        if (data_size < AOPUS_UNIFIED_CSD_MINSIZE || data_size > AOPUS_UNIFIED_CSD_MAXSIZE) {
+            ALOGD("Unexpected size for unified opus csd %zu", data_size);
+            return false;
+        }
         size_t i = 0;
         bool found = false;
         while (i <= data_size - AOPUS_MARKER_SIZE - AOPUS_LENGTH_SIZE) {

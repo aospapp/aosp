@@ -60,7 +60,7 @@ public class DrawerLayoutUtil {
                     gravity);
         } catch (ReflectionException e) {
             Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to open navigation drawer",
-                    getCause(e), null);
+                    getCause(e), null, null);
         }
     }
 }

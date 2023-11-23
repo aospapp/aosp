@@ -32,7 +32,7 @@ interface IDumpstateListener {
      *
      * @param progress the progress in [0, 100]
      */
-    void onProgress(int progress);
+    oneway void onProgress(int progress);
 
     // NOTE: If you add to or change these error codes, please also change the corresponding enums
     // in system server, in BugreportManager.java.
@@ -54,28 +54,23 @@ interface IDumpstateListener {
 
     /**
      * Called on an error condition with one of the error codes listed above.
+     * This is not an asynchronous method since it can race with dumpstate exiting, thus triggering
+     * death recipient.
      */
     void onError(int errorCode);
 
     /**
      * Called when taking bugreport finishes successfully.
      */
-    void onFinished();
-
-    // TODO(b/111441001): Remove old methods when not used anymore.
-    void onProgressUpdated(int progress);
-    void onMaxProgressUpdated(int maxProgress);
+    oneway void onFinished();
 
     /**
-     * Called after every section is complete.
-     *
-     * @param  name          section name
-     * @param  status        values from status_t
-     *                       {@code OK} section completed successfully
-     *                       {@code TIMEOUT} dump timed out
-     *                       {@code != OK} error
-     * @param  size          size in bytes, may be invalid if status != OK
-     * @param  durationMs    duration in ms
+     * Called when screenshot is taken.
      */
-    void onSectionComplete(@utf8InCpp String name, int status, int size, int durationMs);
+    oneway void onScreenshotTaken(boolean success);
+
+    /**
+     * Called when ui intensive bugreport dumps are finished.
+     */
+    oneway void onUiIntensiveBugreportDumpsFinished(String callingPackage);
 }

@@ -24,6 +24,7 @@ import android.os.Build;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.hotspot2.SystemInfo;
 
 import org.junit.Test;
@@ -33,7 +34,7 @@ import org.junit.Test;
  * TODO(b/80300806): change the test to verify the XML in terms of the structure of XML.
  */
 @SmallTest
-public class DevInfoMoTest {
+public class DevInfoMoTest extends WifiBaseTest {
     private static final String TEST_DEV_ID = "12312341";
     private static final String TEST_MANUFACTURER = Build.MANUFACTURER;
     private static final String TEST_MODEL = Build.MODEL;

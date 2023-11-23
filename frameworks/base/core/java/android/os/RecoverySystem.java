@@ -16,27 +16,34 @@
 
 package android.os;
 
+import static android.view.Display.DEFAULT_DISPLAY;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
 import android.app.PendingIntent;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.hardware.display.DisplayManager;
 import android.provider.Settings;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.euicc.EuiccManager;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.Display;
-import android.view.WindowManager;
 
 import libcore.io.Streams;
 
@@ -56,10 +63,12 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -87,10 +96,13 @@ public class RecoverySystem {
     private static final long PUBLISH_PROGRESS_INTERVAL_MS = 500;
 
     private static final long DEFAULT_EUICC_FACTORY_RESET_TIMEOUT_MILLIS = 30000L; // 30 s
-
     private static final long MIN_EUICC_FACTORY_RESET_TIMEOUT_MILLIS = 5000L; // 5 s
-
     private static final long MAX_EUICC_FACTORY_RESET_TIMEOUT_MILLIS = 60000L; // 60 s
+
+    private static final long DEFAULT_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS =
+            45000L; // 45 s
+    private static final long MIN_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS = 15000L; // 15 s
+    private static final long MAX_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS = 90000L; // 90 s
 
     /** Used to communicate with recovery.  See bootable/recovery/recovery.cpp. */
     private static final File RECOVERY_DIR = new File("/cache/recovery");
@@ -99,9 +111,14 @@ public class RecoverySystem {
     private static final String LAST_PREFIX = "last_";
     private static final String ACTION_EUICC_FACTORY_RESET =
             "com.android.internal.action.EUICC_FACTORY_RESET";
+    private static final String ACTION_EUICC_REMOVE_INVISIBLE_SUBSCRIPTIONS =
+            "com.android.internal.action.EUICC_REMOVE_INVISIBLE_SUBSCRIPTIONS";
 
-    /** used in {@link #wipeEuiccData} as package name of callback intent */
-    private static final String PACKAGE_NAME_WIPING_EUICC_DATA_CALLBACK = "android";
+    /**
+     * Used in {@link #wipeEuiccData} & {@link #removeEuiccInvisibleSubs} as package name of
+     * callback intent.
+     */
+    private static final String PACKAGE_NAME_EUICC_DATA_MANAGEMENT_CALLBACK = "android";
 
     /**
      * The recovery image uses this file to identify the location (i.e. blocks)
@@ -600,8 +617,8 @@ public class RecoverySystem {
 
             // On TV, reboot quiescently if the screen is off
             if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-                WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-                if (wm.getDefaultDisplay().getState() != Display.STATE_ON) {
+                DisplayManager dm = context.getSystemService(DisplayManager.class);
+                if (dm.getDisplay(DEFAULT_DISPLAY).getState() != Display.STATE_ON) {
                     reason += ",quiescent";
                 }
             }
@@ -612,22 +629,94 @@ public class RecoverySystem {
     }
 
     /**
-     * Schedule to install the given package on next boot. The caller needs to
-     * ensure that the package must have been processed (uncrypt'd) if needed.
-     * It sets up the command in BCB (bootloader control block), which will
-     * be read by the bootloader and the recovery image.
+     * Prepare to apply an unattended update by asking the user for their Lock Screen Knowledge
+     * Factor (LSKF). If supplied, the {@code intentSender} will be called when the system is setup
+     * and ready to apply the OTA.
+     * <p>
+     * When the system is already prepared for update and this API is called again with the same
+     * {@code updateToken}, it will not call the intent sender nor request the user enter their Lock
+     * Screen Knowledge Factor.
+     * <p>
+     * When this API is called again with a different {@code updateToken}, the prepared-for-update
+     * status is reset and process repeats as though it's the initial call to this method as
+     * described in the first paragraph.
      *
-     * @param Context      the Context to use.
-     * @param packageFile  the package to be installed.
-     *
-     * @throws IOException if there were any errors setting up the BCB.
-     *
+     * @param context the Context to use.
+     * @param updateToken token used to indicate which update was prepared
+     * @param intentSender the intent to call when the update is prepared; may be {@code null}
+     * @throws IOException if there were any errors setting up unattended update
      * @hide
      */
     @SystemApi
     @RequiresPermission(android.Manifest.permission.RECOVERY)
-    public static void scheduleUpdateOnBoot(Context context, File packageFile)
+    public static void prepareForUnattendedUpdate(@NonNull Context context,
+            @NonNull String updateToken, @Nullable IntentSender intentSender) throws IOException {
+        if (updateToken == null) {
+            throw new NullPointerException("updateToken == null");
+        }
+        RecoverySystem rs = (RecoverySystem) context.getSystemService(Context.RECOVERY_SERVICE);
+        if (!rs.requestLskf(updateToken, intentSender)) {
+            throw new IOException("preparation for update failed");
+        }
+    }
+
+    /**
+     * Request that any previously requested Lock Screen Knowledge Factor (LSKF) is cleared and
+     * the preparation for unattended update is reset.
+     *
+     * @param context the Context to use.
+     * @throws IOException if there were any errors clearing the unattended update state
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.RECOVERY)
+    public static void clearPrepareForUnattendedUpdate(@NonNull Context context)
             throws IOException {
+        RecoverySystem rs = (RecoverySystem) context.getSystemService(Context.RECOVERY_SERVICE);
+        if (!rs.clearLskf()) {
+            throw new IOException("could not reset unattended update state");
+        }
+    }
+
+    /**
+     * Request that the device reboot and apply the update that has been prepared. The
+     * {@code updateToken} must match what was given for {@link #prepareForUnattendedUpdate} or
+     * this will return {@code false}.
+     *
+     * @param context the Context to use.
+     * @param updateToken the token used to call {@link #prepareForUnattendedUpdate} before
+     * @param reason the reboot reason to give to the {@link PowerManager}
+     * @throws IOException if the reboot couldn't proceed because the device wasn't ready for an
+     *               unattended reboot or if the {@code updateToken} did not match the previously
+     *               given token
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.RECOVERY)
+    public static void rebootAndApply(@NonNull Context context, @NonNull String updateToken,
+            @NonNull String reason) throws IOException {
+        if (updateToken == null) {
+            throw new NullPointerException("updateToken == null");
+        }
+        RecoverySystem rs = (RecoverySystem) context.getSystemService(Context.RECOVERY_SERVICE);
+        if (!rs.rebootWithLskf(updateToken, reason)) {
+            throw new IOException("system not prepared to apply update");
+        }
+    }
+
+    /**
+     * Schedule to install the given package on next boot. The caller needs to ensure that the
+     * package must have been processed (uncrypt'd) if needed. It sets up the command in BCB
+     * (bootloader control block), which will be read by the bootloader and the recovery image.
+     *
+     * @param context the Context to use.
+     * @param packageFile the package to be installed.
+     * @throws IOException if there were any errors setting up the BCB.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.RECOVERY)
+    public static void scheduleUpdateOnBoot(Context context, File packageFile) throws IOException {
         String filename = packageFile.getCanonicalPath();
         boolean securityUpdate = filename.endsWith("_s.zip");
 
@@ -754,8 +843,11 @@ public class RecoverySystem {
         // Block until the ordered broadcast has completed.
         condition.block();
 
+        EuiccManager euiccManager = context.getSystemService(EuiccManager.class);
         if (wipeEuicc) {
-            wipeEuiccData(context, PACKAGE_NAME_WIPING_EUICC_DATA_CALLBACK);
+            wipeEuiccData(context, PACKAGE_NAME_EUICC_DATA_MANAGEMENT_CALLBACK);
+        } else {
+            removeEuiccInvisibleSubs(context, euiccManager);
         }
 
         String shutdownArg = null;
@@ -849,6 +941,110 @@ public class RecoverySystem {
             return wipingSucceeded.get();
         }
         return false;
+    }
+
+    private static void removeEuiccInvisibleSubs(
+            Context context, EuiccManager euiccManager) {
+        ContentResolver cr = context.getContentResolver();
+        if (Settings.Global.getInt(cr, Settings.Global.EUICC_PROVISIONED, 0) == 0) {
+            // If the eUICC isn't provisioned, there's no need to remove euicc invisible profiles,
+            // as there's nothing to be removed.
+            Log.i(TAG, "Skip removing eUICC invisible profiles as it is not provisioned.");
+            return;
+        } else if (euiccManager == null || !euiccManager.isEnabled()) {
+            Log.i(TAG, "Skip removing eUICC invisible profiles as eUICC manager is not available.");
+            return;
+        }
+        SubscriptionManager subscriptionManager =
+                context.getSystemService(SubscriptionManager.class);
+        List<SubscriptionInfo> availableSubs =
+                subscriptionManager.getAvailableSubscriptionInfoList();
+        if (availableSubs == null || availableSubs.isEmpty()) {
+            Log.i(TAG, "Skip removing eUICC invisible profiles as no available profiles found.");
+            return;
+        }
+        List<SubscriptionInfo> invisibleSubs = new ArrayList<>();
+        for (SubscriptionInfo sub : availableSubs) {
+            if (sub.isEmbedded() && sub.getGroupUuid() != null && sub.isOpportunistic()) {
+                invisibleSubs.add(sub);
+            }
+        }
+        removeEuiccInvisibleSubs(context, invisibleSubs, euiccManager);
+    }
+
+    private static boolean removeEuiccInvisibleSubs(
+            Context context, List<SubscriptionInfo> subscriptionInfos, EuiccManager euiccManager) {
+        if (subscriptionInfos == null || subscriptionInfos.isEmpty()) {
+            Log.i(TAG, "There are no eUICC invisible profiles needed to be removed.");
+            return true;
+        }
+        CountDownLatch removeSubsLatch = new CountDownLatch(subscriptionInfos.size());
+        final AtomicInteger removedSubsCount = new AtomicInteger(0);
+
+        BroadcastReceiver removeEuiccSubsReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (ACTION_EUICC_REMOVE_INVISIBLE_SUBSCRIPTIONS.equals(intent.getAction())) {
+                    if (getResultCode() != EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK) {
+                        int detailedCode = intent.getIntExtra(
+                                EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_DETAILED_CODE, 0);
+                        Log.e(TAG, "Error removing euicc opportunistic profile, Detailed code = "
+                                + detailedCode);
+                    } else {
+                        Log.e(TAG, "Successfully remove euicc opportunistic profile.");
+                        removedSubsCount.incrementAndGet();
+                    }
+                    removeSubsLatch.countDown();
+                }
+            }
+        };
+
+        Intent intent = new Intent(ACTION_EUICC_REMOVE_INVISIBLE_SUBSCRIPTIONS);
+        intent.setPackage(PACKAGE_NAME_EUICC_DATA_MANAGEMENT_CALLBACK);
+        PendingIntent callbackIntent = PendingIntent.getBroadcastAsUser(
+                context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT, UserHandle.SYSTEM);
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ACTION_EUICC_REMOVE_INVISIBLE_SUBSCRIPTIONS);
+        HandlerThread euiccHandlerThread =
+                new HandlerThread("euiccRemovingSubsReceiverThread");
+        euiccHandlerThread.start();
+        Handler euiccHandler = new Handler(euiccHandlerThread.getLooper());
+        context.getApplicationContext()
+                .registerReceiver(
+                        removeEuiccSubsReceiver, intentFilter, null, euiccHandler);
+        for (SubscriptionInfo subscriptionInfo : subscriptionInfos) {
+            Log.i(
+                    TAG,
+                    "Remove invisible subscription " + subscriptionInfo.getSubscriptionId()
+                            + " from card " + subscriptionInfo.getCardId());
+            euiccManager.createForCardId(subscriptionInfo.getCardId())
+                    .deleteSubscription(subscriptionInfo.getSubscriptionId(), callbackIntent);
+        }
+        try {
+            long waitingTimeMillis = Settings.Global.getLong(
+                    context.getContentResolver(),
+                    Settings.Global.EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS,
+                    DEFAULT_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS);
+            if (waitingTimeMillis < MIN_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS) {
+                waitingTimeMillis = MIN_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS;
+            } else if (waitingTimeMillis > MAX_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS) {
+                waitingTimeMillis = MAX_EUICC_REMOVING_INVISIBLE_PROFILES_TIMEOUT_MILLIS;
+            }
+            if (!removeSubsLatch.await(waitingTimeMillis, TimeUnit.MILLISECONDS)) {
+                Log.e(TAG, "Timeout removing invisible euicc profiles.");
+                return false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e(TAG, "Removing invisible euicc profiles interrupted", e);
+            return false;
+        } finally {
+            context.getApplicationContext().unregisterReceiver(removeEuiccSubsReceiver);
+            if (euiccHandlerThread != null) {
+                euiccHandlerThread.quit();
+            }
+        }
+        return removedSubsCount.get() == subscriptionInfos.size();
     }
 
     /** {@hide} */
@@ -1081,6 +1277,49 @@ public class RecoverySystem {
         try {
             mService.rebootRecoveryWithCommand(command);
         } catch (RemoteException ignored) {
+        }
+    }
+
+    /**
+     * Begins the process of asking the user for the Lock Screen Knowledge Factor.
+     *
+     * @param updateToken token that will be used in calls to {@link #rebootAndApply} to ensure
+     *                    that the preparation was for the correct update
+     * @return true if the request was correct
+     * @throws IOException if the recovery system service could not be contacted
+     */
+    private boolean requestLskf(String updateToken, IntentSender sender) throws IOException {
+        try {
+            return mService.requestLskf(updateToken, sender);
+        } catch (RemoteException e) {
+            throw new IOException("could request update");
+        }
+    }
+
+    /**
+     * Calls the recovery system service and clears the setup for the OTA.
+     *
+     * @return true if the setup for OTA was cleared
+     * @throws IOException if the recovery system service could not be contacted
+     */
+    private boolean clearLskf() throws IOException {
+        try {
+            return mService.clearLskf();
+        } catch (RemoteException e) {
+            throw new IOException("could not clear LSKF");
+        }
+    }
+
+    /**
+     * Calls the recovery system service to reboot and apply update.
+     *
+     * @param updateToken the update token for which the update was prepared
+     */
+    private boolean rebootWithLskf(String updateToken, String reason) throws IOException {
+        try {
+            return mService.rebootWithLskf(updateToken, reason);
+        } catch (RemoteException e) {
+            throw new IOException("could not reboot for update");
         }
     }
 

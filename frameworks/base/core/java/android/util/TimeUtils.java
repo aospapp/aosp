@@ -19,17 +19,18 @@ package android.util;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Build;
 import android.os.SystemClock;
 
 import libcore.timezone.CountryTimeZones;
 import libcore.timezone.CountryTimeZones.TimeZoneMapping;
 import libcore.timezone.TimeZoneFinder;
-import libcore.timezone.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDb;
 
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -62,19 +63,25 @@ public class TimeUtils {
     }
 
     /**
-     * Tries to return a frozen ICU time zone that would have had the specified offset
-     * and DST value at the specified moment in the specified country.
-     * Returns null if no suitable zone could be found.
+     * Returns a frozen ICU time zone that has / would have had the specified offset and DST value
+     * at the specified moment in the specified country. Returns null if no suitable zone could be
+     * found.
      */
     private static android.icu.util.TimeZone getIcuTimeZone(
-            int offset, boolean dst, long when, String country) {
-        if (country == null) {
+            int offsetMillis, boolean isDst, long whenMillis, String countryIso) {
+        if (countryIso == null) {
             return null;
         }
 
         android.icu.util.TimeZone bias = android.icu.util.TimeZone.getDefault();
-        return TimeZoneFinder.getInstance()
-                .lookupTimeZoneByCountryAndOffset(country, offset, dst, when, bias);
+        CountryTimeZones countryTimeZones =
+                TimeZoneFinder.getInstance().lookupCountryTimeZones(countryIso);
+        if (countryTimeZones == null) {
+            return null;
+        }
+        CountryTimeZones.OffsetResult offsetResult = countryTimeZones.lookupByOffsetWithBias(
+                whenMillis, bias, offsetMillis, isDst);
+        return offsetResult != null ? offsetResult.getTimeZone() : null;
     }
 
     /**
@@ -82,7 +89,7 @@ public class TimeUtils {
      *
      * <p>The list returned may be different from other on-device sources like
      * {@link android.icu.util.TimeZone#getRegion(String)} as it can be curated to avoid
-     * contentious mappings.
+     * contentious or obsolete mappings.
      *
      * @param countryCode the ISO 3166-1 alpha-2 code for the country as can be obtained using
      *     {@link java.util.Locale#getCountry()}
@@ -102,8 +109,8 @@ public class TimeUtils {
 
         List<String> timeZoneIds = new ArrayList<>();
         for (TimeZoneMapping timeZoneMapping : countryTimeZones.getTimeZoneMappings()) {
-            if (timeZoneMapping.showInPicker) {
-                timeZoneIds.add(timeZoneMapping.timeZoneId);
+            if (timeZoneMapping.isShownInPicker()) {
+                timeZoneIds.add(timeZoneMapping.getTimeZoneId());
             }
         }
         return Collections.unmodifiableList(timeZoneIds);
@@ -127,7 +134,7 @@ public class TimeUtils {
      * during the lifetime of an activity.
      */
     public static String getTimeZoneDatabaseVersion() {
-        return ZoneInfoDB.getInstance().getVersion();
+        return ZoneInfoDb.getInstance().getVersion();
     }
 
     /** @hide Field length that can hold 999 days of time */
@@ -328,7 +335,17 @@ public class TimeUtils {
 
     /** @hide Just for debugging; not internationalized. */
     public static String formatUptime(long time) {
-        final long diff = time - SystemClock.uptimeMillis();
+        return formatTime(time, SystemClock.uptimeMillis());
+    }
+
+    /** @hide Just for debugging; not internationalized. */
+    public static String formatRealtime(long time) {
+        return formatTime(time, SystemClock.elapsedRealtime());
+    }
+
+    /** @hide Just for debugging; not internationalized. */
+    public static String formatTime(long time, long referenceTime) {
+        long diff = time - referenceTime;
         if (diff > 0) {
             return time + " (in " + diff + " ms)";
         }
@@ -373,6 +390,28 @@ public class TimeUtils {
      */
     public static void dumpTime(PrintWriter pw, long time) {
         pw.print(sDumpDateFormat.format(new Date(time)));
+    }
+
+    /**
+     * This method is used to find if a clock time is inclusively between two other clock times
+     * @param reference The time of the day we want check if it is between start and end
+     * @param start The start time reference
+     * @param end The end time
+     * @return true if the reference time is between the two clock times, and false otherwise.
+     */
+    public static boolean isTimeBetween(@NonNull LocalTime reference,
+                                        @NonNull LocalTime start,
+                                        @NonNull LocalTime end) {
+        //    ////////E----+-----S////////
+        if ((reference.isBefore(start) && reference.isAfter(end)
+                //    -----+----S//////////E------
+                || (reference.isBefore(end) && reference.isBefore(start) && start.isBefore(end))
+                //    ---------S//////////E---+---
+                || (reference.isAfter(end) && reference.isAfter(start)) && start.isBefore(end))) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     /**

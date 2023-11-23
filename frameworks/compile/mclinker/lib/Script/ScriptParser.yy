@@ -44,9 +44,9 @@ using namespace mcld;
  * END android-removed
  */
 %debug
-%error-verbose
-%define namespace "mcld"
-%define "parser_class_name" "ScriptParser"
+%define parse.error verbose
+%define api.namespace {mcld}
+%define api.parser.class {ScriptParser}
 %parse-param { const class LinkerConfig& m_LDConfig }
 %parse-param { class ScriptFile& m_ScriptFile }
 %parse-param { class ScriptScanner& m_ScriptScanner }

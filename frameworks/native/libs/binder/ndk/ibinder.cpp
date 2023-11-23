@@ -17,16 +17,20 @@
 #include <android/binder_ibinder.h>
 #include "ibinder_internal.h"
 
+#include <android/binder_stability.h>
 #include <android/binder_status.h>
 #include "parcel_internal.h"
 #include "status_internal.h"
 
 #include <android-base/logging.h>
 #include <binder/IPCThreadState.h>
+#include <binder/IResultReceiver.h>
+#include <private/android_filesystem_config.h>
 
 using DeathRecipient = ::android::IBinder::DeathRecipient;
 
 using ::android::IBinder;
+using ::android::IResultReceiver;
 using ::android::Parcel;
 using ::android::sp;
 using ::android::status_t;
@@ -157,6 +161,45 @@ status_t ABBinder::onTransact(transaction_code_t code, const Parcel& data, Parce
 
         binder_status_t status = getClass()->onTransact(this, code, &in, &out);
         return PruneStatusT(status);
+    } else if (code == SHELL_COMMAND_TRANSACTION) {
+        int in = data.readFileDescriptor();
+        int out = data.readFileDescriptor();
+        int err = data.readFileDescriptor();
+
+        int argc = data.readInt32();
+        std::vector<String8> utf8Args;          // owns memory of utf8s
+        std::vector<const char*> utf8Pointers;  // what can be passed over NDK API
+        for (int i = 0; i < argc && data.dataAvail() > 0; i++) {
+            utf8Args.push_back(String8(data.readString16()));
+            utf8Pointers.push_back(utf8Args[i].c_str());
+        }
+
+        data.readStrongBinder();  // skip over the IShellCallback
+        sp<IResultReceiver> resultReceiver = IResultReceiver::asInterface(data.readStrongBinder());
+
+        // Shell commands should only be callable by ADB.
+        uid_t uid = AIBinder_getCallingUid();
+        if (uid != AID_ROOT && uid != AID_SHELL) {
+            if (resultReceiver != nullptr) {
+                resultReceiver->send(-1);
+            }
+            return STATUS_PERMISSION_DENIED;
+        }
+
+        // Check that the file descriptors are valid.
+        if (in == STATUS_BAD_TYPE || out == STATUS_BAD_TYPE || err == STATUS_BAD_TYPE) {
+            if (resultReceiver != nullptr) {
+                resultReceiver->send(-1);
+            }
+            return STATUS_BAD_VALUE;
+        }
+
+        binder_status_t status = getClass()->handleShellCommand(
+                this, in, out, err, utf8Pointers.data(), utf8Pointers.size());
+        if (resultReceiver != nullptr) {
+            resultReceiver->send(status);
+        }
+        return status;
     } else {
         return BBinder::onTransact(code, data, reply, flags);
     }
@@ -263,6 +306,13 @@ void AIBinder_Class_setOnDump(AIBinder_Class* clazz, AIBinder_onDump onDump) {
 
     // this is required to be called before instances are instantiated
     clazz->onDump = onDump;
+}
+
+void AIBinder_Class_setHandleShellCommand(AIBinder_Class* clazz,
+                                          AIBinder_handleShellCommand handleShellCommand) {
+    CHECK(clazz != nullptr) << "setHandleShellCommand requires non-null clazz";
+
+    clazz->handleShellCommand = handleShellCommand;
 }
 
 void AIBinder_DeathRecipient::TransferDeathRecipient::binderDied(const wp<IBinder>& who) {
@@ -436,7 +486,6 @@ pid_t AIBinder_getCallingPid() {
 
 void AIBinder_incStrong(AIBinder* binder) {
     if (binder == nullptr) {
-        LOG(ERROR) << __func__ << ": on null binder";
         return;
     }
 
@@ -542,7 +591,8 @@ binder_status_t AIBinder_transact(AIBinder* binder, transaction_code_t code, APa
         return STATUS_UNKNOWN_TRANSACTION;
     }
 
-    if ((flags & ~FLAG_ONEWAY) != 0) {
+    constexpr binder_flags_t kAllFlags = FLAG_PRIVATE_VENDOR | FLAG_ONEWAY;
+    if ((flags & ~kAllFlags) != 0) {
         LOG(ERROR) << __func__ << ": Unrecognized flags sent: " << flags;
         return STATUS_BAD_VALUE;
     }
@@ -588,4 +638,41 @@ void AIBinder_DeathRecipient_delete(AIBinder_DeathRecipient* recipient) {
     }
 
     recipient->decStrong(nullptr);
+}
+
+binder_status_t AIBinder_getExtension(AIBinder* binder, AIBinder** outExt) {
+    if (binder == nullptr || outExt == nullptr) {
+        if (outExt != nullptr) {
+            *outExt = nullptr;
+        }
+        return STATUS_UNEXPECTED_NULL;
+    }
+
+    sp<IBinder> ext;
+    status_t res = binder->getBinder()->getExtension(&ext);
+
+    if (res != android::OK) {
+        *outExt = nullptr;
+        return PruneStatusT(res);
+    }
+
+    sp<AIBinder> ret = ABpBinder::lookupOrCreateFromBinder(ext);
+    if (ret != nullptr) ret->incStrong(binder);
+
+    *outExt = ret.get();
+    return STATUS_OK;
+}
+
+binder_status_t AIBinder_setExtension(AIBinder* binder, AIBinder* ext) {
+    if (binder == nullptr || ext == nullptr) {
+        return STATUS_UNEXPECTED_NULL;
+    }
+
+    ABBinder* rawBinder = binder->asABBinder();
+    if (rawBinder == nullptr) {
+        return STATUS_INVALID_OPERATION;
+    }
+
+    rawBinder->setExtension(ext->getBinder());
+    return STATUS_OK;
 }

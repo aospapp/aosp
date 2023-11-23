@@ -23,7 +23,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.provider.Settings;
 import android.telecom.TelecomManager;
 
 import com.android.internal.util.NotificationMessagingUtil;
@@ -55,14 +54,15 @@ public class NotificationComparator
         final boolean isLeftHighImportance = leftImportance >= IMPORTANCE_DEFAULT;
         final boolean isRightHighImportance = rightImportance >= IMPORTANCE_DEFAULT;
 
-        // With new interruption model, prefer importance bucket above all other criteria
-        // (to ensure buckets are contiguous)
-        if (Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.NOTIFICATION_NEW_INTERRUPTION_MODEL, 1) == 1) {
-            if (isLeftHighImportance != isRightHighImportance) {
-                // by importance bucket, high importance higher than low importance
-                return -1 * Boolean.compare(isLeftHighImportance, isRightHighImportance);
-            }
+        if (isLeftHighImportance != isRightHighImportance) {
+            // by importance bucket, high importance higher than low importance
+            return -1 * Boolean.compare(isLeftHighImportance, isRightHighImportance);
+        }
+
+        // If a score has been assigned by notification assistant service, use this service
+        // rank results within each bucket instead of this comparator implementation.
+        if (left.getRankingScore() != right.getRankingScore()) {
+            return -1 * Float.compare(left.getRankingScore(), right.getRankingScore());
         }
 
         // first all colorized notifications
@@ -122,11 +122,17 @@ public class NotificationComparator
             return -1 * Integer.compare(leftPackagePriority, rightPackagePriority);
         }
 
-        final int leftPriority = left.sbn.getNotification().priority;
-        final int rightPriority = right.sbn.getNotification().priority;
+        final int leftPriority = left.getSbn().getNotification().priority;
+        final int rightPriority = right.getSbn().getNotification().priority;
         if (leftPriority != rightPriority) {
             // by priority, high to low
             return -1 * Integer.compare(leftPriority, rightPriority);
+        }
+
+        final boolean leftInterruptive = left.isInterruptive();
+        final boolean rightInterruptive = right.isInterruptive();
+        if (leftInterruptive != rightInterruptive) {
+            return -1 * Boolean.compare(leftInterruptive, rightInterruptive);
         }
 
         // then break ties by time, most recent first
@@ -163,7 +169,7 @@ public class NotificationComparator
     }
 
     protected boolean isImportantMessaging(NotificationRecord record) {
-        return mMessagingUtil.isImportantMessaging(record.sbn, record.getImportance());
+        return mMessagingUtil.isImportantMessaging(record.getSbn(), record.getImportance());
     }
 
     private boolean isOngoing(NotificationRecord record) {
@@ -177,7 +183,7 @@ public class NotificationComparator
 
     private boolean isCall(NotificationRecord record) {
         return record.isCategory(Notification.CATEGORY_CALL)
-                && isDefaultPhoneApp(record.sbn.getPackageName());
+                && isDefaultPhoneApp(record.getSbn().getPackageName());
     }
 
     private boolean isDefaultPhoneApp(String pkg) {

@@ -17,8 +17,8 @@
 package android.os;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.app.IAlarmManager;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.location.ILocationManager;
 import android.location.LocationTime;
@@ -154,6 +154,7 @@ public final class SystemClock {
         final IAlarmManager mgr = IAlarmManager.Stub
                 .asInterface(ServiceManager.getService(Context.ALARM_SERVICE));
         if (mgr == null) {
+            Slog.e(TAG, "Unable to set RTC: mgr == null");
             return false;
         }
 
@@ -175,14 +176,6 @@ public final class SystemClock {
      */
     @CriticalNative
     native public static long uptimeMillis();
-
-    /**
-     * @removed
-     */
-    @Deprecated
-    public static @NonNull Clock uptimeMillisClock() {
-        return uptimeClock();
-    }
 
     /**
      * Return {@link Clock} that starts at system boot, not counting time spent

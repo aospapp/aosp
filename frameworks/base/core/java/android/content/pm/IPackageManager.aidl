@@ -26,13 +26,13 @@ import android.content.pm.ChangedPackages;
 import android.content.pm.InstantAppInfo;
 import android.content.pm.FeatureInfo;
 import android.content.pm.IDexModuleRegisterCallback;
+import android.content.pm.InstallSourceInfo;
 import android.content.pm.IPackageInstaller;
 import android.content.pm.IPackageDeleteObserver;
 import android.content.pm.IPackageDeleteObserver2;
 import android.content.pm.IPackageDataObserver;
 import android.content.pm.IPackageMoveObserver;
 import android.content.pm.IPackageStatsObserver;
-import android.content.pm.IOnPermissionsChangeListener;
 import android.content.pm.IntentFilterVerificationInfo;
 import android.content.pm.InstrumentationInfo;
 import android.content.pm.KeySet;
@@ -51,6 +51,7 @@ import android.content.pm.VersionedPackage;
 import android.content.pm.dex.IArtManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
 import android.content.IntentSender;
@@ -78,15 +79,6 @@ interface IPackageManager {
     @UnsupportedAppUsage
     String[] canonicalToCurrentPackageNames(in String[] names);
 
-    PermissionInfo getPermissionInfo(String name, String packageName, int flags);
-
-    ParceledListSlice queryPermissionsByGroup(String group, int flags);
-
-    @UnsupportedAppUsage
-    PermissionGroupInfo getPermissionGroupInfo(String name, int flags);
-
-    ParceledListSlice getAllPermissionGroups(int flags);
-
     @UnsupportedAppUsage
     ApplicationInfo getApplicationInfo(String packageName, int flags ,int userId);
 
@@ -104,43 +96,6 @@ interface IPackageManager {
 
     @UnsupportedAppUsage
     ProviderInfo getProviderInfo(in ComponentName className, int flags, int userId);
-
-    @UnsupportedAppUsage
-    int checkPermission(String permName, String pkgName, int userId);
-
-    int checkUidPermission(String permName, int uid);
-
-    @UnsupportedAppUsage
-    boolean addPermission(in PermissionInfo info);
-
-    @UnsupportedAppUsage
-    void removePermission(String name);
-
-    @UnsupportedAppUsage
-    void grantRuntimePermission(String packageName, String permissionName, int userId);
-
-    void revokeRuntimePermission(String packageName, String permissionName, int userId);
-
-    void resetRuntimePermissions();
-
-    int getPermissionFlags(String permissionName, String packageName, int userId);
-
-    void updatePermissionFlags(String permissionName, String packageName, int flagMask,
-            int flagValues, boolean checkAdjustPolicyFlagPermission, int userId);
-
-    void updatePermissionFlagsForAllApps(int flagMask, int flagValues, int userId);
-
-    List<String> getWhitelistedRestrictedPermissions(String packageName, int flags,
-            int userId);
-
-    boolean addWhitelistedRestrictedPermission(String packageName, String permission,
-            int whitelistFlags, int userId);
-
-    boolean removeWhitelistedRestrictedPermission(String packageName, String permission,
-            int whitelistFlags, int userId);
-
-    boolean shouldShowRequestPermissionRationale(String permissionName,
-            String packageName, int userId);
 
     boolean isProtectedBroadcast(String actionName);
 
@@ -169,9 +124,6 @@ interface IPackageManager {
 
     @UnsupportedAppUsage
     boolean isUidPrivileged(int uid);
-
-    @UnsupportedAppUsage
-    String[] getAppOpPermissionPackages(String permissionName);
 
     @UnsupportedAppUsage
     ResolveInfo resolveIntent(in Intent intent, String resolvedType, int flags, int userId);
@@ -278,13 +230,25 @@ interface IPackageManager {
      * @param versionedPackage The package to delete.
      * @param observer a callback to use to notify when the package deletion in finished.
      * @param userId the id of the user for whom to delete the package
-     * @param flags - possible values: {@link #DONT_DELETE_DATA}
+     * @param flags - possible values: {@link #DELETE_KEEP_DATA}
      */
     void deletePackageVersioned(in VersionedPackage versionedPackage,
             IPackageDeleteObserver2 observer, int userId, int flags);
 
+    /**
+     * Delete a package for a specific user.
+     *
+     * @param versionedPackage The package to delete.
+     * @param observer a callback to use to notify when the package deletion in finished.
+     * @param userId the id of the user for whom to delete the package
+     */
+    void deleteExistingPackageAsUser(in VersionedPackage versionedPackage,
+            IPackageDeleteObserver2 observer, int userId);
+
     @UnsupportedAppUsage
     String getInstallerPackageName(in String packageName);
+
+    InstallSourceInfo getInstallSourceInfo(in String packageName);
 
     void resetApplicationPreferences(int userId);
 
@@ -330,7 +294,7 @@ interface IPackageManager {
 
     boolean isPackageSuspendedForUser(String packageName, int userId);
 
-    PersistableBundle getSuspendedPackageAppExtras(String packageName, int userId);
+    Bundle getSuspendedPackageAppExtras(String packageName, int userId);
 
     /**
      * Backup/restore support - only the system uid may use these.
@@ -350,6 +314,35 @@ interface IPackageManager {
      ComponentName getHomeActivities(out List<ResolveInfo> outHomeCandidates);
 
     void setHomeActivity(in ComponentName className, int userId);
+
+    /**
+     * Overrides the label and icon of the component specified by the component name. The component
+     * must belong to the calling app.
+     *
+     * These changes will be reset on the next boot and whenever the package is updated.
+     *
+     * Only the app defined as com.android.internal.R.config_overrideComponentUiPackage is allowed
+     * to call this.
+     *
+     * @param componentName The component name to override the label/icon of.
+     * @param nonLocalizedLabel The label to be displayed.
+     * @param icon The icon to be displayed.
+     * @param userId The user id.
+     */
+    void overrideLabelAndIcon(in ComponentName componentName, String nonLocalizedLabel,
+            int icon, int userId);
+
+    /**
+     * Restores the label and icon of the activity specified by the component name if either has
+     * been overridden. The component must belong to the calling app.
+     *
+     * Only the app defined as com.android.internal.R.config_overrideComponentUiPackage is allowed
+     * to call this.
+     *
+     * @param componentName The component name.
+     * @param userId The user id.
+     */
+    void restoreLabelAndIcon(in ComponentName componentName, int userId);
 
     /**
      * As per {@link android.content.pm.PackageManager#setComponentEnabledSetting}.
@@ -528,19 +521,12 @@ interface IPackageManager {
      * Notify the package manager that a list of dex files have been loaded.
      *
      * @param loadingPackageName the name of the package who performs the load
-     * @param classLoadersNames the names of the class loaders present in the loading chain. The
-     *    list encodes the class loader chain in the natural order. The first class loader has
-     *    the second one as its parent and so on. The dex files present in the class path of the
-     *    first class loader will be recorded in the usage file.
-     * @param classPaths the class paths corresponding to the class loaders names from
-     *     {@param classLoadersNames}. The the first element corresponds to the first class loader
-     *     and so on. A classpath is represented as a list of dex files separated by
-     *     {@code File.pathSeparator}, or null if the class loader's classpath is not known.
-     *     The dex files found in the first class path will be recorded in the usage file.
+     * @param classLoaderContextMap a map from file paths to dex files that have been loaded to
+     *     the class loader context that was used to load them.
      * @param loaderIsa the ISA of the loader process
      */
-    oneway void notifyDexLoad(String loadingPackageName, in List<String> classLoadersNames,
-            in List<String> classPaths, String loaderIsa);
+    oneway void notifyDexLoad(String loadingPackageName,
+            in Map<String, String> classLoaderContextMap, String loaderIsa);
 
     /**
      * Register an application dex module with the package manager.
@@ -626,9 +612,6 @@ interface IPackageManager {
     int movePackage(in String packageName, in String volumeUuid);
     int movePrimaryStorage(in String volumeUuid);
 
-    @UnsupportedAppUsage
-    boolean addPermissionAsync(in PermissionInfo info);
-
     boolean setInstallLocation(int loc);
     @UnsupportedAppUsage
     int getInstallLocation();
@@ -645,17 +628,11 @@ interface IPackageManager {
     ParceledListSlice getIntentFilterVerifications(String packageName);
     ParceledListSlice getAllIntentFilters(String packageName);
 
-    boolean setDefaultBrowserPackageName(String packageName, int userId);
-    String getDefaultBrowserPackageName(int userId);
-
     VerifierDeviceIdentity getVerifierDeviceIdentity();
 
     boolean isFirstBoot();
     boolean isOnlyCoreApps();
     boolean isDeviceUpgrading();
-
-    void setPermissionEnforced(String permission, boolean enforced);
-    boolean isPermissionEnforced(String permission);
 
     /** Reflects current DeviceStorageMonitorService state */
     @UnsupportedAppUsage
@@ -679,19 +656,6 @@ interface IPackageManager {
     KeySet getSigningKeySet(String packageName);
     boolean isPackageSignedByKeySet(String packageName, in KeySet ks);
     boolean isPackageSignedByKeySetExactly(String packageName, in KeySet ks);
-
-    void addOnPermissionsChangeListener(in IOnPermissionsChangeListener listener);
-    void removeOnPermissionsChangeListener(in IOnPermissionsChangeListener listener);
-    void grantDefaultPermissionsToEnabledCarrierApps(in String[] packageNames, int userId);
-    void grantDefaultPermissionsToEnabledImsServices(in String[] packageNames, int userId);
-    void grantDefaultPermissionsToEnabledTelephonyDataServices(
-            in String[] packageNames, int userId);
-    void revokeDefaultPermissionsFromDisabledTelephonyDataServices(
-            in String[] packageNames, int userId);
-    void grantDefaultPermissionsToActiveLuiApp(in String packageName, int userId);
-    void revokeDefaultPermissionsFromLuiApps(in String[] packageNames, int userId);
-
-    boolean isPermissionRevokedByPolicy(String permission, String packageName, int userId);
 
     @UnsupportedAppUsage
     String getPermissionControllerPackageName();
@@ -747,6 +711,8 @@ interface IPackageManager {
 
     boolean hasUidSigningCertificate(int uid, in byte[] signingCertificate, int flags);
 
+    String getDefaultTextClassifierPackageName();
+
     String getSystemTextClassifierPackageName();
 
     String getAttentionServicePackageName();
@@ -757,7 +723,11 @@ interface IPackageManager {
 
     String getSystemCaptionsServicePackageName();
 
+    String getSetupWizardPackageName();
+
     String getIncidentReportApproverPackageName();
+
+    String getContentCaptureServicePackageName();
 
     boolean isPackageStateProtected(String packageName, int userId);
 
@@ -772,4 +742,47 @@ interface IPackageManager {
     void setRuntimePermissionsVersion(int version, int userId);
 
     void notifyPackagesReplacedReceived(in String[] packages);
+
+    //------------------------------------------------------------------------
+    //
+    // The following binder interfaces have been moved to IPermissionManager
+    //
+    //------------------------------------------------------------------------
+
+    //------------------------------------------------------------------------
+    // We need to keep these in IPackageManager for app compatibility
+    //------------------------------------------------------------------------
+    @UnsupportedAppUsage
+    String[] getAppOpPermissionPackages(String permissionName);
+
+    @UnsupportedAppUsage
+    PermissionGroupInfo getPermissionGroupInfo(String name, int flags);
+
+    @UnsupportedAppUsage
+    boolean addPermission(in PermissionInfo info);
+
+    @UnsupportedAppUsage
+    boolean addPermissionAsync(in PermissionInfo info);
+
+    @UnsupportedAppUsage
+    void removePermission(String name);
+
+    @UnsupportedAppUsage
+    int checkPermission(String permName, String pkgName, int userId);
+
+    @UnsupportedAppUsage
+    void grantRuntimePermission(String packageName, String permissionName, int userId);
+
+    //------------------------------------------------------------------------
+    // We need to keep these in IPackageManager for convenience in splitting
+    // out the permission manager. This should be cleaned up, but, will require
+    // a large change that modifies many repos.
+    //------------------------------------------------------------------------
+    int checkUidPermission(String permName, int uid);
+
+    void setMimeGroup(String packageName, String group, in List<String> mimeTypes);
+
+    List<String> getMimeGroup(String packageName, String group);
+
+    boolean isAutoRevokeWhitelisted(String packageName);
 }

@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.SOURCE)
 @StringDef({
-        PartnerConfigKey.KEY_IS_IMMERSIVE,
+        PartnerConfigKey.KEY_IMMERSIVE_MODE,
         PartnerConfigKey.KEY_TOOLBAR_BG_COLOR,
         PartnerConfigKey.KEY_TOOLBAR_BUTTON_ICON_BACK,
         PartnerConfigKey.KEY_TOOLBAR_BUTTON_FONT_FAMILY,
@@ -38,14 +38,17 @@ import java.lang.annotation.RetentionPolicy;
         PartnerConfigKey.KEY_TOOLBAR_SECONDARY_BUTTON_BG,
         PartnerConfigKey.KEY_TOOLBAR_SECONDARY_BUTTON_BG_COLOR,
         PartnerConfigKey.KEY_TOOLBAR_SECONDARY_BUTTON_TEXT_COLOR,
+        PartnerConfigKey.KEY_TOOLBAR_DIVIDER_BG,
+        PartnerConfigKey.KEY_TOOLBAR_DIVIDER_LINE_WEIGHT,
         PartnerConfigKey.KEY_LOADING_INDICATOR_COLOR,
+        PartnerConfigKey.KEY_LOADING_INDICATOR_LINE_WEIGHT,
         PartnerConfigKey.KEY_LAYOUT_BG_COLOR
 })
 
 /** Resource names that can be customized by partner overlay APK. */
 public @interface PartnerConfigKey {
 
-    String KEY_IS_IMMERSIVE = "suw_compat_is_immersive";
+    String KEY_IMMERSIVE_MODE = "suw_compat_immersive_mode";
 
     String KEY_TOOLBAR_BG_COLOR = "suw_compat_toolbar_bg_color";
 
@@ -77,7 +80,13 @@ public @interface PartnerConfigKey {
     String KEY_TOOLBAR_SECONDARY_BUTTON_TEXT_COLOR =
             "suw_compat_toolbar_secondary_button_text_color";
 
-    String KEY_LOADING_INDICATOR_COLOR = "suw_design_loading_indicator_color";
+    String KEY_TOOLBAR_DIVIDER_BG = "suw_compat_toolbar_divider_bg";
+
+    String KEY_TOOLBAR_DIVIDER_LINE_WEIGHT = "suw_compat_toolbar_divider_line_weight";
+
+    String KEY_LOADING_INDICATOR_COLOR = "suw_compat_loading_indicator_color";
+
+    String KEY_LOADING_INDICATOR_LINE_WEIGHT = "suw_compat_loading_indicator_line_weight";
 
     String KEY_LAYOUT_BG_COLOR = "suw_design_layout_bg_color";
 }

@@ -124,7 +124,7 @@ bool FastThread::threadLoop()
             mDumpState = next->mDumpState != NULL ? next->mDumpState : mDummyDumpState;
             tlNBLogWriter = next->mNBLogWriter != NULL ?
                     next->mNBLogWriter : mDummyNBLogWriter.get();
-            setNBLogWriter(tlNBLogWriter); // FastMixer informs its AudioMixer, FastCapture ignores
+            setNBLogWriter(tlNBLogWriter); // This is used for debugging only
 
             // We want to always have a valid reference to the previous (non-idle) state.
             // However, the state queue only guarantees access to current and previous states.
@@ -309,7 +309,7 @@ bool FastThread::threadLoop()
                     // compute the delta value of clock_gettime(CLOCK_MONOTONIC)
                     uint32_t monotonicNs = nsec;
                     if (sec > 0 && sec < 4) {
-                        monotonicNs += sec * 1000000000;
+                        monotonicNs += sec * 1000000000U; // unsigned to prevent signed overflow.
                     }
                     // compute raw CPU load = delta value of clock_gettime(CLOCK_THREAD_CPUTIME_ID)
                     uint32_t loadNs = 0;
@@ -325,7 +325,7 @@ bool FastThread::threadLoop()
                             }
                             loadNs = nsec;
                             if (sec > 0 && sec < 4) {
-                                loadNs += sec * 1000000000;
+                                loadNs += sec * 1000000000U; // unsigned to prevent signed overflow.
                             }
                         } else {
                             // first time through the loop

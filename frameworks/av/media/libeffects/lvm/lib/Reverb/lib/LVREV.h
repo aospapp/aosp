@@ -28,18 +28,12 @@
 #ifndef __LVREV_H__
 #define __LVREV_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
-
 /****************************************************************************************/
 /*                                                                                      */
 /*  Includes                                                                            */
 /*                                                                                      */
 /****************************************************************************************/
 #include "LVM_Types.h"
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -53,7 +47,6 @@ extern "C" {
 /* Memory table*/
 #define LVREV_NR_MEMORY_REGIONS                 4       /* Number of memory regions */
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /*  Types                                                                               */
@@ -61,7 +54,6 @@ extern "C" {
 /****************************************************************************************/
 /* Instance handle */
 typedef void *LVREV_Handle_t;
-
 
 /* Status return values */
 typedef enum
@@ -73,7 +65,6 @@ typedef enum
     LVREV_RETURNSTATUS_DUMMY = LVM_MAXENUM
 } LVREV_ReturnStatus_en;
 
-
 /* Reverb delay lines */
 typedef enum
 {
@@ -82,7 +73,6 @@ typedef enum
     LVREV_DELAYLINES_4     = 4,                         /* Four delay lines */
     LVREV_DELAYLINES_DUMMY = LVM_MAXENUM
 } LVREV_NumDelayLines_en;
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -96,7 +86,6 @@ typedef struct
     LVM_MemoryRegion_st        Region[LVREV_NR_MEMORY_REGIONS];  /* One definition for each region */
 } LVREV_MemoryTable_st;
 
-
 /* Control Parameter structure */
 typedef struct
 {
@@ -107,13 +96,8 @@ typedef struct
 
     /* Parameters for REV */
     LVM_UINT16                  Level;                  /* Level, 0 to 100 representing percentage of reverb */
-#ifndef HIGHER_FS
-    LVM_UINT16                  LPF;                    /* Low pass filter, in Hz */
-    LVM_UINT16                  HPF;                    /* High pass filter, in Hz */
-#else
     LVM_UINT32                  LPF;                    /* Low pass filter, in Hz */
     LVM_UINT32                  HPF;                    /* High pass filter, in Hz */
-#endif
 
     LVM_UINT16                  T60;                    /* Decay time constant, in ms */
     LVM_UINT16                  Density;                /* Echo density, 0 to 100 for minimum to maximum density */
@@ -121,7 +105,6 @@ typedef struct
     LVM_UINT16                  RoomSize;               /* Simulated room size, 1 to 100 for minimum to maximum size */
 
 } LVREV_ControlParams_st;
-
 
 /* Instance Parameter structure */
 typedef struct
@@ -134,7 +117,6 @@ typedef struct
     LVREV_NumDelayLines_en      NumDelays;              /* The number of delay lines, 1, 2 or 4 */
 
 } LVREV_InstanceParams_st;
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -182,7 +164,6 @@ LVREV_ReturnStatus_en LVREV_GetMemoryTable(LVREV_Handle_t           hInstance,
                                            LVREV_MemoryTable_st     *pMemoryTable,
                                            LVREV_InstanceParams_st  *pInstanceParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVREV_GetInstanceHandle                                     */
@@ -213,7 +194,6 @@ LVREV_ReturnStatus_en LVREV_GetInstanceHandle(LVREV_Handle_t            *phInsta
                                               LVREV_MemoryTable_st      *pMemoryTable,
                                               LVREV_InstanceParams_st   *pInstanceParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVXX_GetControlParameters                                   */
@@ -237,7 +217,6 @@ LVREV_ReturnStatus_en LVREV_GetInstanceHandle(LVREV_Handle_t            *phInsta
 LVREV_ReturnStatus_en LVREV_GetControlParameters(LVREV_Handle_t           hInstance,
                                                  LVREV_ControlParams_st   *pControlParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVREV_SetControlParameters                                  */
@@ -260,7 +239,6 @@ LVREV_ReturnStatus_en LVREV_GetControlParameters(LVREV_Handle_t           hInsta
 LVREV_ReturnStatus_en LVREV_SetControlParameters(LVREV_Handle_t           hInstance,
                                                  LVREV_ControlParams_st   *pNewParams);
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /* FUNCTION:                LVREV_ClearAudioBuffers                                     */
@@ -280,7 +258,6 @@ LVREV_ReturnStatus_en LVREV_SetControlParameters(LVREV_Handle_t           hInsta
 /*                                                                                      */
 /****************************************************************************************/
 LVREV_ReturnStatus_en LVREV_ClearAudioBuffers(LVREV_Handle_t  hInstance);
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -303,21 +280,10 @@ LVREV_ReturnStatus_en LVREV_ClearAudioBuffers(LVREV_Handle_t  hInstance);
 /*  1. The input and output buffers must be 32-bit aligned                              */
 /*                                                                                      */
 /****************************************************************************************/
-#ifdef BUILD_FLOAT
 LVREV_ReturnStatus_en LVREV_Process(LVREV_Handle_t      hInstance,
                                     const LVM_FLOAT     *pInData,
                                     LVM_FLOAT           *pOutData,
                                     const LVM_UINT16          NumSamples);
-#else
-LVREV_ReturnStatus_en LVREV_Process(LVREV_Handle_t      hInstance,
-                                    const LVM_INT32     *pInData,
-                                    LVM_INT32           *pOutData,
-                                    const LVM_UINT16          NumSamples);
-#endif
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
 
 #endif      /* __LVREV_H__ */
 

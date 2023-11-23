@@ -15,11 +15,12 @@
  */
 package com.android.internal.telephony.uicc;
 
-import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
+import static junit.framework.Assert.fail;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doReturn;
@@ -28,33 +29,38 @@ import static org.mockito.Mockito.verify;
 
 import android.os.AsyncResult;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Message;
+import android.preference.PreferenceManager;
 import android.telephony.TelephonyManager;
 import android.telephony.UiccCardInfo;
+import android.testing.AndroidTestingRunner;
+import android.testing.TestableLooper;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
-import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.uicc.euicc.EuiccCard;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.util.ArrayList;
 
+
+@RunWith(AndroidTestingRunner.class)
+@TestableLooper.RunWithLooper
 public class UiccControllerTest extends TelephonyTest {
     private UiccController mUiccControllerUT;
-    private UiccControllerHandlerThread mUiccControllerHandlerThread;
     private static final int PHONE_COUNT = 1;
     private static final int ICC_CHANGED_EVENT = 0;
     private static final int EVENT_GET_ICC_STATUS_DONE = 3;
     private static final int EVENT_GET_SLOT_STATUS_DONE = 4;
+    private static final int EVENT_EID_READY = 9;
     @Mock
     private Handler mMockedHandler;
     @Mock
@@ -62,23 +68,11 @@ public class UiccControllerTest extends TelephonyTest {
     @Mock
     private UiccSlot mMockSlot;
     @Mock
+    private UiccSlot mMockRemovableEuiccSlot;
+    @Mock
     private UiccCard mMockCard;
     @Mock
     private EuiccCard mMockEuiccCard;
-
-    private class UiccControllerHandlerThread extends HandlerThread {
-
-        private UiccControllerHandlerThread(String name) {
-            super(name);
-        }
-        @Override
-        public void onLooperPrepared() {
-            /* create a new UICC Controller associated with the simulated Commands */
-            mUiccControllerUT = UiccController.make(mContext,
-                    new CommandsInterface[]{mSimulatedCommands});
-            setReady(true);
-        }
-    }
 
     private IccCardApplicationStatus composeUiccApplicationStatus(
             IccCardApplicationStatus.AppType appType,
@@ -95,6 +89,9 @@ public class UiccControllerTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(this.getClass().getSimpleName());
+        // some tests use use the shared preferences in the runner context, so reset them here
+        PreferenceManager.getDefaultSharedPreferences(InstrumentationRegistry.getContext())
+                .edit().clear().commit();
 
         doReturn(PHONE_COUNT).when(mTelephonyManager).getPhoneCount();
         doReturn(PHONE_COUNT).when(mTelephonyManager).getSimCount();
@@ -112,21 +109,33 @@ public class UiccControllerTest extends TelephonyTest {
         // for testing we pretend slotIndex is set. In reality it would be invalid on older versions
         // (before 1.2) of hal
         mIccCardStatus.physicalSlotIndex = 0;
-        mUiccControllerHandlerThread = new UiccControllerHandlerThread(TAG);
-        mUiccControllerHandlerThread.start();
-        waitUntilReady();
-        /* expected to get new UiccCards being created
-        wait till the async result and message delay */
-        waitForMs(100);
+        mUiccControllerUT = UiccController.make(mContext);
+        // reset sLastSlotStatus so that onGetSlotStatusDone always sees a change in the slot status
+        mUiccControllerUT.sLastSlotStatus = null;
+        processAllMessages();
     }
 
     @After
     public void tearDown() throws Exception {
-        mUiccControllerHandlerThread.quit();
         super.tearDown();
     }
 
-    @Test @SmallTest
+    /**
+     * Replace num slots and euicc slots resources and reinstantiate the UiccController
+     */
+    private void reconfigureSlots(int numSlots, int[] nonRemovableEuiccSlots) throws Exception {
+        mContextFixture.putIntResource(com.android.internal.R.integer.config_num_physical_slots,
+                numSlots);
+        mContextFixture.putIntArrayResource(
+                com.android.internal.R.array.non_removable_euicc_slots,
+                nonRemovableEuiccSlots);
+        replaceInstance(UiccController.class, "mInstance", null, null);
+        mUiccControllerUT = UiccController.make(mContext);
+        processAllMessages();
+    }
+
+    @Test
+    @SmallTest
     public void testSanity() {
         // radio power is expected to be on which should trigger icc card and slot status requests
         verify(mSimulatedCommandsVerifier, times(1)).getIccCardStatus(any(Message.class));
@@ -152,13 +161,14 @@ public class UiccControllerTest extends TelephonyTest {
         assertNull(mUiccControllerUT.getIccFileHandler(0, UiccController.APP_FAM_IMS));
     }
 
-    @Test @SmallTest
+    @Test
+    @SmallTest
     public void testPowerOff() {
         /* Uicc Controller registered for event off to unavail */
         logd("radio power state transition from off to unavail, dispose UICC Card");
         testSanity();
         mSimulatedCommands.requestShutdown(null);
-        waitForMs(50);
+        processAllMessages();
         assertNull(mUiccControllerUT.getUiccCard(0));
         assertEquals(TelephonyManager.RADIO_POWER_UNAVAILABLE, mSimulatedCommands.getRadioState());
     }
@@ -166,12 +176,13 @@ public class UiccControllerTest extends TelephonyTest {
     @Test @SmallTest
     public void testPowerOn() {
         mSimulatedCommands.setRadioPower(true, null);
-        waitForMs(500);
+        processAllMessages();
         assertNotNull(mUiccControllerUT.getUiccCard(0));
         assertEquals(TelephonyManager.RADIO_POWER_ON, mSimulatedCommands.getRadioState());
     }
 
-    @Test @SmallTest
+    @Test
+    @SmallTest
     public void testPowerOffPowerOnWithApp() {
          /* update app status and index */
         IccCardApplicationStatus cdmaApp = composeUiccApplicationStatus(
@@ -206,7 +217,8 @@ public class UiccControllerTest extends TelephonyTest {
         assertNull(mUiccControllerUT.getIccFileHandler(0, UiccController.APP_FAM_IMS));
     }
 
-    @Test @SmallTest
+    @Test
+    @SmallTest
     public void testIccChangedListener() {
         mUiccControllerUT.registerForIccChanged(mMockedHandler, ICC_CHANGED_EVENT, null);
         testPowerOff();
@@ -439,6 +451,184 @@ public class UiccControllerTest extends TelephonyTest {
 
         // assert that the default eUICC card Id is UNSUPPORTED_CARD_ID
         assertEquals(TelephonyManager.UNSUPPORTED_CARD_ID,
+                mUiccControllerUT.getCardIdForDefaultEuicc());
+    }
+
+    /**
+     * The default eUICC should not be the removable slot if there is a built-in eUICC.
+     */
+    @Test
+    public void testDefaultEuiccIsNotRemovable() {
+        try {
+            reconfigureSlots(2, new int[]{ 1 } /* non-removable slot */);
+        } catch (Exception e) {
+            fail("Unable to reconfigure slots.");
+        }
+
+        // Give UiccController a real context so it can use shared preferences
+        mUiccControllerUT.mContext = InstrumentationRegistry.getContext();
+
+        // Mock out UiccSlots so that [0] is a removable eUICC and [1] is built-in
+        mUiccControllerUT.mUiccSlots[0] = mMockRemovableEuiccSlot;
+        doReturn(true).when(mMockRemovableEuiccSlot).isEuicc();
+        doReturn(true).when(mMockRemovableEuiccSlot).isRemovable();
+        mUiccControllerUT.mUiccSlots[1] = mMockSlot;
+        doReturn(true).when(mMockSlot).isEuicc();
+        doReturn(false).when(mMockSlot).isRemovable();
+
+        // simulate slot status loaded so that the UiccController sets the card ID
+        IccSlotStatus iss1 = new IccSlotStatus();
+        iss1.setSlotState(1 /* active */);
+        iss1.eid = "AB123456";
+        IccSlotStatus iss2 = new IccSlotStatus();
+        iss2.setSlotState(1 /* active */);
+        iss2.eid = "ZYW13094";
+        ArrayList<IccSlotStatus> status = new ArrayList<IccSlotStatus>();
+        status.add(iss1);
+        status.add(iss2);
+        AsyncResult ar = new AsyncResult(null, status, null);
+        Message msg = Message.obtain(mUiccControllerUT, EVENT_GET_SLOT_STATUS_DONE, ar);
+        mUiccControllerUT.handleMessage(msg);
+
+        // assert that the default eUICC is the non-removable eUICC
+        assertEquals(mUiccControllerUT.convertToPublicCardId(iss2.eid),
+                mUiccControllerUT.getCardIdForDefaultEuicc());
+        assertTrue(mUiccControllerUT.convertToPublicCardId(iss2.eid) >= 0);
+    }
+
+    /**
+     * The default eUICC should not be the removable slot if there is a built-in eUICC. This should
+     * not depend on the order of the slots.
+     */
+    @Test
+    public void testDefaultEuiccIsNotRemovable_swapSlotOrder() {
+        try {
+            reconfigureSlots(2, new int[]{ 0 } /* non-removable slot */);
+        } catch (Exception e) {
+            fail("Unable to reconfigure slots.");
+        }
+
+        // Give UiccController a real context so it can use shared preferences
+        mUiccControllerUT.mContext = InstrumentationRegistry.getContext();
+
+        // Mock out UiccSlots so that [0] is a built-in eUICC and [1] is removable
+        mUiccControllerUT.mUiccSlots[0] = mMockSlot;
+        doReturn(true).when(mMockSlot).isEuicc();
+        doReturn(false).when(mMockSlot).isRemovable();
+        mUiccControllerUT.mUiccSlots[1] = mMockRemovableEuiccSlot;
+        doReturn(true).when(mMockRemovableEuiccSlot).isEuicc();
+        doReturn(true).when(mMockRemovableEuiccSlot).isRemovable();
+
+        // simulate slot status loaded so that the UiccController sets the card ID
+        IccSlotStatus iss1 = new IccSlotStatus();
+        iss1.setSlotState(1 /* active */);
+        iss1.eid = "AB123456";
+        IccSlotStatus iss2 = new IccSlotStatus();
+        iss2.setSlotState(1 /* active */);
+        iss2.eid = "ZYW13094";
+        ArrayList<IccSlotStatus> status = new ArrayList<IccSlotStatus>();
+        status.add(iss1);
+        status.add(iss2);
+        AsyncResult ar = new AsyncResult(null, status, null);
+        Message msg = Message.obtain(mUiccControllerUT, EVENT_GET_SLOT_STATUS_DONE, ar);
+        mUiccControllerUT.handleMessage(msg);
+
+        // assert that the default eUICC is the non-removable eUICC
+        assertEquals(mUiccControllerUT.convertToPublicCardId(iss1.eid),
+                mUiccControllerUT.getCardIdForDefaultEuicc());
+        assertTrue(mUiccControllerUT.convertToPublicCardId(iss1.eid) >= 0);
+    }
+
+    /**
+     * The default eUICC should not be the removable slot if there is a built-in eUICC, unless that
+     * eUICC is inactive.
+     * When there is a built-in eUICC which is inactive, we set the mDefaultEuiccCardId to
+     * the removable eUICC.
+     */
+    @Test
+    public void testDefaultEuiccIsNotRemovable_EuiccIsInactive() {
+        try {
+            reconfigureSlots(2, new int[]{ 1 } /* non-removable slot */);
+        } catch (Exception e) {
+            fail();
+        }
+
+        // Give UiccController a real context so it can use shared preferences
+        mUiccControllerUT.mContext = InstrumentationRegistry.getContext();
+
+        // Mock out UiccSlots. Slot 0 is inactive here.
+        mUiccControllerUT.mUiccSlots[0] = mMockSlot;
+        doReturn(true).when(mMockSlot).isEuicc();
+        doReturn(false).when(mMockSlot).isRemovable();
+        mUiccControllerUT.mUiccSlots[1] = mMockRemovableEuiccSlot;
+        doReturn(true).when(mMockRemovableEuiccSlot).isEuicc();
+        doReturn(true).when(mMockRemovableEuiccSlot).isRemovable();
+
+        // simulate slot status loaded with no EID provided (like HAL < 1.4)
+        IccSlotStatus iss1 = new IccSlotStatus();
+        iss1.setSlotState(0 /* inactive */);
+        iss1.eid = "";
+        IccSlotStatus iss2 = new IccSlotStatus();
+        iss2.setSlotState(1 /* active */);
+        iss2.eid = "";
+        ArrayList<IccSlotStatus> status = new ArrayList<IccSlotStatus>();
+        status.add(iss1);
+        status.add(iss2);
+        AsyncResult ar = new AsyncResult(null, status, null);
+        Message msg = Message.obtain(mUiccControllerUT, EVENT_GET_SLOT_STATUS_DONE, ar);
+        mUiccControllerUT.handleMessage(msg);
+
+        // slot status update will not set the default euicc because all EIDs are ""
+        assertEquals(TelephonyManager.UNINITIALIZED_CARD_ID,
+                mUiccControllerUT.getCardIdForDefaultEuicc());
+
+        // when EID is loaded for slot 1, then the default euicc should be set
+        ar = new AsyncResult(1 /* slot */, null, null);
+        msg = Message.obtain(mUiccControllerUT, EVENT_EID_READY, ar);
+        doReturn(mMockEuiccCard).when(mMockRemovableEuiccSlot).getUiccCard();
+        String eidForRemovableEuicc = "ASLDKFJLKSJDF";
+        doReturn(eidForRemovableEuicc).when(mMockEuiccCard).getEid();
+        mUiccControllerUT.handleMessage(msg);
+
+        assertEquals(mUiccControllerUT.convertToPublicCardId(eidForRemovableEuicc),
+                mUiccControllerUT.getCardIdForDefaultEuicc());
+    }
+
+    /**
+     * When IccCardStatus is received, if the EID is known from previous APDU, use it to set the
+     * mDefaultEuiccCardId.
+     */
+    @Test
+    public void testEidFromPreviousApduSetsDefaultEuicc() {
+        // Give UiccController a real context so it can use shared preferences
+        mUiccControllerUT.mContext = InstrumentationRegistry.getContext();
+
+        // Mock out UiccSlots
+        mUiccControllerUT.mUiccSlots[0] = mMockSlot;
+        doReturn(true).when(mMockSlot).isEuicc();
+        doReturn(null).when(mMockSlot).getUiccCard();
+        doReturn("123451234567890").when(mMockSlot).getIccId();
+        doReturn(false).when(mMockSlot).isRemovable();
+
+        // If APDU has already happened, the EuiccCard already knows EID
+        String knownEidFromApdu = "A1B2C3D4E5";
+        doReturn(mMockEuiccCard).when(mMockSlot).getUiccCard();
+        doReturn(knownEidFromApdu).when(mMockEuiccCard).getEid();
+
+        // simulate card status loaded so that the UiccController sets the card ID
+        IccCardStatus ics = new IccCardStatus();
+        ics.setCardState(1 /* present */);
+        ics.setUniversalPinState(3 /* disabled */);
+        ics.atr = "abcdef0123456789abcdef";
+        ics.iccid = "123451234567890";
+        // the IccCardStatus does not contain EID, but it is known from previous APDU
+        ics.eid = null;
+        AsyncResult ar = new AsyncResult(null, ics, null);
+        Message msg = Message.obtain(mUiccControllerUT, EVENT_GET_ICC_STATUS_DONE, ar);
+        mUiccControllerUT.handleMessage(msg);
+
+        // since EID is known and we've gotten card status, the default eUICC card ID should be set
+        assertEquals(mUiccControllerUT.convertToPublicCardId(knownEidFromApdu),
                 mUiccControllerUT.getCardIdForDefaultEuicc());
     }
 }

@@ -99,7 +99,7 @@ static void SC_MatrixTranspose_2x2(Matrix2x2 *m) {
 
 float SC_randf2(float min, float max) {
     float r = (float)rand();
-    r /= RAND_MAX;
+    r /= (float)RAND_MAX;
     r = r * (max - min) + min;
     return r;
 }

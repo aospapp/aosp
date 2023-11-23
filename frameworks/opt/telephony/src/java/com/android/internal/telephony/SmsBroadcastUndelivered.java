@@ -16,7 +16,7 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -27,15 +27,16 @@ import android.database.SQLException;
 import android.os.PersistableBundle;
 import android.os.UserManager;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
 import android.telephony.SubscriptionManager;
 
 import com.android.internal.telephony.cdma.CdmaInboundSmsHandler;
 import com.android.internal.telephony.gsm.GsmInboundSmsHandler;
 import com.android.internal.telephony.metrics.TelephonyMetrics;
+import com.android.telephony.Rlog;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 /**
  * Called when the credential-encrypted storage is unlocked, collecting all acknowledged messages
@@ -65,8 +66,26 @@ public class SmsBroadcastUndelivered {
             "address",
             "_id",
             "message_body",
-            "display_originating_addr"
+            "display_originating_addr",
+            "sub_id"
     };
+
+    /** Mapping from DB COLUMN to PDU_PENDING_MESSAGE_PROJECTION index */
+    static final Map<Integer, Integer> PDU_PENDING_MESSAGE_PROJECTION_INDEX_MAPPING =
+            new HashMap<Integer, Integer>() {{
+                put(InboundSmsHandler.PDU_COLUMN, 0);
+                put(InboundSmsHandler.SEQUENCE_COLUMN, 1);
+                put(InboundSmsHandler.DESTINATION_PORT_COLUMN, 2);
+                put(InboundSmsHandler.DATE_COLUMN, 3);
+                put(InboundSmsHandler.REFERENCE_NUMBER_COLUMN, 4);
+                put(InboundSmsHandler.COUNT_COLUMN, 5);
+                put(InboundSmsHandler.ADDRESS_COLUMN, 6);
+                put(InboundSmsHandler.ID_COLUMN, 7);
+                put(InboundSmsHandler.MESSAGE_BODY_COLUMN, 8);
+                put(InboundSmsHandler.DISPLAY_ADDRESS_COLUMN, 9);
+                put(InboundSmsHandler.SUBID_COLUMN, 10);
+            }};
+
 
     private static SmsBroadcastUndelivered instance;
 
@@ -169,8 +188,10 @@ public class SmsBroadcastUndelivered {
                 InboundSmsTracker tracker;
                 try {
                     tracker = TelephonyComponentFactory.getInstance()
-                            .inject(InboundSmsTracker.class.getName()).makeInboundSmsTracker(cursor,
-                            isCurrentFormat3gpp2);
+                            .inject(InboundSmsTracker.class.getName()).makeInboundSmsTracker(
+                                    context,
+                                    cursor,
+                                    isCurrentFormat3gpp2);
                 } catch (IllegalArgumentException e) {
                     Rlog.e(TAG, "error loading SmsTracker: " + e);
                     continue;

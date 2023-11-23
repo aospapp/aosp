@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_BIDIRECTIONAL_SEQUENCE_LSTM_H
-#define FRAMEWORKS_ML_NN_BIDIRECTIONAL_SEQUENCE_LSTM_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_BIDIRECTIONAL_SEQUENCE_LSTM_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_BIDIRECTIONAL_SEQUENCE_LSTM_H
 
-#include "ActivationFunctor.h"
-#include "HalOperation.h"
-#include "LSTM.h"
-#include "OperationsUtils.h"
-#include "tensorflow/lite/kernels/internal/tensor_utils.h"
+#include <tensorflow/lite/kernels/internal/tensor_utils.h>
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
+
+#include "ActivationFunctor.h"
+#include "LSTM.h"
+#include "OperationsUtils.h"
 
 namespace android {
 namespace nn {
@@ -33,11 +34,12 @@ struct RunTimeOperandInfo;
 
 class BidirectionalSequenceLSTM {
    public:
-    BidirectionalSequenceLSTM(const Operation& operation,
-                              std::vector<RunTimeOperandInfo>& operands);
+    BidirectionalSequenceLSTM(const hal::Operation& operation, RunTimeOperandInfo* operands);
 
-    bool Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
-                 Shape* fwOutputShape, Shape* bwOutputShape);
+    bool Prepare(const hal::Operation& operation, RunTimeOperandInfo* operands,
+                 Shape* fwOutputShape, Shape* bwOutputShape, Shape* fwOutputActivationState,
+                 Shape* fwOutputCellState, Shape* bwOutputActivationState,
+                 Shape* bwOutputCellState);
     bool Eval();
 
     // Input Tensors of size {max_time, n_batch, n_input}
@@ -148,6 +150,11 @@ class BidirectionalSequenceLSTM {
     static constexpr int kFwOutputTensor = 0;
     static constexpr int kBwOutputTensor = 1;  // Ignored if merge_outputs is set.
 
+    static constexpr int kFwOutputActivationStateTensor = 2;
+    static constexpr int kFwOutputCellStateTensor = 3;
+    static constexpr int kBwOutputActivationStateTensor = 4;
+    static constexpr int kBwOutputCellStateTensor = 5;
+
    private:
     LSTMParams params_;
     Shape fw_scratch_shape_;
@@ -192,8 +199,8 @@ class BidirectionalSequenceLSTM {
     const RunTimeOperandInfo* fw_cell_layer_norm_weights_;
     const RunTimeOperandInfo* fw_output_layer_norm_weights_;
 
-    RunTimeOperandInfo* fw_activation_state_;
-    RunTimeOperandInfo* fw_cell_state_;
+    const RunTimeOperandInfo* fw_activation_state_;
+    const RunTimeOperandInfo* fw_cell_state_;
     RunTimeOperandInfo* fw_output_;
 
     const RunTimeOperandInfo* bw_input_to_input_weights_;
@@ -223,12 +230,17 @@ class BidirectionalSequenceLSTM {
     const RunTimeOperandInfo* bw_cell_layer_norm_weights_;
     const RunTimeOperandInfo* bw_output_layer_norm_weights_;
 
-    RunTimeOperandInfo* bw_activation_state_;
-    RunTimeOperandInfo* bw_cell_state_;
+    const RunTimeOperandInfo* bw_activation_state_;
+    const RunTimeOperandInfo* bw_cell_state_;
     RunTimeOperandInfo* bw_output_;
+
+    RunTimeOperandInfo* fw_output_activation_state_;
+    RunTimeOperandInfo* fw_output_cell_state_;
+    RunTimeOperandInfo* bw_output_activation_state_;
+    RunTimeOperandInfo* bw_output_cell_state_;
 };
 
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_BIDIRECTIONAL_SEQUENCE_LSTM_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_BIDIRECTIONAL_SEQUENCE_LSTM_H

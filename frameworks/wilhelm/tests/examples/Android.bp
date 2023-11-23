@@ -16,6 +16,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -31,6 +32,7 @@ cc_binary {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 
 }
@@ -55,6 +57,7 @@ cc_test {
         "-Wall",
 
         "-UNDEBUG",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -71,6 +74,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -87,6 +91,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -103,6 +108,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -119,6 +125,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -135,6 +142,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -151,6 +159,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -167,6 +176,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -183,6 +193,7 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
+        "-Wno-deprecated-declarations",
     ],
 }
 
@@ -204,6 +215,7 @@ cc_test {
         "-Wall",
 
         "-UNDEBUG",
+        "-Wno-deprecated-declarations",
     ],
 }
 

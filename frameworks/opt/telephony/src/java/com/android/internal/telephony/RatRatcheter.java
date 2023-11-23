@@ -20,16 +20,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.Annotation.NetworkType;
 import android.telephony.CarrierConfigManager;
 import android.telephony.NetworkRegistrationInfo;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
-import android.telephony.TelephonyManager.NetworkType;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
+
+import com.android.telephony.Rlog;
 
 import java.util.Arrays;
 
@@ -83,8 +85,14 @@ public class RatRatcheter {
 
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
-        phone.getContext().registerReceiverAsUser(mConfigChangedReceiver, UserHandle.ALL,
-                intentFilter, null, null);
+        try {
+            Context contextAsUser = phone.getContext().createPackageContextAsUser(
+                phone.getContext().getPackageName(), 0, UserHandle.ALL);
+            contextAsUser.registerReceiver(mConfigChangedReceiver,
+                intentFilter, null /* broadcastPermission */, null);
+        } catch (PackageManager.NameNotFoundException e) {
+            Rlog.e(LOG_TAG, "Package name not found: " + e.getMessage());
+        }
         resetRatFamilyMap();
     }
 
@@ -114,15 +122,19 @@ public class RatRatcheter {
     /** Ratchets RATs and cell bandwidths if oldSS and newSS have the same RAT family. */
     public void ratchet(@NonNull ServiceState oldSS, @NonNull ServiceState newSS,
                         boolean locationChange) {
-        if (!locationChange && isSameRatFamily(oldSS, newSS)) {
-            updateBandwidths(oldSS.getCellBandwidths(), newSS);
-        }
         // temporarily disable rat ratchet on location change.
         if (locationChange) {
             mVoiceRatchetEnabled = false;
             mDataRatchetEnabled = false;
             return;
         }
+
+        // Different rat family, don't need rat ratchet and update cell bandwidths.
+        if (!isSameRatFamily(oldSS, newSS)) {
+            return;
+        }
+
+        updateBandwidths(oldSS.getCellBandwidths(), newSS);
 
         boolean newUsingCA = oldSS.isUsingCarrierAggregation()
                 || newSS.isUsingCarrierAggregation()
@@ -171,6 +183,20 @@ public class RatRatcheter {
                             AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
                             .getAccessNetworkTechnology());
 
+            // The api getAccessNetworkTechnology@NetworkRegistrationInfo always returns LTE though
+            // data rat is LTE CA. Because it uses mIsUsingCarrierAggregation to indicate whether
+            // it is LTE CA or not. However, we need its actual data rat to check if they are the
+            // same family. So convert it to LTE CA.
+            if (dataRat1 == ServiceState.RIL_RADIO_TECHNOLOGY_LTE
+                    && ss1.isUsingCarrierAggregation()) {
+                dataRat1 = ServiceState.RIL_RADIO_TECHNOLOGY_LTE_CA;
+            }
+
+            if (dataRat2 == ServiceState.RIL_RADIO_TECHNOLOGY_LTE
+                    && ss2.isUsingCarrierAggregation()) {
+                dataRat2 = ServiceState.RIL_RADIO_TECHNOLOGY_LTE_CA;
+            }
+
             if (dataRat1 == dataRat2) return true;
             if (mRatFamilyMap.get(dataRat1) == null) {
                 return false;
@@ -196,7 +222,7 @@ public class RatRatcheter {
             final CarrierConfigManager configManager = (CarrierConfigManager)
                     mPhone.getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
             if (configManager == null) return;
-            PersistableBundle b = configManager.getConfig();
+            PersistableBundle b = configManager.getConfigForSubId(mPhone.getSubId());
             if (b == null) return;
 
             // Reads an array of strings, eg:

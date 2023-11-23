@@ -268,8 +268,9 @@ android_media_AudioEffect_native_init(JNIEnv *env)
 
 static jint
 android_media_AudioEffect_native_setup(JNIEnv *env, jobject thiz, jobject weak_this,
-        jstring type, jstring uuid, jint priority, jint sessionId, jintArray jId,
-        jobjectArray javadesc, jstring opPackageName)
+        jstring type, jstring uuid, jint priority, jint sessionId,
+        jint deviceType, jstring deviceAddress,
+        jintArray jId, jobjectArray javadesc, jstring opPackageName, jboolean probe)
 {
     ALOGV("android_media_AudioEffect_native_setup");
     AudioEffectJniStorage* lpJniStorage = NULL;
@@ -280,6 +281,7 @@ android_media_AudioEffect_native_setup(JNIEnv *env, jobject thiz, jobject weak_t
     const char *uuidStr = NULL;
     effect_descriptor_t desc;
     jobject jdesc;
+    AudioDeviceTypeAddr device;
 
     ScopedUtfChars opPackageNameStr(env, opPackageName);
 
@@ -328,6 +330,12 @@ android_media_AudioEffect_native_setup(JNIEnv *env, jobject thiz, jobject weak_t
         goto setup_failure;
     }
 
+    if (deviceType != AUDIO_DEVICE_NONE) {
+        device.mType = deviceType;
+        ScopedUtfChars address(env, deviceAddress);
+        device.mAddress = address.c_str();
+    }
+
     // create the native AudioEffect object
     lpAudioEffect = new AudioEffect(typeStr,
                                     String16(opPackageNameStr.c_str()),
@@ -336,11 +344,14 @@ android_media_AudioEffect_native_setup(JNIEnv *env, jobject thiz, jobject weak_t
                                     effectCallback,
                                     &lpJniStorage->mCallbackData,
                                     (audio_session_t) sessionId,
-                                    AUDIO_IO_HANDLE_NONE);
+                                    AUDIO_IO_HANDLE_NONE,
+                                    device,
+                                    probe);
     if (lpAudioEffect == 0) {
         ALOGE("Error creating AudioEffect");
         goto setup_failure;
     }
+
 
     lStatus = AudioEffectJni::translateNativeErrorToJava(lpAudioEffect->initCheck());
     if (lStatus != AUDIOEFFECT_SUCCESS && lStatus != AUDIOEFFECT_ERROR_ALREADY_EXISTS) {
@@ -378,7 +389,13 @@ android_media_AudioEffect_native_setup(JNIEnv *env, jobject thiz, jobject weak_t
     env->SetObjectArrayElement(javadesc, 0, jdesc);
     env->DeleteLocalRef(jdesc);
 
-    setAudioEffect(env, thiz, lpAudioEffect);
+    // In probe mode, release the native object and clear our strong reference
+    // to force all method calls from JAVA to be rejected.
+    if (probe) {
+        setAudioEffect(env, thiz, 0);
+    } else {
+        setAudioEffect(env, thiz, lpAudioEffect);
+    }
 
     env->SetLongField(thiz, fields.fidJniData, (jlong)lpJniStorage);
 
@@ -757,7 +774,7 @@ android_media_AudioEffect_native_queryPreProcessings(JNIEnv *env, jclass clazz _
 // Dalvik VM type signatures
 static const JNINativeMethod gMethods[] = {
     {"native_init",          "()V",      (void *)android_media_AudioEffect_native_init},
-    {"native_setup",         "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;II[I[Ljava/lang/Object;Ljava/lang/String;)I",
+    {"native_setup",         "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;IIILjava/lang/String;[I[Ljava/lang/Object;Ljava/lang/String;Z)I",
                                          (void *)android_media_AudioEffect_native_setup},
     {"native_finalize",      "()V",      (void *)android_media_AudioEffect_native_finalize},
     {"native_release",       "()V",      (void *)android_media_AudioEffect_native_release},

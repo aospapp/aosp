@@ -18,20 +18,24 @@ package com.android.server.wifi;
 
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_AUTHENTICATION;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_BUSY;
+import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_CANNOT_FIND_NETWORK;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_CONFIGURATION;
+import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_ENROLLEE_AUTHENTICATION;
+import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_ENROLLEE_REJECTED_CONFIGURATION;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_GENERIC;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_INVALID_NETWORK;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_INVALID_URI;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_NOT_COMPATIBLE;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_NOT_SUPPORTED;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_FAILURE_TIMEOUT;
+import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_APPLIED;
 import static android.net.wifi.EasyConnectStatusCallback.EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_SENT;
 
 import android.net.wifi.EasyConnectStatusCallback;
 import android.util.SparseIntArray;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.wifi.nano.WifiMetricsProto;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.util.IntHistogram;
 
 import java.io.PrintWriter;
@@ -90,6 +94,35 @@ public class DppMetrics {
     }
 
     /**
+     * Update number of DPP R1 capable enrollee responder devices.
+     */
+    public void updateDppR1CapableEnrolleeResponderDevices() {
+        synchronized (mLock) {
+            mWifiDppLogProto.numDppR1CapableEnrolleeResponderDevices++;
+        }
+    }
+
+    /**
+     * Update number of DPP R2 capable enrollee responder devices.
+     */
+    public void updateDppR2CapableEnrolleeResponderDevices() {
+        synchronized (mLock) {
+            mWifiDppLogProto.numDppR2CapableEnrolleeResponderDevices++;
+        }
+    }
+
+    /**
+     * Update number of times DPP R2 compatibility check detected
+     * that enrollee responder device is incompatible with the
+     * network.
+     */
+    public void updateDppR2EnrolleeResponderIncompatibleConfiguration() {
+        synchronized (mLock) {
+            mWifiDppLogProto.numDppR2EnrolleeResponderIncompatibleConfiguration++;
+        }
+    }
+
+    /**
      * Update DPP Configurator success counter
      */
     public void updateDppConfiguratorSuccess(
@@ -101,6 +134,12 @@ public class DppMetrics {
                                     .EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_SENT,
                             mHistogramDppConfiguratorSuccessCode.get(WifiMetricsProto.WifiDppLog
                                     .EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_SENT) + 1);
+                    break;
+                case EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_APPLIED:
+                    mHistogramDppConfiguratorSuccessCode.put(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_APPLIED,
+                            mHistogramDppConfiguratorSuccessCode.get(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_APPLIED) + 1);
                     break;
                 default:
                     break;
@@ -168,6 +207,25 @@ public class DppMetrics {
                             mHistogramDppFailureCode.get(WifiMetricsProto.WifiDppLog
                                     .EASY_CONNECT_EVENT_FAILURE_INVALID_NETWORK) + 1);
                     break;
+                case EASY_CONNECT_EVENT_FAILURE_CANNOT_FIND_NETWORK:
+                    mHistogramDppFailureCode.put(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_FAILURE_CANNOT_FIND_NETWORK,
+                            mHistogramDppFailureCode.get(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_FAILURE_CANNOT_FIND_NETWORK) + 1);
+                    break;
+                case EASY_CONNECT_EVENT_FAILURE_ENROLLEE_AUTHENTICATION:
+                    mHistogramDppFailureCode.put(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_FAILURE_ENROLLEE_AUTHENTICATION,
+                            mHistogramDppFailureCode.get(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_FAILURE_ENROLLEE_AUTHENTICATION) + 1);
+                    break;
+                case EASY_CONNECT_EVENT_FAILURE_ENROLLEE_REJECTED_CONFIGURATION:
+                    mHistogramDppFailureCode.put(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_FAILURE_ENROLLEE_REJECTED_CONFIGURATION,
+                            mHistogramDppFailureCode.get(WifiMetricsProto.WifiDppLog
+                                    .EASY_CONNECT_EVENT_FAILURE_ENROLLEE_REJECTED_CONFIGURATION)
+                                    + 1);
+                    break;
                 default:
                     break;
             }
@@ -199,6 +257,12 @@ public class DppMetrics {
                     + mWifiDppLogProto.numDppEnrolleeInitiatorRequests);
             pw.println("mWifiDppLogProto.numDppEnrolleeSuccess="
                     + mWifiDppLogProto.numDppEnrolleeSuccess);
+            pw.println("mWifiDppLogProto.numDppR1CapableEnrolleeResponderDevices="
+                    + mWifiDppLogProto.numDppR1CapableEnrolleeResponderDevices);
+            pw.println("mWifiDppLogProto.numDppR2CapableEnrolleeResponderDevices="
+                    + mWifiDppLogProto.numDppR2CapableEnrolleeResponderDevices);
+            pw.println("mWifiDppLogProto.numDppR2EnrolleeResponderIncompatibleConfiguration="
+                    + mWifiDppLogProto.numDppR2EnrolleeResponderIncompatibleConfiguration);
 
             if (mHistogramDppFailureCode.size() > 0) {
                 pw.println("mHistogramDppFailureCode=");
@@ -226,6 +290,9 @@ public class DppMetrics {
             mWifiDppLogProto.numDppConfiguratorInitiatorRequests = 0;
             mWifiDppLogProto.numDppEnrolleeInitiatorRequests = 0;
             mWifiDppLogProto.numDppEnrolleeSuccess = 0;
+            mWifiDppLogProto.numDppR1CapableEnrolleeResponderDevices = 0;
+            mWifiDppLogProto.numDppR2CapableEnrolleeResponderDevices = 0;
+            mWifiDppLogProto.numDppR2EnrolleeResponderIncompatibleConfiguration = 0;
             mHistogramDppFailureCode.clear();
             mHistogramDppOperationTime.clear();
             mHistogramDppConfiguratorSuccessCode.clear();
@@ -276,6 +343,12 @@ public class DppMetrics {
                     mWifiDppLogProto.numDppConfiguratorInitiatorRequests;
             log.numDppEnrolleeInitiatorRequests = mWifiDppLogProto.numDppEnrolleeInitiatorRequests;
             log.numDppEnrolleeSuccess = mWifiDppLogProto.numDppEnrolleeSuccess;
+            log.numDppR1CapableEnrolleeResponderDevices =
+                    mWifiDppLogProto.numDppR1CapableEnrolleeResponderDevices;
+            log.numDppR2CapableEnrolleeResponderDevices =
+                    mWifiDppLogProto.numDppR2CapableEnrolleeResponderDevices;
+            log.numDppR2EnrolleeResponderIncompatibleConfiguration =
+                    mWifiDppLogProto.numDppR2EnrolleeResponderIncompatibleConfiguration;
             log.dppFailureCode = consolidateDppFailure(mHistogramDppFailureCode);
             log.dppConfiguratorSuccessCode =
                     consolidateDppSuccess(mHistogramDppConfiguratorSuccessCode);

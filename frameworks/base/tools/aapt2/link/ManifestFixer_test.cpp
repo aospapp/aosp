@@ -325,6 +325,32 @@ TEST_F(ManifestFixerTest,
   EXPECT_THAT(attr->value, StrEq("com.android"));
 }
 
+TEST_F(ManifestFixerTest,
+       RenameManifestOverlayPackageAndFullyQualifyTarget) {
+  ManifestFixerOptions options;
+  options.rename_overlay_target_package = std::string("com.android");
+
+  std::unique_ptr<xml::XmlResource> doc = VerifyWithOptions(R"EOF(
+      <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+                package="android">
+        <overlay android:targetName="Customization" android:targetPackage="android" />
+      </manifest>)EOF",
+                                                            options);
+  ASSERT_THAT(doc, NotNull());
+
+  xml::Element* manifest_el = doc->root.get();
+  ASSERT_THAT(manifest_el, NotNull());
+
+  xml::Element* overlay_el =
+      manifest_el->FindChild({}, "overlay");
+  ASSERT_THAT(overlay_el, NotNull());
+
+  xml::Attribute* attr =
+      overlay_el->FindAttribute(xml::kSchemaAndroid, "targetPackage");
+  ASSERT_THAT(attr, NotNull());
+  EXPECT_THAT(attr->value, StrEq("com.android"));
+}
+
 TEST_F(ManifestFixerTest, UseDefaultVersionNameAndCode) {
   ManifestFixerOptions options;
   options.version_name_default = std::string("Beta");
@@ -727,14 +753,19 @@ TEST_F(ManifestFixerTest, SupportKeySets) {
 }
 
 TEST_F(ManifestFixerTest, InsertCompileSdkVersions) {
-  std::string input = R"(
-      <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="android" />)";
+  std::string input = R"(<manifest package="com.pkg" />)";
   ManifestFixerOptions options;
   options.compile_sdk_version = {"28"};
   options.compile_sdk_version_codename = {"P"};
 
   std::unique_ptr<xml::XmlResource> manifest = VerifyWithOptions(input, options);
   ASSERT_THAT(manifest, NotNull());
+
+  // There should be a declaration of kSchemaAndroid, even when the input
+  // didn't have one.
+  EXPECT_EQ(manifest->root->namespace_decls.size(), 1);
+  EXPECT_EQ(manifest->root->namespace_decls[0].prefix, "android");
+  EXPECT_EQ(manifest->root->namespace_decls[0].uri, xml::kSchemaAndroid);
 
   xml::Attribute* attr = manifest->root->FindAttribute(xml::kSchemaAndroid, "compileSdkVersion");
   ASSERT_THAT(attr, NotNull());
@@ -780,6 +811,27 @@ TEST_F(ManifestFixerTest, OverrideCompileSdkVersions) {
   attr = manifest->root->FindAttribute("", "platformBuildVersionName");
   ASSERT_THAT(attr, NotNull());
   EXPECT_THAT(attr->value, StrEq("P"));
+}
+
+TEST_F(ManifestFixerTest, AndroidPrefixAlreadyUsed) {
+  std::string input =
+      R"(<manifest package="com.pkg"
+         xmlns:android="http://schemas.android.com/apk/prv/res/android"
+         android:private_attr="foo" />)";
+  ManifestFixerOptions options;
+  options.compile_sdk_version = {"28"};
+  options.compile_sdk_version_codename = {"P"};
+
+  std::unique_ptr<xml::XmlResource> manifest = VerifyWithOptions(input, options);
+  ASSERT_THAT(manifest, NotNull());
+
+  // Make sure that we don't redefine "android".
+  EXPECT_EQ(manifest->root->namespace_decls.size(), 2);
+  EXPECT_EQ(manifest->root->namespace_decls[0].prefix, "android");
+  EXPECT_EQ(manifest->root->namespace_decls[0].uri,
+            "http://schemas.android.com/apk/prv/res/android");
+  EXPECT_EQ(manifest->root->namespace_decls[1].prefix, "android0");
+  EXPECT_EQ(manifest->root->namespace_decls[1].uri, xml::kSchemaAndroid);
 }
 
 TEST_F(ManifestFixerTest, UnexpectedElementsInManifest) {

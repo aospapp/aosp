@@ -22,6 +22,8 @@ import android.net.wifi.WifiSsid;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -39,7 +41,7 @@ import java.util.Locale;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.ANQPParser}.
  */
 @SmallTest
-public class ANQPParserTest {
+public class ANQPParserTest extends WifiBaseTest {
     /**
      * Helper function for generating payload for a Venue Name ANQP element.
      *

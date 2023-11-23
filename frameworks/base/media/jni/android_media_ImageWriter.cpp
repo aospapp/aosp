@@ -26,6 +26,7 @@
 
 #include <gui/IProducerListener.h>
 #include <gui/Surface.h>
+#include <ui/PublicFormat.h>
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/android_view_Surface.h>
 #include <android_runtime/android_hardware_HardwareBuffer.h>
@@ -85,6 +86,14 @@ public:
     void setBufferHeight(int height) { mHeight = height; }
     int getBufferHeight() { return mHeight; }
 
+    void queueAttachedFlag(bool isAttached) {
+        Mutex::Autolock l(mAttachedFlagQueueLock);
+        mAttachedFlagQueue.push_back(isAttached);
+    }
+    void dequeueAttachedFlag() {
+        Mutex::Autolock l(mAttachedFlagQueueLock);
+        mAttachedFlagQueue.pop_back();
+    }
 private:
     static JNIEnv* getJNIEnv(bool* needsDetach);
     static void detachJNI();
@@ -126,7 +135,7 @@ private:
             Condition mCondition;
             std::deque<wp<Surface>> mQueue;
 
-            static const nsecs_t kWaitDuration = 20000000; // 20 ms
+            static const nsecs_t kWaitDuration = 500000000; // 500 ms
         };
         sp<DetachThread> mThread;
 
@@ -135,6 +144,11 @@ private:
     };
 
     static BufferDetacher sBufferDetacher;
+
+    // Buffer queue guarantees both producer and consumer side buffer flows are
+    // in order. See b/19977520. As a result, we can use a queue here.
+    Mutex mAttachedFlagQueueLock;
+    std::deque<bool> mAttachedFlagQueue;
 };
 
 JNIImageWriterContext::BufferDetacher JNIImageWriterContext::sBufferDetacher;
@@ -264,11 +278,23 @@ void JNIImageWriterContext::onBufferReleased() {
     ALOGV("%s: buffer released", __FUNCTION__);
     bool needsDetach = false;
     JNIEnv* env = getJNIEnv(&needsDetach);
+
+    bool bufferIsAttached = false;
+    {
+        Mutex::Autolock l(mAttachedFlagQueueLock);
+        if (!mAttachedFlagQueue.empty()) {
+            bufferIsAttached = mAttachedFlagQueue.front();
+            mAttachedFlagQueue.pop_front();
+        } else {
+            ALOGW("onBufferReleased called with no attached flag queued");
+        }
+    }
+
     if (env != NULL) {
         // Detach the buffer every time when a buffer consumption is done,
         // need let this callback give a BufferItem, then only detach if it was attached to this
-        // Writer. Do the detach unconditionally for opaque format now. see b/19977520
-        if (mFormat == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+        // Writer. see b/19977520
+        if (mFormat == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED || bufferIsAttached) {
             sBufferDetacher.detach(mProducer);
         }
 
@@ -401,8 +427,28 @@ static jlong ImageWriter_init(JNIEnv* env, jobject thiz, jobject weakThiz, jobje
             return 0;
         }
     } else {
+        // Set consumer buffer format to user specified format
+        PublicFormat publicFormat = static_cast<PublicFormat>(userFormat);
+        int nativeFormat = mapPublicFormatToHalFormat(publicFormat);
+        android_dataspace nativeDataspace = mapPublicFormatToHalDataspace(publicFormat);
+        res = native_window_set_buffers_format(anw.get(), nativeFormat);
+        if (res != OK) {
+            ALOGE("%s: Unable to configure consumer native buffer format to %#x",
+                    __FUNCTION__, nativeFormat);
+            jniThrowRuntimeException(env, "Failed to set Surface format");
+            return 0;
+        }
+
+        res = native_window_set_buffers_data_space(anw.get(), nativeDataspace);
+        if (res != OK) {
+            ALOGE("%s: Unable to configure consumer dataspace %#x",
+                    __FUNCTION__, nativeDataspace);
+            jniThrowRuntimeException(env, "Failed to set Surface dataspace");
+            return 0;
+        }
         surfaceFormat = userFormat;
     }
+
     ctx->setBufferFormat(surfaceFormat);
     env->SetIntField(thiz,
             gImageWriterClassInfo.mWriterFormat, reinterpret_cast<jint>(surfaceFormat));
@@ -601,10 +647,16 @@ static void ImageWriter_queueImage(JNIEnv* env, jobject thiz, jlong nativeCtx, j
         return;
     }
 
-    // Finally, queue input buffer
+    // Finally, queue input buffer.
+    //
+    // Because onBufferReleased may be called before queueBuffer() returns,
+    // queue the "attached" flag before calling queueBuffer. In case
+    // queueBuffer() fails, remove it from the queue.
+    ctx->queueAttachedFlag(false);
     res = anw->queueBuffer(anw.get(), buffer, fenceFd);
     if (res != OK) {
         ALOGE("%s: Queue buffer failed: %s (%d)", __FUNCTION__, strerror(-res), res);
+        ctx->dequeueAttachedFlag();
         switch (res) {
             case NO_INIT:
                 jniThrowException(env, "java/lang/IllegalStateException",
@@ -699,10 +751,16 @@ static jint ImageWriter_attachAndQueueImage(JNIEnv* env, jobject thiz, jlong nat
     }
 
     // Step 3. Queue Image.
+    //
+    // Because onBufferReleased may be called before queueBuffer() returns,
+    // queue the "attached" flag before calling queueBuffer. In case
+    // queueBuffer() fails, remove it from the queue.
+    ctx->queueAttachedFlag(true);
     res = anw->queueBuffer(anw.get(), buffer->mGraphicBuffer.get(), /*fenceFd*/
             -1);
     if (res != OK) {
         ALOGE("%s: Queue buffer failed: %s (%d)", __FUNCTION__, strerror(-res), res);
+        ctx->dequeueAttachedFlag();
         switch (res) {
             case NO_INIT:
                 jniThrowException(env, "java/lang/IllegalStateException",
@@ -777,6 +835,7 @@ static void Image_unlockIfLocked(JNIEnv* env, jobject thiz) {
         status_t res = buffer->unlock();
         if (res != OK) {
             jniThrowRuntimeException(env, "unlock buffer failed");
+            return;
         }
         ALOGV("Successfully unlocked the image");
     }
@@ -819,8 +878,8 @@ static jint Image_getFormat(JNIEnv* env, jobject thiz) {
     }
 
     // ImageWriter doesn't support data space yet, assuming it is unknown.
-    PublicFormat publicFmt = android_view_Surface_mapHalFormatDataspaceToPublicFormat(
-            buffer->getPixelFormat(), HAL_DATASPACE_UNKNOWN);
+    PublicFormat publicFmt = mapHalFormatDataspaceToPublicFormat(buffer->getPixelFormat(),
+                                                                 HAL_DATASPACE_UNKNOWN);
     return static_cast<jint>(publicFmt);
 }
 
@@ -872,7 +931,7 @@ static void Image_getLockedImage(JNIEnv* env, jobject thiz, LockedImage *image) 
     // and we don't set them here.
 }
 
-static void Image_getLockedImageInfo(JNIEnv* env, LockedImage* buffer, int idx,
+static bool Image_getLockedImageInfo(JNIEnv* env, LockedImage* buffer, int idx,
         int32_t writerFormat, uint8_t **base, uint32_t *size, int *pixelStride, int *rowStride) {
     ALOGV("%s", __FUNCTION__);
 
@@ -880,8 +939,10 @@ static void Image_getLockedImageInfo(JNIEnv* env, LockedImage* buffer, int idx,
             pixelStride, rowStride);
     if (res != OK) {
         jniThrowExceptionFmt(env, "java/lang/UnsupportedOperationException",
-                             "Pixel format: 0x%x is unsupported", buffer->flexFormat);
+                             "Pixel format: 0x%x is unsupported", writerFormat);
+        return false;
     }
+    return true;
 }
 
 static jobjectArray Image_createSurfacePlanes(JNIEnv* env, jobject thiz,
@@ -918,10 +979,12 @@ static jobjectArray Image_createSurfacePlanes(JNIEnv* env, jobject thiz,
 
     // Create all SurfacePlanes
     PublicFormat publicWriterFormat = static_cast<PublicFormat>(writerFormat);
-    writerFormat = android_view_Surface_mapPublicFormatToHalFormat(publicWriterFormat);
+    writerFormat = mapPublicFormatToHalFormat(publicWriterFormat);
     for (int i = 0; i < numPlanes; i++) {
-        Image_getLockedImageInfo(env, &lockedImg, i, writerFormat,
-                &pData, &dataSize, &pixelStride, &rowStride);
+        if (!Image_getLockedImageInfo(env, &lockedImg, i, writerFormat,
+                &pData, &dataSize, &pixelStride, &rowStride)) {
+            return NULL;
+        }
         byteBuffer = env->NewDirectByteBuffer(pData, dataSize);
         if ((byteBuffer == NULL) && (env->ExceptionCheck() == false)) {
             jniThrowException(env, "java/lang/IllegalStateException",

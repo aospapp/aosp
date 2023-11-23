@@ -39,8 +39,8 @@ import android.service.carrier.ICarrierMessagingCallback;
 import android.service.carrier.ICarrierMessagingService;
 import android.service.carrier.MessagePdu;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.util.LocalLog;
 
+import com.android.internal.telephony.LocalLog;
 import com.android.internal.telephony.uicc.UiccCard;
 
 import org.junit.After;
@@ -76,12 +76,10 @@ public class CarrierServicesSmsFilterTest extends TelephonyTest {
         super.setUp(getClass().getSimpleName());
         if (Looper.myLooper() == null) {
             Looper.prepare();
-            Looper.loop();
         }
         mCarrierServicesSmsFilterUT = new CarrierServicesSmsFilter(
                 mContext, mPhone, new byte[][]{SMS_PDU},
-                0, "3gpp", mFilterCallback, getClass().getSimpleName(), new LocalLog(64)
-        );
+                0, "3gpp", mFilterCallback, getClass().getSimpleName(), new LocalLog(10), 1L);
     }
 
     @After

@@ -20,7 +20,7 @@ import android.annotation.IntDef;
 import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -235,9 +235,9 @@ public final class AudioFormat implements Parcelable {
     public static final int ENCODING_PCM_8BIT = 3;
     /** Audio data format: single-precision floating-point per sample */
     public static final int ENCODING_PCM_FLOAT = 4;
-    /** Audio data format: AC-3 compressed */
+    /** Audio data format: AC-3 compressed, also known as Dolby Digital */
     public static final int ENCODING_AC3 = 5;
-    /** Audio data format: E-AC-3 compressed */
+    /** Audio data format: E-AC-3 compressed, also known as Dolby Digital Plus or DD+ */
     public static final int ENCODING_E_AC3 = 6;
     /** Audio data format: DTS compressed */
     public static final int ENCODING_DTS = 7;
@@ -281,6 +281,8 @@ public final class AudioFormat implements Parcelable {
      * metadata (object audio) over HDMI (e.g. Dolby Atmos content).
      **/
     public static final int ENCODING_DOLBY_MAT = 19;
+    /** Audio data format: OPUS compressed. */
+    public static final int ENCODING_OPUS = 20;
 
     /** @hide */
     public static String toLogFriendlyEncoding(int enc) {
@@ -323,6 +325,8 @@ public final class AudioFormat implements Parcelable {
                 return "ENCODING_E_AC3_JOC";
             case ENCODING_DOLBY_MAT:
                 return "ENCODING_DOLBY_MAT";
+            case ENCODING_OPUS:
+                return "ENCODING_OPUS";
             default :
                 return "invalid encoding " + enc;
         }
@@ -548,6 +552,7 @@ public final class AudioFormat implements Parcelable {
             case ENCODING_AC4:
             case ENCODING_E_AC3_JOC:
             case ENCODING_DOLBY_MAT:
+            case ENCODING_OPUS:
                 return true;
             default:
                 return false;
@@ -576,6 +581,7 @@ public final class AudioFormat implements Parcelable {
             case ENCODING_AC4:
             case ENCODING_E_AC3_JOC:
             case ENCODING_DOLBY_MAT:
+            case ENCODING_OPUS:
                 return true;
             default:
                 return false;
@@ -607,6 +613,7 @@ public final class AudioFormat implements Parcelable {
             case ENCODING_AC4:
             case ENCODING_E_AC3_JOC:
             case ENCODING_DOLBY_MAT:
+            case ENCODING_OPUS:
                 return false;
             case ENCODING_INVALID:
             default:
@@ -638,6 +645,7 @@ public final class AudioFormat implements Parcelable {
             case ENCODING_AC4:
             case ENCODING_E_AC3_JOC:
             case ENCODING_DOLBY_MAT:
+            case ENCODING_OPUS:
                 return false;
             case ENCODING_INVALID:
             default:
@@ -917,6 +925,7 @@ public final class AudioFormat implements Parcelable {
                 case ENCODING_AC4:
                 case ENCODING_E_AC3_JOC:
                 case ENCODING_DOLBY_MAT:
+                case ENCODING_OPUS:
                     mEncoding = encoding;
                     break;
                 case ENCODING_INVALID:
@@ -1136,7 +1145,8 @@ public final class AudioFormat implements Parcelable {
         ENCODING_AAC_XHE,
         ENCODING_AC4,
         ENCODING_E_AC3_JOC,
-        ENCODING_DOLBY_MAT }
+        ENCODING_DOLBY_MAT,
+        ENCODING_OPUS }
     )
     @Retention(RetentionPolicy.SOURCE)
     public @interface Encoding {}

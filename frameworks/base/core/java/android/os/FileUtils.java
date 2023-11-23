@@ -40,7 +40,7 @@ import static android.system.OsConstants.W_OK;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ContentResolver;
 import android.provider.DocumentsContract.Document;
 import android.system.ErrnoException;
@@ -743,6 +743,8 @@ public final class FileUtils {
      *            {@link MessageDigest#getInstance(String)}.
      * @hide
      */
+    @TestApi
+    @NonNull
     public static byte[] digest(@NonNull File file, @NonNull String algorithm)
             throws IOException, NoSuchAlgorithmException {
         try (FileInputStream in = new FileInputStream(file)) {
@@ -757,6 +759,8 @@ public final class FileUtils {
      *            {@link MessageDigest#getInstance(String)}.
      * @hide
      */
+    @TestApi
+    @NonNull
     public static byte[] digest(@NonNull InputStream in, @NonNull String algorithm)
             throws IOException, NoSuchAlgorithmException {
         // TODO: implement kernel optimizations
@@ -1275,7 +1279,13 @@ public final class FileUtils {
     /**
      * Closes the given object quietly, ignoring any checked exceptions. Does
      * nothing if the given object is {@code null}.
+     *
+     * @deprecated This method may suppress potentially significant exceptions, particularly when
+     *   closing writable resources. With a writable resource, a failure thrown from {@code close()}
+     *   should be considered as significant as a failure thrown from a write method because it may
+     *   indicate a failure to flush bytes to the underlying resource.
      */
+    @Deprecated
     public static void closeQuietly(@Nullable AutoCloseable closeable) {
         IoUtils.closeQuietly(closeable);
     }
@@ -1283,7 +1293,13 @@ public final class FileUtils {
     /**
      * Closes the given object quietly, ignoring any checked exceptions. Does
      * nothing if the given object is {@code null}.
+     *
+     * @deprecated This method may suppress potentially significant exceptions, particularly when
+     *   closing writable resources. With a writable resource, a failure thrown from {@code close()}
+     *   should be considered as significant as a failure thrown from a write method because it may
+     *   indicate a failure to flush bytes to the underlying resource.
      */
+    @Deprecated
     public static void closeQuietly(@Nullable FileDescriptor fd) {
         IoUtils.closeQuietly(fd);
     }

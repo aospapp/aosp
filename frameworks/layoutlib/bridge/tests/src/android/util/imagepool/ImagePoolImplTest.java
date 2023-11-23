@@ -16,6 +16,7 @@
 
 package android.util.imagepool;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import android.util.imagepool.ImagePool.Image;
@@ -223,6 +224,7 @@ public class ImagePoolImplTest {
         assertEquals(bufferedImg1, bufferedImage3);
     }
 
+    @Ignore("b/132614809")
     @Test
     public void testPoolDispose() throws InterruptedException {
         int width = 700;

@@ -44,7 +44,12 @@ public:
             int32_t userSerial, int32_t flags);
     binder::Status destroyUserData(const std::unique_ptr<std::string>& uuid, int32_t userId,
             int32_t flags);
-
+    binder::Status createAppDataBatched(
+            const std::unique_ptr<std::vector<std::unique_ptr<std::string>>>& uuids,
+            const std::unique_ptr<std::vector<std::unique_ptr<std::string>>>& packageNames,
+            int32_t userId, int32_t flags, const std::vector<int32_t>& appIds,
+            const std::vector<std::string>& seInfos, const std::vector<int32_t>& targetSdkVersions,
+            int64_t* _aidl_return);
     binder::Status createAppData(const std::unique_ptr<std::string>& uuid,
             const std::string& packageName, int32_t userId, int32_t flags, int32_t appId,
             const std::string& seInfo, int32_t targetSdkVersion, int64_t* _aidl_return);
@@ -69,6 +74,8 @@ public:
     binder::Status destroyAppDataSnapshot(const std::unique_ptr<std::string> &volumeUuid,
             const std::string& packageName, const int32_t user, const int64_t ceSnapshotInode,
             const int32_t snapshotId, int32_t storageFlags);
+    binder::Status destroyCeSnapshotsNotSpecified(const std::unique_ptr<std::string> &volumeUuid,
+            const int32_t userId, const std::vector<int32_t>& retainSnapshotIds);
 
     binder::Status getAppSize(const std::unique_ptr<std::string>& uuid,
             const std::vector<std::string>& packageNames, int32_t userId, int32_t flags,
@@ -81,13 +88,23 @@ public:
             int32_t userId, int32_t flags, const std::vector<int32_t>& appIds,
             std::vector<int64_t>* _aidl_return);
 
+    binder::Status getAppCrates(const std::unique_ptr<std::string>& uuid,
+            const std::vector<std::string>& packageNames,
+            int32_t userId,
+            std::unique_ptr<std::vector<std::unique_ptr<android::os::storage::CrateMetadata>>>*
+                    _aidl_return);
+    binder::Status getUserCrates(
+            const std::unique_ptr<std::string>& uuid, int32_t userId,
+            std::unique_ptr<std::vector<std::unique_ptr<android::os::storage::CrateMetadata>>>*
+                    _aidl_return);
+
     binder::Status setAppQuota(const std::unique_ptr<std::string>& uuid,
             int32_t userId, int32_t appId, int64_t cacheQuota);
 
     binder::Status moveCompleteApp(const std::unique_ptr<std::string>& fromUuid,
             const std::unique_ptr<std::string>& toUuid, const std::string& packageName,
-            const std::string& dataAppName, int32_t appId, const std::string& seInfo,
-            int32_t targetSdkVersion);
+            int32_t appId, const std::string& seInfo,
+            int32_t targetSdkVersion, const std::string& fromCodePath);
 
     binder::Status dexopt(const std::string& apkPath, int32_t uid,
             const std::unique_ptr<std::string>& packageName, const std::string& instructionSet,
@@ -119,11 +136,7 @@ public:
     binder::Status destroyProfileSnapshot(const std::string& packageName,
             const std::string& profileName);
 
-    binder::Status idmap(const std::string& targetApkPath, const std::string& overlayApkPath,
-            int32_t uid);
-    binder::Status removeIdmap(const std::string& overlayApkPath);
     binder::Status rmPackageDir(const std::string& packageDir);
-    binder::Status markBootComplete(const std::string& instructionSet);
     binder::Status freeCache(const std::unique_ptr<std::string>& uuid, int64_t targetFreeBytes,
             int64_t cacheReservedBytes, int32_t flags);
     binder::Status linkNativeLibraryDirectory(const std::unique_ptr<std::string>& uuid,
@@ -136,7 +149,7 @@ public:
     binder::Status deleteOdex(const std::string& apkPath, const std::string& instructionSet,
             const std::unique_ptr<std::string>& outputPath);
     binder::Status installApkVerity(const std::string& filePath,
-            const ::android::base::unique_fd& verityInput, int32_t contentSize);
+            android::base::unique_fd verityInput, int32_t contentSize);
     binder::Status assertFsverityRootHashMatches(const std::string& filePath,
             const std::vector<uint8_t>& expectedHash);
     binder::Status reconcileSecondaryDexFile(const std::string& dexPath,
@@ -149,6 +162,8 @@ public:
     binder::Status invalidateMounts();
     binder::Status isQuotaSupported(const std::unique_ptr<std::string>& volumeUuid,
             bool* _aidl_return);
+    binder::Status tryMountDataMirror(const std::unique_ptr<std::string>& volumeUuid);
+    binder::Status onPrivateVolumeRemoved(const std::unique_ptr<std::string>& volumeUuid);
 
     binder::Status prepareAppProfile(const std::string& packageName,
             int32_t userId, int32_t appId, const std::string& profileName,

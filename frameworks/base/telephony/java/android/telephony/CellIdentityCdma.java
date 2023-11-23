@@ -16,6 +16,8 @@
 
 package android.telephony;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.os.Parcel;
 import android.telephony.cdma.CdmaCellLocation;
 
@@ -73,6 +75,7 @@ public final class CellIdentityCdma extends CellIdentity {
         mBasestationId = CellInfo.UNAVAILABLE;
         mLongitude = CellInfo.UNAVAILABLE;
         mLatitude = CellInfo.UNAVAILABLE;
+        mGlobalCellId = null;
     }
 
     /**
@@ -89,8 +92,8 @@ public final class CellIdentityCdma extends CellIdentity {
      *
      * @hide
      */
-    public CellIdentityCdma(
-            int nid, int sid, int bid, int lon, int lat, String alphal, String alphas) {
+    public CellIdentityCdma(int nid, int sid, int bid, int lon, int lat,
+            @Nullable String alphal, @Nullable String alphas) {
         super(TAG, CellInfo.TYPE_CDMA, null, null, alphal, alphas);
         mNetworkId = inRangeOrUnavailable(nid, 0, NETWORK_ID_MAX);
         mSystemId = inRangeOrUnavailable(sid, 0, SYSTEM_ID_MAX);
@@ -104,33 +107,45 @@ public final class CellIdentityCdma extends CellIdentity {
         } else {
             mLongitude = mLatitude = CellInfo.UNAVAILABLE;
         }
+        updateGlobalCellId();
     }
 
     /** @hide */
-    public CellIdentityCdma(android.hardware.radio.V1_0.CellIdentityCdma cid) {
+    public CellIdentityCdma(@NonNull android.hardware.radio.V1_0.CellIdentityCdma cid) {
         this(cid.networkId, cid.systemId, cid.baseStationId, cid.longitude, cid.latitude, "", "");
     }
 
     /** @hide */
-    public CellIdentityCdma(android.hardware.radio.V1_2.CellIdentityCdma cid) {
+    public CellIdentityCdma(@NonNull android.hardware.radio.V1_2.CellIdentityCdma cid) {
         this(cid.base.networkId, cid.base.systemId, cid.base.baseStationId, cid.base.longitude,
                 cid.base.latitude, cid.operatorNames.alphaLong, cid.operatorNames.alphaShort);
     }
 
-    private CellIdentityCdma(CellIdentityCdma cid) {
+    private CellIdentityCdma(@NonNull CellIdentityCdma cid) {
         this(cid.mNetworkId, cid.mSystemId, cid.mBasestationId, cid.mLongitude, cid.mLatitude,
                 cid.mAlphaLong, cid.mAlphaShort);
     }
 
-    CellIdentityCdma copy() {
+    @NonNull CellIdentityCdma copy() {
         return new CellIdentityCdma(this);
     }
 
     /** @hide */
-    public CellIdentityCdma sanitizeLocationInfo() {
+    @Override
+    public @NonNull CellIdentityCdma sanitizeLocationInfo() {
         return new CellIdentityCdma(CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE,
                 CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE, CellInfo.UNAVAILABLE,
                 mAlphaLong, mAlphaShort);
+    }
+
+    /** @hide */
+    @Override
+    protected void updateGlobalCellId() {
+        mGlobalCellId = null;
+        if (mNetworkId == CellInfo.UNAVAILABLE || mSystemId == CellInfo.UNAVAILABLE
+                || mBasestationId == CellInfo.UNAVAILABLE) return;
+
+        mGlobalCellId = String.format("%04x%04x%04x", mSystemId, mNetworkId,  mBasestationId);
     }
 
     /**
@@ -198,6 +213,7 @@ public final class CellIdentityCdma extends CellIdentity {
     }
 
     /** @hide */
+    @NonNull
     @Override
     public CdmaCellLocation asCellLocation() {
         CdmaCellLocation cl = new CdmaCellLocation();
@@ -263,6 +279,7 @@ public final class CellIdentityCdma extends CellIdentity {
         mLongitude = in.readInt();
         mLatitude = in.readInt();
 
+        updateGlobalCellId();
         if (DBG) log(toString());
     }
 

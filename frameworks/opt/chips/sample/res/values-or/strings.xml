@@ -16,6 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="email_addresses" msgid="5320415175940315400">"ଇମେଲ୍‍ ଠିକଣା"</string>
-    <string name="phone_numbers" msgid="7836326833170390688">"ଫୋନ୍ ନମ୍ଵର୍‍"</string>
+    <string name="email_addresses" msgid="6715317798189071771">"ଇମେଲ୍‍ ଠିକଣା"</string>
+    <string name="phone_numbers" msgid="4609389437616389125">"ଫୋନ୍ ନମ୍ଵର୍‍"</string>
 </resources>

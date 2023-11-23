@@ -21,6 +21,8 @@ import static org.junit.Assert.assertNotEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.nio.BufferUnderflowException;
@@ -30,7 +32,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.IconInfo}.
  */
 @SmallTest
-public class IconInfoTest {
+public class IconInfoTest extends WifiBaseTest {
     private static final int TEST_WIDTH = 1111;
     private static final int TEST_HEIGHT = 2222;
     private static final String TEST_LANGUAGE = "language";

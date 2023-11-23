@@ -18,14 +18,14 @@ package com.android.internal.telephony.dataconnection;
 
 import android.content.Context;
 import android.os.PersistableBundle;
+import android.telephony.Annotation.ApnType;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
 import android.telephony.data.ApnSetting;
-import android.telephony.data.ApnSetting.ApnType;
 import android.util.Log;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.uicc.IccRecords;
+import com.android.telephony.Rlog;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -83,8 +83,8 @@ public class ApnSettingUtils {
      */
     public static boolean mvnoMatches(IccRecords r, int mvnoType, String mvnoMatchData) {
         if (mvnoType == ApnSetting.MVNO_TYPE_SPN) {
-            if ((r.getServiceProviderName() != null)
-                    && r.getServiceProviderName().equalsIgnoreCase(mvnoMatchData)) {
+            String spn = r.getServiceProviderNameWithBrandOverride();
+            if ((spn != null) && spn.equalsIgnoreCase(mvnoMatchData)) {
                 return true;
             }
         } else if (mvnoType == ApnSetting.MVNO_TYPE_IMSI) {

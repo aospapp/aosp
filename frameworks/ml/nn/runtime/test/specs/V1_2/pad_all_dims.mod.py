@@ -43,4 +43,12 @@ Example({
 }).AddVariations("float16", "relaxed", quant8)
 
 # PAD of TENSOR_FLOAT32 and TENSOR_QUANT8_ASYMM data type is introduced in V1_1.
-Example.SetVersion("V1_1", "pad_all_dims", "pad_all_dims_quant8")
+Example.SetVersion("V1_1", 
+                   "pad_all_dims", 
+                   "pad_all_dims_all_inputs_as_internal", 
+                   "pad_all_dims_all_tensors_as_inputs", 
+                   "pad_all_dims_all_tensors_as_inputs_all_inputs_as_internal", 
+                   "pad_all_dims_quant8",
+                   "pad_all_dims_quant8_all_inputs_as_internal",
+                   "pad_all_dims_quant8_all_tensors_as_inputs",
+                   "pad_all_dims_quant8_all_tensors_as_inputs_all_inputs_as_internal")

@@ -46,46 +46,75 @@ static void concatConstructor(uint32_t numInputs, bool isV1_0, uint32_t rank, Ra
 }
 
 DEFINE_OPERATION_SIGNATURE(CONCAT_2_V1_0){
-        .opType = ANEURALNETWORKS_CONCATENATION,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::CONCATENATION,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_0,
-        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(Type::INT32)},
+        .version = TestHalVersion::V1_0,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32)},
         .outputs = {OUTPUT_DEFAULT},
-        .constructor = [](Type, uint32_t rank, RandomOperation* op) {
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
             concatConstructor(/*numInputs=*/2, /*isV1_0=*/true, rank, op);
         }};
 
 DEFINE_OPERATION_SIGNATURE(CONCAT_3_V1_0){
-        .opType = ANEURALNETWORKS_CONCATENATION,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::CONCATENATION,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_0,
-        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(Type::INT32)},
+        .version = TestHalVersion::V1_0,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_DEFAULT,
+                   PARAMETER_NONE(TestOperandType::INT32)},
         .outputs = {OUTPUT_DEFAULT},
-        .constructor = [](Type, uint32_t rank, RandomOperation* op) {
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
             concatConstructor(/*numInputs=*/3, /*isV1_0=*/true, rank, op);
         }};
 
 DEFINE_OPERATION_SIGNATURE(CONCAT_2_V1_2){
-        .opType = ANEURALNETWORKS_CONCATENATION,
-        .supportedDataTypes = {Type::TENSOR_FLOAT16, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::CONCATENATION,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT16,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(Type::INT32)},
+        .version = TestHalVersion::V1_2,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32)},
         .outputs = {OUTPUT_DEFAULT},
-        .constructor = [](Type, uint32_t rank, RandomOperation* op) {
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
             concatConstructor(/*numInputs=*/2, /*isV1_0=*/false, rank, op);
         }};
 
 DEFINE_OPERATION_SIGNATURE(CONCAT_3_V1_2){
-        .opType = ANEURALNETWORKS_CONCATENATION,
-        .supportedDataTypes = {Type::TENSOR_FLOAT16, Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::CONCATENATION,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT16,
+                               TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(Type::INT32)},
+        .version = TestHalVersion::V1_2,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_DEFAULT,
+                   PARAMETER_NONE(TestOperandType::INT32)},
         .outputs = {OUTPUT_DEFAULT},
-        .constructor = [](Type, uint32_t rank, RandomOperation* op) {
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
+            concatConstructor(/*numInputs=*/3, /*isV1_0=*/false, rank, op);
+        }};
+
+DEFINE_OPERATION_SIGNATURE(CONCAT_2_V1_3){
+        .opType = TestOperationType::CONCATENATION,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED},
+        .supportedRanks = {1, 2, 3, 4},
+        .version = TestHalVersion::V1_3,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32)},
+        .outputs = {OUTPUT_DEFAULT},
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
+            concatConstructor(/*numInputs=*/2, /*isV1_0=*/false, rank, op);
+        }};
+
+DEFINE_OPERATION_SIGNATURE(CONCAT_3_V1_3){
+        .opType = TestOperationType::CONCATENATION,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED},
+        .supportedRanks = {1, 2, 3, 4},
+        .version = TestHalVersion::V1_3,
+        .inputs = {INPUT_DEFAULT, INPUT_DEFAULT, INPUT_DEFAULT,
+                   PARAMETER_NONE(TestOperandType::INT32)},
+        .outputs = {OUTPUT_DEFAULT},
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
             concatConstructor(/*numInputs=*/3, /*isV1_0=*/false, rank, op);
         }};
 
@@ -114,26 +143,52 @@ static void splitConstructor(uint32_t numSplits, uint32_t rank, RandomOperation*
 }
 
 DEFINE_OPERATION_SIGNATURE(SPLIT_2_V1_2){
-        .opType = ANEURALNETWORKS_SPLIT,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16, Type::TENSOR_INT32,
-                               Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::SPLIT,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_FLOAT16,
+                               TestOperandType::TENSOR_INT32, TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(Type::INT32), PARAMETER_CHOICE(Type::INT32, 2)},
+        .version = TestHalVersion::V1_2,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 2)},
         .outputs = {OUTPUT_DEFAULT, OUTPUT_DEFAULT},
-        .constructor = [](Type, uint32_t rank, RandomOperation* op) {
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
             splitConstructor(/*numSplits=*/2, rank, op);
         }};
 
 DEFINE_OPERATION_SIGNATURE(SPLIT_3_V1_2){
-        .opType = ANEURALNETWORKS_SPLIT,
-        .supportedDataTypes = {Type::TENSOR_FLOAT32, Type::TENSOR_FLOAT16, Type::TENSOR_INT32,
-                               Type::TENSOR_QUANT8_ASYMM},
+        .opType = TestOperationType::SPLIT,
+        .supportedDataTypes = {TestOperandType::TENSOR_FLOAT32, TestOperandType::TENSOR_FLOAT16,
+                               TestOperandType::TENSOR_INT32, TestOperandType::TENSOR_QUANT8_ASYMM},
         .supportedRanks = {1, 2, 3, 4},
-        .version = HalVersion::V1_2,
-        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(Type::INT32), PARAMETER_CHOICE(Type::INT32, 3)},
+        .version = TestHalVersion::V1_2,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 3)},
         .outputs = {OUTPUT_DEFAULT, OUTPUT_DEFAULT, OUTPUT_DEFAULT},
-        .constructor = [](Type, uint32_t rank, RandomOperation* op) {
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
+            splitConstructor(/*numSplits=*/3, rank, op);
+        }};
+
+DEFINE_OPERATION_SIGNATURE(SPLIT_2_V1_3){
+        .opType = TestOperationType::SPLIT,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED},
+        .supportedRanks = {1, 2, 3, 4},
+        .version = TestHalVersion::V1_3,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 2)},
+        .outputs = {OUTPUT_DEFAULT, OUTPUT_DEFAULT},
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
+            splitConstructor(/*numSplits=*/2, rank, op);
+        }};
+
+DEFINE_OPERATION_SIGNATURE(SPLIT_3_V1_3){
+        .opType = TestOperationType::SPLIT,
+        .supportedDataTypes = {TestOperandType::TENSOR_QUANT8_ASYMM_SIGNED},
+        .supportedRanks = {1, 2, 3, 4},
+        .version = TestHalVersion::V1_3,
+        .inputs = {INPUT_DEFAULT, PARAMETER_NONE(TestOperandType::INT32),
+                   PARAMETER_CHOICE(TestOperandType::INT32, 3)},
+        .outputs = {OUTPUT_DEFAULT, OUTPUT_DEFAULT, OUTPUT_DEFAULT},
+        .constructor = [](TestOperandType, uint32_t rank, RandomOperation* op) {
             splitConstructor(/*numSplits=*/3, rank, op);
         }};
 

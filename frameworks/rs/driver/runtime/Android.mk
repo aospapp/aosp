@@ -129,20 +129,18 @@ LOCAL_SRC_FILES_64 := $(clcore_base_files_64)
 include $(LOCAL_PATH)/build_bc_lib.mk
 endif
 
-# Build a NEON-enabled version of the library (if possible)
+# Build a NEON-enabled version of the library
 # Only build on 32-bit, because we don't need a 64-bit NEON lib
-ifeq ($(ARCH_ARM_HAVE_NEON),true)
-  include $(CLEAR_VARS)
+include $(CLEAR_VARS)
 
-  LOCAL_32_BIT_ONLY := true
+LOCAL_32_BIT_ONLY := true
 
-  LOCAL_MODULE := libclcore_neon.bc
-  LOCAL_CFLAGS += $(clcore_cflags)
-  LOCAL_SRC_FILES := $(clcore_neon_files)
-  LOCAL_CFLAGS += -DARCH_ARM_HAVE_NEON
+LOCAL_MODULE := libclcore_neon.bc
+LOCAL_CFLAGS += $(clcore_cflags)
+LOCAL_SRC_FILES := $(clcore_neon_files)
+LOCAL_CFLAGS += -DARCH_ARM_HAVE_NEON
 
-  include $(LOCAL_PATH)/build_bc_lib.mk
-endif
+include $(LOCAL_PATH)/build_bc_lib.mk
 
 # Build a version of the library with debug info
 include $(CLEAR_VARS)

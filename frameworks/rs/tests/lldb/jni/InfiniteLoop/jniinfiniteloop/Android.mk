@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libjniinfiniteloop
 
-LOCAL_SRC_FILES := jniinfiniteloop.cpp infiniteloop.rs
+LOCAL_SRC_FILES := jniinfiniteloop.cpp infiniteloop.rscript
 
 LOCAL_RENDERSCRIPT_FLAGS := -g
 

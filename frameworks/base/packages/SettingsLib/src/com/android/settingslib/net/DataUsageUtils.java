@@ -23,6 +23,10 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import com.android.internal.util.ArrayUtils;
+
+import java.util.List;
+
 /**
  * Utils class for data usage
  */
@@ -33,20 +37,42 @@ public class DataUsageUtils {
      * Return mobile NetworkTemplate based on {@code subId}
      */
     public static NetworkTemplate getMobileTemplate(Context context, int subId) {
-        final TelephonyManager telephonyManager = context.getSystemService(
-                TelephonyManager.class).createForSubscriptionId(subId);
-        final SubscriptionManager subscriptionManager = context.getSystemService(
-                SubscriptionManager.class);
-        final SubscriptionInfo info = subscriptionManager.getActiveSubscriptionInfo(subId);
-        final NetworkTemplate mobileAll = NetworkTemplate.buildTemplateMobileAll(
-                telephonyManager.getSubscriberId(subId));
+        final TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+        final int mobileDefaultSubId = telephonyManager.getSubscriptionId();
 
-        if (info == null) {
-            Log.i(TAG, "Subscription is not active: " + subId);
-            return mobileAll;
+        final SubscriptionManager subscriptionManager =
+                context.getSystemService(SubscriptionManager.class);
+        final List<SubscriptionInfo> subInfoList =
+                subscriptionManager.getAvailableSubscriptionInfoList();
+        if (subInfoList == null) {
+            Log.i(TAG, "Subscription is not inited: " + subId);
+            return getMobileTemplateForSubId(telephonyManager, mobileDefaultSubId);
         }
 
-        // Use old API to build networkTemplate
-        return NetworkTemplate.normalize(mobileAll, telephonyManager.getMergedSubscriberIds());
+        for (SubscriptionInfo subInfo : subInfoList) {
+            if ((subInfo != null) && (subInfo.getSubscriptionId() == subId)) {
+                return getNormalizedMobileTemplate(telephonyManager, subId);
+            }
+        }
+        Log.i(TAG, "Subscription is not active: " + subId);
+        return getMobileTemplateForSubId(telephonyManager, mobileDefaultSubId);
+    }
+
+    private static NetworkTemplate getNormalizedMobileTemplate(
+            TelephonyManager telephonyManager, int subId) {
+        final NetworkTemplate mobileTemplate = getMobileTemplateForSubId(telephonyManager, subId);
+        final String[] mergedSubscriberIds = telephonyManager
+                .createForSubscriptionId(subId).getMergedImsisFromGroup();
+        if (ArrayUtils.isEmpty(mergedSubscriberIds)) {
+            Log.i(TAG, "mergedSubscriberIds is null.");
+            return mobileTemplate;
+        }
+
+        return NetworkTemplate.normalize(mobileTemplate, mergedSubscriberIds);
+    }
+
+    private static NetworkTemplate getMobileTemplateForSubId(
+            TelephonyManager telephonyManager, int subId) {
+        return NetworkTemplate.buildTemplateMobileAll(telephonyManager.getSubscriberId(subId));
     }
 }

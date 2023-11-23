@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "NeuralNetworks.h"
 #include "NeuralNetworksOEM.h"
 #include "NeuralNetworksWrapper.h"
 #ifndef NNTEST_ONLY_PUBLIC_API
@@ -48,6 +49,7 @@ class OperandExtraParamsTest : public ::testing::Test {
             case ANEURALNETWORKS_INT32:
             case ANEURALNETWORKS_UINT32:
             case ANEURALNETWORKS_BOOL:
+            case ANEURALNETWORKS_MODEL:
             case ANEURALNETWORKS_OEM_SCALAR:
                 return {.type = dataType,
                         .dimensionCount = 0,
@@ -89,6 +91,12 @@ class OperandExtraParamsTest : public ::testing::Test {
                         .dimensions = dims,
                         .scale = 1.0,
                         .zeroPoint = 32768};
+            case ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED:
+                return {.type = dataType,
+                        .dimensionCount = 4,
+                        .dimensions = dims,
+                        .scale = 1.0,
+                        .zeroPoint = 1};
             default:
                 ADD_FAILURE();
                 return {};
@@ -135,6 +143,8 @@ const uint32_t kOperandCodeNoExtraParams[]{
         ANEURALNETWORKS_TENSOR_FLOAT16,
         ANEURALNETWORKS_TENSOR_BOOL8,
         ANEURALNETWORKS_TENSOR_QUANT8_SYMM,
+        ANEURALNETWORKS_TENSOR_QUANT8_ASYMM_SIGNED,
+        ANEURALNETWORKS_MODEL,
 };
 
 #ifndef NNTEST_ONLY_PUBLIC_API

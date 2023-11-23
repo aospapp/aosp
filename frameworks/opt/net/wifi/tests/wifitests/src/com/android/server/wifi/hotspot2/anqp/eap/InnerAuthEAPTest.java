@@ -22,6 +22,8 @@ import android.net.wifi.EAPConstants;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -32,7 +34,7 @@ import java.nio.ByteBuffer;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.eap.InnerAuthEAP}.
  */
 @SmallTest
-public class InnerAuthEAPTest {
+public class InnerAuthEAPTest extends WifiBaseTest {
     private static final int TEST_EAP_METHOD_ID = EAPConstants.EAP_TTLS;
 
     /**

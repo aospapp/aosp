@@ -21,6 +21,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.UserIdInt;
+import android.graphics.Bitmap;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -45,6 +46,17 @@ import java.util.concurrent.Executor;
  */
 @SystemApi
 public final class ContentSuggestionsManager {
+    /**
+     * Key into the extras Bundle passed to {@link #provideContextImage(int, Bundle)}.
+     * This can be used to provide the bitmap to
+     * {@link android.service.contentsuggestions.ContentSuggestionsService}.
+     * The value must be a {@link android.graphics.Bitmap} with the
+     * config {@link android.graphics.Bitmap.Config.HARDWARE}.
+     *
+     * @hide
+     */
+    public static final String EXTRA_BITMAP = "android.contentsuggestions.extra.BITMAP";
+
     private static final String TAG = ContentSuggestionsManager.class.getSimpleName();
 
     /**
@@ -66,11 +78,33 @@ public final class ContentSuggestionsManager {
     }
 
     /**
+     * Hints to the system that a new context image using the provided bitmap should be sent to
+     * the system content suggestions service.
+     *
+     * @param bitmap the new context image
+     * @param imageContextRequestExtras sent with request to provide implementation specific
+     *                                  extra information.
+     */
+    public void provideContextImage(
+            @NonNull Bitmap bitmap, @NonNull Bundle imageContextRequestExtras) {
+        if (mService == null) {
+            Log.e(TAG, "provideContextImage called, but no ContentSuggestionsManager configured");
+            return;
+        }
+
+        try {
+            mService.provideContextBitmap(mUser, bitmap, imageContextRequestExtras);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
      * Hints to the system that a new context image for the provided task should be sent to the
      * system content suggestions service.
      *
      * @param taskId of the task to snapshot.
-     * @param imageContextRequestExtras sent with with request to provide implementation specific
+     * @param imageContextRequestExtras sent with request to provide implementation specific
      *                                  extra information.
      */
     public void provideContextImage(
@@ -83,7 +117,7 @@ public final class ContentSuggestionsManager {
         try {
             mService.provideContextImage(mUser, taskId, imageContextRequestExtras);
         } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -112,7 +146,7 @@ public final class ContentSuggestionsManager {
             mService.suggestContentSelections(
                     mUser, request, new SelectionsCallbackWrapper(callback, callbackExecutor));
         } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -139,7 +173,7 @@ public final class ContentSuggestionsManager {
             mService.classifyContentSelections(
                     mUser, request, new ClassificationsCallbackWrapper(callback, callbackExecutor));
         } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -159,7 +193,7 @@ public final class ContentSuggestionsManager {
         try {
             mService.notifyInteraction(mUser, requestId, interaction);
         } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -179,9 +213,10 @@ public final class ContentSuggestionsManager {
             mService.isEnabled(mUser, receiver);
             return receiver.getIntResult() != 0;
         } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
+            throw e.rethrowFromSystemServer();
+        } catch (SyncResultReceiver.TimeoutException e) {
+            throw new RuntimeException("Fail to get the enable status.");
         }
-        return false;
     }
 
     /**

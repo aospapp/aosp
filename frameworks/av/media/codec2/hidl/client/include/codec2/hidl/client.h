@@ -17,14 +17,13 @@
 #ifndef CODEC2_HIDL_CLIENT_H
 #define CODEC2_HIDL_CLIENT_H
 
-#include <gui/IGraphicBufferProducer.h>
-#include <codec2/hidl/1.0/ClientBlockHelper.h>
 #include <C2PlatformSupport.h>
 #include <C2Component.h>
 #include <C2Buffer.h>
 #include <C2Param.h>
 #include <C2.h>
 
+#include <gui/IGraphicBufferProducer.h>
 #include <hidl/HidlSupport.h>
 #include <utils/StrongPointer.h>
 
@@ -74,6 +73,11 @@ struct IInputSurface;
 struct IInputSurfaceConnection;
 }  // namespace android::hardware::media::c2::V1_0
 
+namespace android::hardware::media::c2::V1_1 {
+struct IComponent;
+struct IComponentStore;
+}  // namespace android::hardware::media::c2::V1_1
+
 namespace android::hardware::media::bufferpool::V2_0 {
 struct IClientManager;
 }  // namespace android::hardware::media::bufferpool::V2_0
@@ -81,6 +85,10 @@ struct IClientManager;
 namespace android::hardware::graphics::bufferqueue::V1_0 {
 struct IGraphicBufferProducer;
 }  // android::hardware::graphics::bufferqueue::V1_0
+
+namespace android::hardware::graphics::bufferqueue::V2_0 {
+struct IGraphicBufferProducer;
+}  // android::hardware::graphics::bufferqueue::V2_0
 
 namespace android::hardware::media::omx::V1_0 {
 struct IGraphicBufferSource;
@@ -127,7 +135,9 @@ protected:
 
 struct Codec2Client : public Codec2ConfigurableClient {
 
-    typedef ::android::hardware::media::c2::V1_0::IComponentStore Base;
+    typedef ::android::hardware::media::c2::V1_0::IComponentStore Base1_0;
+    typedef ::android::hardware::media::c2::V1_1::IComponentStore Base1_1;
+    typedef Base1_0 Base;
 
     struct Listener;
 
@@ -144,6 +154,8 @@ struct Codec2Client : public Codec2ConfigurableClient {
     typedef Codec2Client Store;
 
     sp<Base> const& getBase() const;
+    sp<Base1_0> const& getBase1_0() const;
+    sp<Base1_1> const& getBase1_1() const;
 
     std::string const& getServiceName() const;
 
@@ -172,24 +184,35 @@ struct Codec2Client : public Codec2ConfigurableClient {
     // Note: A software service will have "_software" as a suffix.
     static std::vector<std::string> const& GetServiceNames();
 
-    // Create a service with a given service name.
-    static std::shared_ptr<Codec2Client> CreateFromService(char const* name);
+    // Create a client to a service with a given name.
+    //
+    // After a client to the service is successfully created, if
+    // setAsPreferredCodec2ComponentStore is true, the component store that the
+    // service hosts will be set as the preferred C2ComponentStore for this
+    // process. (See SetPreferredCodec2ComponentStore() for more information.)
+    static std::shared_ptr<Codec2Client> CreateFromService(
+            char const* name,
+            bool setAsPreferredCodec2ComponentStore = false);
 
     // Get clients to all services.
     static std::vector<std::shared_ptr<Codec2Client>> CreateFromAllServices();
 
     // Try to create a component with a given name from all known
-    // IComponentStore services.
+    // IComponentStore services. numberOfAttempts determines the number of times
+    // to retry the HIDL call if the transaction fails.
     static std::shared_ptr<Component> CreateComponentByName(
             char const* componentName,
             std::shared_ptr<Listener> const& listener,
-            std::shared_ptr<Codec2Client>* owner = nullptr);
+            std::shared_ptr<Codec2Client>* owner = nullptr,
+            size_t numberOfAttempts = 10);
 
     // Try to create a component interface with a given name from all known
-    // IComponentStore services.
+    // IComponentStore services. numberOfAttempts determines the number of times
+    // to retry the HIDL call if the transaction fails.
     static std::shared_ptr<Interface> CreateInterfaceByName(
             char const* interfaceName,
-            std::shared_ptr<Codec2Client>* owner = nullptr);
+            std::shared_ptr<Codec2Client>* owner = nullptr,
+            size_t numberOfAttempts = 10);
 
     // List traits from all known IComponentStore services.
     static std::vector<C2Component::Traits> const& ListComponents();
@@ -202,13 +225,28 @@ struct Codec2Client : public Codec2ConfigurableClient {
     Codec2Client(sp<Base> const& base, size_t serviceIndex);
 
 protected:
-    sp<Base> mBase;
+    sp<Base1_0> mBase1_0;
+    sp<Base1_1> mBase1_1;
 
-    // Finds the first store where the predicate returns OK, and returns the last
-    // predicate result. Uses key to remember the last store found, and if cached,
-    // it tries that store before trying all stores (one retry).
+    // Finds the first store where the predicate returns C2_OK and returns the
+    // last predicate result. The predicate will be tried on all stores. The
+    // function will return C2_OK the first time the predicate returns C2_OK,
+    // or it will return the value from the last time that predicate is tried.
+    // (The latter case corresponds to a failure on every store.) The order of
+    // the stores to try is the same as the return value of GetServiceNames().
+    //
+    // key is used to remember the last store with which the predicate last
+    // succeeded. If the last successful store is cached, it will be tried
+    // first before all the stores are tried. Note that the last successful
+    // store will be tried twice---first before all the stores, and another time
+    // with all the stores.
+    //
+    // If an attempt to evaluate the predicate results in a transaction failure,
+    // repeated attempts will be made until the predicate returns without a
+    // transaction failure or numberOfAttempts attempts have been made.
     static c2_status_t ForAllServices(
             const std::string& key,
+            size_t numberOfAttempts,
             std::function<c2_status_t(std::shared_ptr<Codec2Client> const&)>
                 predicate);
 
@@ -277,7 +315,9 @@ struct Codec2Client::Listener {
 
 struct Codec2Client::Component : public Codec2Client::Configurable {
 
-    typedef ::android::hardware::media::c2::V1_0::IComponent Base;
+    typedef ::android::hardware::media::c2::V1_0::IComponent Base1_0;
+    typedef ::android::hardware::media::c2::V1_1::IComponent Base1_1;
+    typedef Base1_0 Base;
 
     c2_status_t createBlockPool(
             C2Allocator::id_t id,
@@ -303,6 +343,17 @@ struct Codec2Client::Component : public Codec2Client::Configurable {
     c2_status_t reset();
 
     c2_status_t release();
+
+    /**
+     * Use tunneling.
+     *
+     * On success, @p sidebandHandle will be a newly allocated native handle.
+     * File descriptors in @p sidebandHandle must be closed and
+     * @p sidebandHandle itself must be deleted afterwards.
+     */
+    c2_status_t configureVideoTunnel(
+            uint32_t avSyncHwId,
+            native_handle_t** sidebandHandle);
 
     typedef ::android::
             IGraphicBufferProducer IGraphicBufferProducer;
@@ -360,17 +411,19 @@ struct Codec2Client::Component : public Codec2Client::Configurable {
 
     // base cannot be null.
     Component(const sp<Base>& base);
+    Component(const sp<Base1_1>& base);
 
     ~Component();
 
 protected:
-    sp<Base> mBase;
+    sp<Base1_0> mBase1_0;
+    sp<Base1_1> mBase1_1;
 
-    ::android::hardware::media::c2::V1_0::utils::DefaultBufferPoolSender
-            mBufferPoolSender;
+    struct BufferPoolSender;
+    std::unique_ptr<BufferPoolSender> mBufferPoolSender;
 
-    ::android::hardware::media::c2::V1_0::utils::OutputBufferQueue
-            mOutputBufferQueue;
+    struct OutputBufferQueue;
+    std::unique_ptr<OutputBufferQueue> mOutputBufferQueue;
 
     static c2_status_t setDeathListener(
             const std::shared_ptr<Component>& component,

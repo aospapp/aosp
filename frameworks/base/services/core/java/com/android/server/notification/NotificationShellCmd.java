@@ -16,6 +16,12 @@
 
 package com.android.server.notification;
 
+import static android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_ALL;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_NONE;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY;
+import static android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN;
+
 import android.app.ActivityManager;
 import android.app.INotificationManager;
 import android.app.Notification;
@@ -26,6 +32,7 @@ import android.app.Person;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.ParceledListSlice;
 import android.content.res.Resources;
 import android.graphics.drawable.BitmapDrawable;
@@ -33,6 +40,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.ShellCommand;
 import android.os.UserHandle;
@@ -42,25 +50,36 @@ import android.util.Slog;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Date;
 
 /**
  * Implementation of `cmd notification` in NotificationManagerService.
  */
 public class NotificationShellCmd extends ShellCommand {
-    private static final String USAGE =
-              "usage: cmd notification SUBCMD [args]\n\n"
+    private static final String TAG = "NotifShellCmd";
+    private static final String USAGE = "usage: cmd notification SUBCMD [args]\n\n"
             + "SUBCMDs:\n"
             + "  allow_listener COMPONENT [user_id (current user if not specified)]\n"
             + "  disallow_listener COMPONENT [user_id (current user if not specified)]\n"
             + "  allow_assistant COMPONENT [user_id (current user if not specified)]\n"
             + "  remove_assistant COMPONENT [user_id (current user if not specified)]\n"
+            + "  set_dnd [on|none (same as on)|priority|alarms|all|off (same as all)]"
             + "  allow_dnd PACKAGE [user_id (current user if not specified)]\n"
             + "  disallow_dnd PACKAGE [user_id (current user if not specified)]\n"
             + "  suspend_package PACKAGE\n"
             + "  unsuspend_package PACKAGE\n"
             + "  reset_assistant_user_set [user_id (current user if not specified)]\n"
             + "  get_approved_assistant [user_id (current user if not specified)]\n"
-            + "  post [--help | flags] TAG TEXT";
+            + "  post [--help | flags] TAG TEXT\n"
+            + "  set_bubbles PACKAGE PREFERENCE (0=none 1=all 2=selected) "
+                    + "[user_id (current user if not specified)]\n"
+            + "  set_bubbles_channel PACKAGE CHANNEL_ID ALLOW "
+                    + "[user_id (current user if not specified)]\n"
+            + "  list\n"
+            + "  get <notification-key>\n"
+            + "  snooze --for <msec> <notification-key>\n"
+            + "  unsnooze <notification-key>\n"
+            ;
 
     private static final String NOTIFY_USAGE =
               "usage: cmd notification post [flags] <tag> <text>\n\n"
@@ -89,18 +108,24 @@ public class NotificationShellCmd extends ShellCommand {
             + "an <intentspec> is (broadcast|service|activity) <args>\n"
             + "  <args> are as described in `am start`";
 
-    public static final int NOTIFICATION_ID = 1138;
-    public static final String NOTIFICATION_PACKAGE = "com.android.shell";
-    public static final String CHANNEL_ID = "shellcmd";
+    public static final int NOTIFICATION_ID = 2020;
+    public static final String CHANNEL_ID = "shell_cmd";
     public static final String CHANNEL_NAME = "Shell command";
     public static final int CHANNEL_IMP = NotificationManager.IMPORTANCE_DEFAULT;
 
     private final NotificationManagerService mDirectService;
     private final INotificationManager mBinderService;
+    private final PackageManager mPm;
+    private NotificationChannel mChannel;
 
     public NotificationShellCmd(NotificationManagerService service) {
         mDirectService = service;
         mBinderService = service.getBinderService();
+        mPm = mDirectService.getContext().getPackageManager();
+    }
+
+    protected boolean checkShellCommandPermission(int callingUid) {
+        return (callingUid == Process.ROOT_UID || callingUid == Process.SHELL_UID);
     }
 
     @Override
@@ -108,9 +133,58 @@ public class NotificationShellCmd extends ShellCommand {
         if (cmd == null) {
             return handleDefaultCommands(cmd);
         }
+        String callingPackage = null;
+        final int callingUid = Binder.getCallingUid();
+        long identity = Binder.clearCallingIdentity();
+        try {
+            if (callingUid == Process.ROOT_UID) {
+                callingPackage = NotificationManagerService.ROOT_PKG;
+            } else {
+                String[] packages = mPm.getPackagesForUid(callingUid);
+                if (packages != null && packages.length > 0) {
+                    callingPackage = packages[0];
+                }
+            }
+        } catch (Exception e) {
+            Slog.e(TAG, "failed to get caller pkg", e);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+
         final PrintWriter pw = getOutPrintWriter();
+
+        if (!checkShellCommandPermission(callingUid)) {
+            Slog.e(TAG, "error: permission denied: callingUid="
+                    + callingUid + " callingPackage=" + callingPackage);
+            pw.println("error: permission denied: callingUid="
+                    + callingUid + " callingPackage=" + callingPackage);
+            return 255;
+        }
+
         try {
             switch (cmd.replace('-', '_')) {
+                case "set_dnd": {
+                    String mode = getNextArgRequired();
+                    int interruptionFilter = INTERRUPTION_FILTER_UNKNOWN;
+                    switch(mode) {
+                        case "none":
+                        case "on":
+                            interruptionFilter = INTERRUPTION_FILTER_NONE;
+                            break;
+                        case "priority":
+                            interruptionFilter = INTERRUPTION_FILTER_PRIORITY;
+                            break;
+                        case "alarms":
+                            interruptionFilter = INTERRUPTION_FILTER_ALARMS;
+                            break;
+                        case "all":
+                        case "off":
+                            interruptionFilter = INTERRUPTION_FILTER_ALL;
+                    }
+                    final int filter = interruptionFilter;
+                    mBinderService.setInterruptionFilter(callingPackage, filter);
+                }
+                break;
                 case "allow_dnd": {
                     String packageName = getNextArgRequired();
                     int userId = ActivityManager.getCurrentUser();
@@ -224,10 +298,138 @@ public class NotificationShellCmd extends ShellCommand {
                     }
                     break;
                 }
+                case "set_bubbles": {
+                    // only use for testing
+                    String packageName = getNextArgRequired();
+                    int preference = Integer.parseInt(getNextArgRequired());
+                    if (preference > 3 || preference < 0) {
+                        pw.println("Invalid preference - must be between 0-3 "
+                                + "(0=none 1=all 2=selected)");
+                        return -1;
+                    }
+                    int userId = ActivityManager.getCurrentUser();
+                    if (peekNextArg() != null) {
+                        userId = Integer.parseInt(getNextArgRequired());
+                    }
+                    int appUid = UserHandle.getUid(userId, mPm.getPackageUid(packageName, 0));
+                    mBinderService.setBubblesAllowed(packageName, appUid, preference);
+                    break;
+                }
+                case "set_bubbles_channel": {
+                    // only use for testing
+                    String packageName = getNextArgRequired();
+                    String channelId = getNextArgRequired();
+                    boolean allow = Boolean.parseBoolean(getNextArgRequired());
+                    int userId = ActivityManager.getCurrentUser();
+                    if (peekNextArg() != null) {
+                        userId = Integer.parseInt(getNextArgRequired());
+                    }
+                    NotificationChannel channel = mBinderService.getNotificationChannel(
+                            callingPackage, userId, packageName, channelId);
+                    channel.setAllowBubbles(allow);
+                    int appUid = UserHandle.getUid(userId, mPm.getPackageUid(packageName, 0));
+                    mBinderService.updateNotificationChannelForPackage(packageName, appUid,
+                            channel);
+                    break;
+                }
                 case "post":
                 case "notify":
-                    doNotify(pw);
+                    doNotify(pw, callingPackage, callingUid);
                     break;
+                case "list":
+                    for (String key : mDirectService.mNotificationsByKey.keySet()) {
+                        pw.println(key);
+                    }
+                    break;
+                case "get": {
+                    final String key = getNextArgRequired();
+                    final NotificationRecord nr = mDirectService.getNotificationRecord(key);
+                    if (nr != null) {
+                        nr.dump(pw, "", mDirectService.getContext(), false);
+                    } else {
+                        pw.println("error: no active notification matching key: " + key);
+                        return 1;
+                    }
+                    break;
+                }
+                case "snoozed": {
+                    final StringBuilder sb = new StringBuilder();
+                    final SnoozeHelper sh = mDirectService.mSnoozeHelper;
+                    for (NotificationRecord nr : sh.getSnoozed()) {
+                        final String pkg = nr.getSbn().getPackageName();
+                        final String key = nr.getKey();
+                        pw.println(key + " snoozed, time="
+                                + sh.getSnoozeTimeForUnpostedNotification(
+                                        nr.getUserId(), pkg, key)
+                                + " context="
+                                + sh.getSnoozeContextForUnpostedNotification(
+                                        nr.getUserId(), pkg, key));
+                    }
+                    break;
+                }
+                case "unsnooze": {
+                    boolean mute = false;
+                    String key = getNextArgRequired();
+                    if ("--mute".equals(key)) {
+                        mute = true;
+                        key = getNextArgRequired();
+                    }
+                    if (null != mDirectService.mSnoozeHelper.getNotification(key)) {
+                        pw.println("unsnoozing: " + key);
+                        mDirectService.unsnoozeNotificationInt(key, null, mute);
+                    } else {
+                        pw.println("error: no snoozed otification matching key: " + key);
+                        return 1;
+                    }
+                    break;
+                }
+                case "snooze": {
+                    String subflag = getNextArg();
+                    if (subflag == null) {
+                        subflag = "help";
+                    } else if (subflag.startsWith("--")) {
+                        subflag = subflag.substring(2);
+                    }
+                    String flagarg = getNextArg();
+                    String key = getNextArg();
+                    if (key == null) subflag = "help";
+                    String criterion = null;
+                    long duration = 0;
+                    switch (subflag) {
+                        case "context":
+                        case "condition":
+                        case "criterion":
+                            criterion = flagarg;
+                            break;
+                        case "until":
+                        case "for":
+                        case "duration":
+                            duration = Long.parseLong(flagarg);
+                            break;
+                        default:
+                            pw.println("usage: cmd notification snooze (--for <msec> | "
+                                    + "--context <snooze-criterion-id>) <key>");
+                            return 1;
+                    }
+                    if (null == mDirectService.getNotificationRecord(key)) {
+                        pw.println("error: no notification matching key: " + key);
+                        return 1;
+                    }
+                    if (duration > 0 || criterion != null) {
+                        if (duration > 0) {
+                            pw.println(String.format("snoozing <%s> until time: %s", key,
+                                    new Date(System.currentTimeMillis() + duration)));
+                        } else {
+                            pw.println(String.format("snoozing <%s> until criterion: %s", key,
+                                    criterion));
+                        }
+                        mDirectService.snoozeNotificationInt(key, duration, criterion, null);
+                    } else {
+                        pw.println("error: invalid value for --" + subflag + ": " + flagarg);
+                        return 1;
+                    }
+                    break;
+                }
                 default:
                     return handleDefaultCommands(cmd);
             }
@@ -238,27 +440,14 @@ public class NotificationShellCmd extends ShellCommand {
         return 0;
     }
 
-    void ensureChannel() throws RemoteException {
-        final int uid = Binder.getCallingUid();
-        final int userid = UserHandle.getCallingUserId();
-        final long token = Binder.clearCallingIdentity();
-        try {
-            if (mBinderService.getNotificationChannelForPackage(NOTIFICATION_PACKAGE,
-                    uid, CHANNEL_ID, false) == null) {
-                final NotificationChannel chan = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME,
-                        CHANNEL_IMP);
-                Slog.v(NotificationManagerService.TAG,
-                        "creating shell channel for user " + userid + " uid " + uid + ": " + chan);
-                mBinderService.createNotificationChannelsForPackage(NOTIFICATION_PACKAGE, uid,
-                        new ParceledListSlice<NotificationChannel>(
-                                Collections.singletonList(chan)));
-                Slog.v(NotificationManagerService.TAG, "created channel: "
-                        + mBinderService.getNotificationChannelForPackage(NOTIFICATION_PACKAGE,
-                                uid, CHANNEL_ID, false));
-            }
-        } finally {
-            Binder.restoreCallingIdentity(token);
-        }
+    void ensureChannel(String callingPackage, int callingUid) throws RemoteException {
+        final NotificationChannel channel =
+                new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, CHANNEL_IMP);
+        mBinderService.createNotificationChannels(callingPackage,
+                new ParceledListSlice<>(Collections.singletonList(channel)));
+        Slog.v(NotificationManagerService.TAG, "created channel: "
+                + mBinderService.getNotificationChannel(callingPackage,
+                UserHandle.getUserId(callingUid), callingPackage, CHANNEL_ID));
     }
 
     Icon parseIcon(Resources res, String encoded) throws IllegalArgumentException {
@@ -287,7 +476,8 @@ public class NotificationShellCmd extends ShellCommand {
         return null;
     }
 
-    private int doNotify(PrintWriter pw) throws RemoteException, URISyntaxException {
+    private int doNotify(PrintWriter pw, String callingPackage, int callingUid)
+            throws RemoteException, URISyntaxException {
         final Context context = mDirectService.getContext();
         final Resources res = context.getResources();
         final Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID);
@@ -481,26 +671,18 @@ public class NotificationShellCmd extends ShellCommand {
             builder.setSmallIcon(smallIcon);
         }
 
-        ensureChannel();
+        ensureChannel(callingPackage, callingUid);
 
         final Notification n = builder.build();
         pw.println("posting:\n  " + n);
         Slog.v("NotificationManager", "posting: " + n);
 
-        final int userId = UserHandle.getCallingUserId();
-        final long token = Binder.clearCallingIdentity();
-        try {
-            mBinderService.enqueueNotificationWithTag(
-                    NOTIFICATION_PACKAGE, "android",
-                    tag, NOTIFICATION_ID,
-                    n, userId);
-        } finally {
-            Binder.restoreCallingIdentity(token);
-        }
+        mBinderService.enqueueNotificationWithTag(callingPackage, callingPackage, tag,
+                NOTIFICATION_ID, n, UserHandle.getUserId(callingUid));
 
         if (verbose) {
             NotificationRecord nr = mDirectService.findNotificationLocked(
-                    NOTIFICATION_PACKAGE, tag, NOTIFICATION_ID, userId);
+                    callingPackage, tag, NOTIFICATION_ID, UserHandle.getUserId(callingUid));
             for (int tries = 3; tries-- > 0; ) {
                 if (nr != null) break;
                 try {
@@ -509,7 +691,7 @@ public class NotificationShellCmd extends ShellCommand {
                 } catch (InterruptedException e) {
                 }
                 nr = mDirectService.findNotificationLocked(
-                        NOTIFICATION_PACKAGE, tag, NOTIFICATION_ID, userId);
+                        callingPackage, tag, NOTIFICATION_ID, UserHandle.getUserId(callingUid));
             }
             if (nr == null) {
                 pw.println("warning: couldn't find notification after enqueueing");

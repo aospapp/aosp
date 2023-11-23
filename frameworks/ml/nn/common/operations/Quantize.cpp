@@ -22,6 +22,7 @@
 #include "OperationResolver.h"
 #include "Tracing.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace android {
@@ -36,25 +37,28 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
-bool quantizeFloat32ToQuant8(const float* inputData, uint8_t* outputData,
-                             const Shape& outputShape) {
-    NNTRACE_COMP("quantizeFloat32ToQuant8");
+using namespace hal;
+
+template <typename T>
+bool quantizeToQuant8(const T* inputData, uint8_t* outputData, const Shape& outputShape) {
+    NNTRACE_COMP("quantizeToQuant8");
     uint32_t size = getNumberOfElements(outputShape);
     for (uint32_t i = 0; i < size; ++i) {
         outputData[i] = static_cast<uint8_t>(std::max<float>(
-                0, std::min<float>(255, outputShape.offset +
-                                                std::round(inputData[i] / outputShape.scale))));
+                0.0f, std::min<float>(255.0f, outputShape.offset + std::round(inputData[i] /
+                                                                              outputShape.scale))));
     }
     return true;
 }
 
-bool quantizeFloat16ToQuant8(const _Float16* inputData, uint8_t* outputData,
-                             const Shape& outputShape) {
-    NNTRACE_COMP("quantizeFloat16ToQuant8");
+template <typename T>
+bool quantizeToQuant8Signed(const T* inputData, int8_t* outputData, const Shape& outputShape) {
+    NNTRACE_COMP("quantizeToQuant8Signed");
     uint32_t size = getNumberOfElements(outputShape);
     for (uint32_t i = 0; i < size; ++i) {
-        outputData[i] = static_cast<uint8_t>(std::max<float>(
-                0, std::min<float>(255, outputShape.offset +
+        outputData[i] = static_cast<int8_t>(std::max<float>(
+                -128.0f,
+                std::min<float>(127.0f, outputShape.offset +
                                                 std::round(inputData[i] / outputShape.scale))));
     }
     return true;
@@ -72,9 +76,14 @@ bool validate(const IOperationValidationContext* context) {
     NN_RET_CHECK(inputType == OperandType::TENSOR_FLOAT16 ||
                  inputType == OperandType::TENSOR_FLOAT32)
             << "Unsupported input operand type for QUANTIZE op: " << toString(inputType);
-    NN_RET_CHECK(outputType == OperandType::TENSOR_QUANT8_ASYMM)
+    NN_RET_CHECK(outputType == OperandType::TENSOR_QUANT8_ASYMM ||
+                 outputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
             << "Unsupported output operand type for QUANTIZE op: " << toString(outputType);
-    return validateHalVersion(context, HalVersion::V1_2);
+    if (outputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        return validateHalVersion(context, HalVersion::V1_3);
+    } else {
+        return validateHalVersion(context, HalVersion::V1_2);
+    }
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -89,14 +98,27 @@ bool execute(IOperationExecutionContext* context) {
     if (getNumberOfElements(context->getOutputShape(kOutputTensor)) == 0) return true;
 
     const OperandType inputType = context->getInputType(kInputTensor);
+    const OperandType outputType = context->getOutputType(kOutputTensor);
     if (inputType == OperandType::TENSOR_FLOAT32) {
-        return quantizeFloat32ToQuant8(context->getInputBuffer<float>(kInputTensor),
-                                       context->getOutputBuffer<uint8_t>(kOutputTensor),
-                                       context->getOutputShape(kOutputTensor));
+        if (outputType == OperandType::TENSOR_QUANT8_ASYMM) {
+            return quantizeToQuant8<float>(context->getInputBuffer<float>(kInputTensor),
+                                           context->getOutputBuffer<uint8_t>(kOutputTensor),
+                                           context->getOutputShape(kOutputTensor));
+        } else if (outputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+            return quantizeToQuant8Signed<float>(context->getInputBuffer<float>(kInputTensor),
+                                                 context->getOutputBuffer<int8_t>(kOutputTensor),
+                                                 context->getOutputShape(kOutputTensor));
+        }
     } else if (inputType == OperandType::TENSOR_FLOAT16) {
-        return quantizeFloat16ToQuant8(context->getInputBuffer<_Float16>(kInputTensor),
-                                       context->getOutputBuffer<uint8_t>(kOutputTensor),
-                                       context->getOutputShape(kOutputTensor));
+        if (outputType == OperandType::TENSOR_QUANT8_ASYMM) {
+            return quantizeToQuant8<_Float16>(context->getInputBuffer<_Float16>(kInputTensor),
+                                              context->getOutputBuffer<uint8_t>(kOutputTensor),
+                                              context->getOutputShape(kOutputTensor));
+        } else if (outputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+            return quantizeToQuant8Signed<_Float16>(context->getInputBuffer<_Float16>(kInputTensor),
+                                                    context->getOutputBuffer<int8_t>(kOutputTensor),
+                                                    context->getOutputShape(kOutputTensor));
+        }
     }
     NN_RET_CHECK_FAIL() << "Unsupported tensor types combination for QUANTIZE op. (input type: "
                         << toString(inputType)

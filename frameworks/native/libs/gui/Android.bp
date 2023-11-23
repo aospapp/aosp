@@ -15,6 +15,19 @@ cc_library_headers {
     name: "libgui_headers",
     vendor_available: true,
     export_include_dirs: ["include"],
+
+    // we must build this module to get the required header as that is generated
+    export_shared_lib_headers: [
+        "android.hidl.token@1.0-utils",
+        "android.hardware.graphics.bufferqueue@1.0",
+        "android.hardware.graphics.bufferqueue@2.0",
+    ],
+    shared_libs: [
+        "android.hidl.token@1.0-utils",
+        "android.hardware.graphics.bufferqueue@1.0",
+        "android.hardware.graphics.bufferqueue@2.0",
+    ],
+    min_sdk_version: "29",
 }
 
 cc_library_shared {
@@ -28,16 +41,26 @@ cc_library_shared {
     defaults: ["libgui_bufferqueue-defaults"],
 
     srcs: [
+        ":framework_native_aidl",
+        ":libgui_bufferqueue_sources",
+
         "BitTube.cpp",
+        "BLASTBufferQueue.cpp",
         "BufferHubConsumer.cpp",
         "BufferHubProducer.cpp",
         "BufferItemConsumer.cpp",
         "ConsumerBase.cpp",
         "CpuConsumer.cpp",
+        "DebugEGLImageTracker.cpp",
+        "DisplayEventDispatcher.cpp",
         "DisplayEventReceiver.cpp",
         "GLConsumer.cpp",
         "GuiConfig.cpp",
+        "IConsumerListener.cpp",
         "IDisplayEventConnection.cpp",
+        "IGraphicBufferConsumer.cpp",
+        "IGraphicBufferProducer.cpp",
+        "IProducerListener.cpp",
         "IRegionSamplingListener.cpp",
         "ISurfaceComposer.cpp",
         "ISurfaceComposerClient.cpp",
@@ -45,20 +68,30 @@ cc_library_shared {
         "LayerDebugInfo.cpp",
         "LayerMetadata.cpp",
         "LayerState.cpp",
+        "OccupancyTracker.cpp",
         "StreamSplitter.cpp",
         "Surface.cpp",
         "SurfaceControl.cpp",
         "SurfaceComposerClient.cpp",
         "SyncFeatures.cpp",
         "view/Surface.cpp",
+        "bufferqueue/1.0/B2HProducerListener.cpp",
+        "bufferqueue/1.0/H2BGraphicBufferProducer.cpp",
+        "bufferqueue/2.0/B2HProducerListener.cpp",
+        "bufferqueue/2.0/H2BGraphicBufferProducer.cpp",
     ],
 
     shared_libs: [
         "android.frameworks.bufferhub@1.0",
+        "libbinder",
         "libbufferhub",
         "libbufferhubqueue", // TODO(b/70046255): Remove this once BufferHub is integrated into libgui.
         "libinput",
         "libpdx_default_transport",
+    ],
+
+    export_shared_lib_headers: [
+        "libbinder",
     ],
 
     // bufferhub is not used when building libgui for vendors
@@ -86,6 +119,10 @@ cc_library_shared {
         "libdvr_headers",
         "libpdx_headers",
     ],
+
+    aidl: {
+        export_aidl_headers: true,
+    }
 }
 
 // Used by media codec services exclusively as a static lib for
@@ -93,12 +130,45 @@ cc_library_shared {
 cc_library_static {
     name: "libgui_bufferqueue_static",
     vendor_available: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media.swcodec",
+    ],
+    min_sdk_version: "29",
 
     cflags: [
         "-DNO_BUFFERHUB",
+        "-DNO_BINDER",
     ],
 
     defaults: ["libgui_bufferqueue-defaults"],
+
+    srcs: [
+        ":libgui_bufferqueue_sources",
+    ],
+}
+
+filegroup {
+    name: "libgui_bufferqueue_sources",
+    srcs: [
+        "BufferItem.cpp",
+        "BufferQueue.cpp",
+        "BufferQueueConsumer.cpp",
+        "BufferQueueCore.cpp",
+        "BufferQueueProducer.cpp",
+        "BufferQueueThreadState.cpp",
+        "BufferSlot.cpp",
+        "FrameTimestamps.cpp",
+        "GLConsumerUtils.cpp",
+        "HdrMetadata.cpp",
+        "QueueBufferInputOutput.cpp",
+        "bufferqueue/1.0/Conversion.cpp",
+        "bufferqueue/1.0/H2BProducerListener.cpp",
+        "bufferqueue/1.0/WProducerListener.cpp",
+        "bufferqueue/2.0/B2HGraphicBufferProducer.cpp",
+        "bufferqueue/2.0/H2BProducerListener.cpp",
+        "bufferqueue/2.0/types.cpp",
+    ],
 }
 
 // Common build config shared by libgui and libgui_bufferqueue_static.
@@ -125,32 +195,8 @@ cc_defaults {
         },
     },
 
-    srcs: [
-        "BufferItem.cpp",
-        "BufferQueue.cpp",
-        "BufferQueueConsumer.cpp",
-        "BufferQueueCore.cpp",
-        "BufferQueueProducer.cpp",
-        "BufferQueueThreadState.cpp",
-        "BufferSlot.cpp",
-        "FrameTimestamps.cpp",
-        "GLConsumerUtils.cpp",
-        "HdrMetadata.cpp",
-        "IConsumerListener.cpp",
-        "IGraphicBufferConsumer.cpp",
-        "IGraphicBufferProducer.cpp",
-        "IProducerListener.cpp",
-        "OccupancyTracker.cpp",
-        "bufferqueue/1.0/B2HProducerListener.cpp",
-        "bufferqueue/1.0/Conversion.cpp",
-        "bufferqueue/1.0/H2BGraphicBufferProducer.cpp",
-        "bufferqueue/1.0/H2BProducerListener.cpp",
-        "bufferqueue/1.0/WProducerListener.cpp",
-        "bufferqueue/2.0/B2HGraphicBufferProducer.cpp",
-        "bufferqueue/2.0/B2HProducerListener.cpp",
-        "bufferqueue/2.0/H2BGraphicBufferProducer.cpp",
-        "bufferqueue/2.0/H2BProducerListener.cpp",
-        "bufferqueue/2.0/types.cpp",
+    whole_static_libs: [
+        "LibGuiProperties",
     ],
 
     shared_libs: [
@@ -160,13 +206,10 @@ cc_defaults {
         "android.hardware.graphics.common@1.2",
         "android.hidl.token@1.0-utils",
         "libbase",
-        "libbinder",
         "libcutils",
         "libEGL",
         "libGLESv2",
         "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
         "liblog",
         "libnativewindow",
         "libsync",
@@ -175,13 +218,16 @@ cc_defaults {
         "libvndksupport",
     ],
 
+    static_libs: [
+        "libbinderthreadstateutils",
+    ],
+
     header_libs: [
         "libgui_headers",
         "libnativebase_headers",
     ],
 
     export_shared_lib_headers: [
-        "libbinder",
         "libEGL",
         "libnativewindow",
         "libui",
@@ -198,6 +244,23 @@ cc_defaults {
 
     export_include_dirs: [
         "include",
+    ],
+}
+
+// GMocks for use by external code
+cc_library_static {
+    name: "libgui_mocks",
+    vendor_available: false,
+
+    defaults: ["libgui_bufferqueue-defaults"],
+    static_libs: [
+        "libgtest",
+        "libgmock",
+    ],
+
+    srcs: [
+        "mock/GraphicBufferConsumer.cpp",
+        "mock/GraphicBufferProducer.cpp",
     ],
 }
 

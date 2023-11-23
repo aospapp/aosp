@@ -18,7 +18,7 @@
 package android.hardware;
 
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Build;
 
 /**
@@ -339,6 +339,8 @@ public final class Sensor {
      * for {@link #TYPE_STEP_COUNTER} instead. It is defined as a
      * {@link Sensor#REPORTING_MODE_SPECIAL_TRIGGER} sensor.
      * <p>
+     * This sensor requires permission {@code android.permission.ACTIVITY_RECOGNITION}.
+     * <p>
      * See {@link android.hardware.SensorEvent#values SensorEvent.values} for more details.
      */
     public static final int TYPE_STEP_DETECTOR = 18;
@@ -383,8 +385,6 @@ public final class Sensor {
      * Similar to {@link #TYPE_ROTATION_VECTOR}, but using a magnetometer instead of using a
      * gyroscope. This sensor uses lower power than the other rotation vectors, because it doesn't
      * use the gyroscope. However, it is more noisy and will work best outdoors.
-     * <p>
-     * This sensor requires permission {@code android.permission.ACTIVITY_RECOGNITION}.
      * <p>
      * See {@link android.hardware.SensorEvent#values SensorEvent.values} for more details.
      */
@@ -693,6 +693,22 @@ public final class Sensor {
             "android.sensor.accelerometer_uncalibrated";
 
     /**
+     * A constant describing a hinge angle sensor.
+     *
+     * See {@link android.hardware.SensorEvent#values SensorEvent.values} for more details.
+     *
+     */
+    public static final int TYPE_HINGE_ANGLE = 36;
+
+    /**
+     * A constant string describing a hinge angle sensor.
+     *
+     * @see #TYPE_HINGE_ANGLE
+     *
+     */
+    public static final String STRING_TYPE_HINGE_ANGLE = "android.sensor.hinge_angle";
+
+    /**
      * A constant describing all sensor types.
      */
 
@@ -811,6 +827,7 @@ public final class Sensor {
             16, // skip over additional sensor info type
             1, // SENSOR_TYPE_LOW_LATENCY_OFFBODY_DETECT
             6, // SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED
+            1, // SENSOR_TYPE_HINGE_ANGLE
     };
 
     /**
@@ -1226,6 +1243,8 @@ public final class Sensor {
             case TYPE_ACCELEROMETER_UNCALIBRATED:
                 mStringType = STRING_TYPE_ACCELEROMETER_UNCALIBRATED;
                 return true;
+            case TYPE_HINGE_ANGLE:
+                mStringType = STRING_TYPE_HINGE_ANGLE;
             default:
                 return false;
         }

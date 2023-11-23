@@ -17,10 +17,10 @@ limitations under the License.
 #define TENSORFLOW_CORE_UTIL_GUARDED_PHILOX_RANDOM_H_
 
 #include "philox_random.h"
-//#include "tensorflow/core/platform/mutex.h"
-//#include "tensorflow/core/platform/default/mutex.h"
-#include "tensorflow/core/platform/macros.h"
-#include "tensorflow/core/platform/types.h"
+//#include <tensorflow/core/platform/mutex.h>
+//#include <tensorflow/core/platform/default/mutex.h>
+#include <tensorflow/core/platform/macros.h>
+#include <tensorflow/core/platform/types.h>
 
 namespace tensorflow {
 

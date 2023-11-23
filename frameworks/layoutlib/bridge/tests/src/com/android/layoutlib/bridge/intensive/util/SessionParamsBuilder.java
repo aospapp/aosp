@@ -28,6 +28,7 @@ import com.android.ide.common.rendering.api.SessionParams.RenderingMode;
 import com.android.ide.common.resources.ResourceResolver;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.deprecated.ResourceRepository;
+import com.android.layoutlib.bridge.android.RenderParamsFlags;
 import com.android.layoutlib.bridge.intensive.setup.ConfigGenerator;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
 import com.android.resources.ResourceType;
@@ -60,6 +61,10 @@ public class SessionParamsBuilder {
     private AssetRepository mAssetRepository = null;
     private boolean mDecor = true;
     private IImageFactory mImageFactory = null;
+    private boolean enableShadows = true;
+    private boolean highQualityShadows = true;
+    private boolean enableLayoutValidator = false;
+    private boolean enableLayoutValidatorImageCheck = false;
 
     @NonNull
     public SessionParamsBuilder setParser(@NonNull LayoutPullParser layoutParser) {
@@ -161,6 +166,30 @@ public class SessionParamsBuilder {
     }
 
     @NonNull
+    public SessionParamsBuilder disableShadows() {
+        this.enableShadows = false;
+        return this;
+    }
+
+    @NonNull
+    public SessionParamsBuilder disableHighQualityShadows() {
+        this.highQualityShadows = false;
+        return this;
+    }
+
+    @NonNull
+    public SessionParamsBuilder enableLayoutValidation() {
+        this.enableLayoutValidator = true;
+        return this;
+    }
+
+    @NonNull
+    public SessionParamsBuilder enableLayoutValidationImageCheck() {
+        this.enableLayoutValidatorImageCheck = true;
+        return this;
+    }
+
+    @NonNull
     public SessionParams build() {
         assert mFrameworkResources != null;
         assert mProjectResources != null;
@@ -181,6 +210,12 @@ public class SessionParamsBuilder {
         SessionParams params = new SessionParams(mLayoutParser, mRenderingMode, mProjectKey /* for
         caching */, mConfigGenerator.getHardwareConfig(), resourceResolver, mLayoutlibCallback,
                 mMinSdk, mTargetSdk, mLayoutLog);
+        params.setFlag(RenderParamsFlags.FLAG_ENABLE_SHADOW, enableShadows);
+        params.setFlag(RenderParamsFlags.FLAG_RENDER_HIGH_QUALITY_SHADOW, highQualityShadows);
+        params.setFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR, enableLayoutValidator);
+        params.setFlag(
+                RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR_IMAGE_CHECK,
+                enableLayoutValidatorImageCheck);
         if (mImageFactory != null) {
             params.setImageFactory(mImageFactory);
         }

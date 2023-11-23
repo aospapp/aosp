@@ -30,17 +30,20 @@ import android.util.Log;
 
 import com.android.internal.app.ResolverActivity.ResolvedComponentInfo;
 
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 /**
  * Used to sort resolved activities in {@link ResolverListController}.
+ *
+ * @hide
  */
-abstract class AbstractResolverComparator implements Comparator<ResolvedComponentInfo> {
+public abstract class AbstractResolverComparator implements Comparator<ResolvedComponentInfo> {
 
     private static final int NUM_OF_TOP_ANNOTATIONS_TO_USE = 3;
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
     private static final String TAG = "AbstractResolverComp";
 
     protected AfterCompute mAfterCompute;
@@ -51,8 +54,6 @@ abstract class AbstractResolverComparator implements Comparator<ResolvedComponen
 
     // True if the current share is a link.
     private final boolean mHttp;
-    // can be null if mHttp == false or current user has no default browser package
-    private final String mDefaultBrowserPackageName;
 
     // message types
     static final int RANKER_SERVICE_RESULT = 0;
@@ -61,6 +62,8 @@ abstract class AbstractResolverComparator implements Comparator<ResolvedComponen
     // timeout for establishing connections with a ResolverRankerService, collecting features and
     // predicting ranking scores.
     private static final int WATCHDOG_TIMEOUT_MILLIS = 500;
+
+    private final Comparator<ResolveInfo> mAzComparator;
 
     protected final Handler mHandler = new Handler(Looper.getMainLooper()) {
         public void handleMessage(Message msg) {
@@ -90,16 +93,14 @@ abstract class AbstractResolverComparator implements Comparator<ResolvedComponen
         }
     };
 
-    AbstractResolverComparator(Context context, Intent intent) {
+    public AbstractResolverComparator(Context context, Intent intent) {
         String scheme = intent.getScheme();
         mHttp = "http".equals(scheme) || "https".equals(scheme);
         mContentType = intent.getType();
         getContentAnnotations(intent);
         mPm = context.getPackageManager();
         mUsm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
-        mDefaultBrowserPackageName = mHttp
-                ? mPm.getDefaultBrowserPackageNameAsUser(UserHandle.myUserId())
-                : null;
+        mAzComparator = new AzInfoComparator(context);
     }
 
     // get annotations of content from intent.
@@ -151,23 +152,26 @@ abstract class AbstractResolverComparator implements Comparator<ResolvedComponen
         }
 
         if (mHttp) {
-            // Special case: we want filters that match URI paths/schemes to be
-            // ordered before others.  This is for the case when opening URIs,
-            // to make native apps go above browsers - except for 1 even more special case
-            // which is the default browser, as we want that to go above them all.
-            if (isDefaultBrowser(lhs)) {
-                return -1;
-            }
-
-            if (isDefaultBrowser(rhs)) {
-                return 1;
-            }
             final boolean lhsSpecific = ResolverActivity.isSpecificUriMatch(lhs.match);
             final boolean rhsSpecific = ResolverActivity.isSpecificUriMatch(rhs.match);
             if (lhsSpecific != rhsSpecific) {
                 return lhsSpecific ? -1 : 1;
             }
         }
+
+        final boolean lPinned = lhsp.isPinned();
+        final boolean rPinned = rhsp.isPinned();
+
+        // Pinned items always receive priority.
+        if (lPinned && !rPinned) {
+            return -1;
+        } else if (!lPinned && rPinned) {
+            return 1;
+        } else if (lPinned && rPinned) {
+            // If both items are pinned, resolve the tie alphabetically.
+            return mAzComparator.compare(lhsp.getResolveInfoAt(0), rhsp.getResolveInfoAt(0));
+        }
+
         return compare(lhs, rhs);
     }
 
@@ -200,6 +204,12 @@ abstract class AbstractResolverComparator implements Comparator<ResolvedComponen
      * when {@link #compute(List)} was called before this.
      */
     abstract float getScore(ComponentName name);
+
+    /**
+     * Returns the list of top K component names which have highest
+     * {@link #getScore(ComponentName)}
+     */
+    abstract List<ComponentName> getTopComponentNames(int topK);
 
     /** Handles result message sent to mHandler. */
     abstract void handleResultMessage(Message message);
@@ -243,19 +253,27 @@ abstract class AbstractResolverComparator implements Comparator<ResolvedComponen
         mHandler.removeMessages(RANKER_SERVICE_RESULT);
         mHandler.removeMessages(RANKER_RESULT_TIMEOUT);
         afterCompute();
+        mAfterCompute = null;
     }
 
-    private boolean isDefaultBrowser(ResolveInfo ri) {
-        // It makes sense to prefer the default browser
-        // only if the targeted user is the current user
-        if (ri.targetUserId != UserHandle.USER_CURRENT) {
-            return false;
+    /**
+     * Sort intents alphabetically based on package name.
+     */
+    class AzInfoComparator implements Comparator<ResolveInfo> {
+        Collator mCollator;
+        AzInfoComparator(Context context) {
+            mCollator = Collator.getInstance(context.getResources().getConfiguration().locale);
         }
 
-        if (ri.activityInfo.packageName != null
-                    && ri.activityInfo.packageName.equals(mDefaultBrowserPackageName)) {
-            return true;
+        @Override
+        public int compare(ResolveInfo lhsp, ResolveInfo rhsp) {
+            if (lhsp == null) {
+                return -1;
+            } else if (rhsp == null) {
+                return 1;
+            }
+            return mCollator.compare(lhsp.activityInfo.packageName, rhsp.activityInfo.packageName);
         }
-        return false;
     }
+
 }

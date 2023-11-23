@@ -25,6 +25,6 @@ using android::nn::sample_driver::SampleDriverFull;
 
 int main() {
     sp<SampleDriverFull> driver(
-            new SampleDriverFull("sample-all", {.execTime = 1.1f, .powerUsage = 1.1f}));
+            new SampleDriverFull("nnapi-sample_all", {.execTime = 1.1f, .powerUsage = 1.1f}));
     return driver->run();
 }

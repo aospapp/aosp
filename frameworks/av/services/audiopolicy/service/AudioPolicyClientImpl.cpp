@@ -17,9 +17,11 @@
 #define LOG_TAG "AudioPolicyClientImpl"
 //#define LOG_NDEBUG 0
 
-#include <soundtrigger/SoundTrigger.h>
-#include <utils/Log.h>
 #include "AudioPolicyService.h"
+
+#include <utils/Log.h>
+
+#include "BinderProxy.h"
 
 namespace android {
 
@@ -39,8 +41,7 @@ audio_module_handle_t AudioPolicyService::AudioPolicyClient::loadHwModule(const 
 status_t AudioPolicyService::AudioPolicyClient::openOutput(audio_module_handle_t module,
                                                            audio_io_handle_t *output,
                                                            audio_config_t *config,
-                                                           audio_devices_t *devices,
-                                                           const String8& address,
+                                                           const sp<DeviceDescriptorBase>& device,
                                                            uint32_t *latencyMs,
                                                            audio_output_flags_t flags)
 {
@@ -49,7 +50,7 @@ status_t AudioPolicyService::AudioPolicyClient::openOutput(audio_module_handle_t
         ALOGW("%s: could not get AudioFlinger", __func__);
         return PERMISSION_DENIED;
     }
-    return af->openOutput(module, output, config, devices, address, latencyMs, flags);
+    return af->openOutput(module, output, config, device, latencyMs, flags);
 }
 
 audio_io_handle_t AudioPolicyService::AudioPolicyClient::openDuplicateOutput(
@@ -238,6 +239,11 @@ void AudioPolicyService::AudioPolicyClient::onAudioVolumeGroupChanged(volume_gro
 audio_unique_id_t AudioPolicyService::AudioPolicyClient::newAudioUniqueId(audio_unique_id_use_t use)
 {
     return AudioSystem::newAudioUniqueId(use);
+}
+
+void AudioPolicyService::AudioPolicyClient::setSoundTriggerCaptureState(bool active)
+{
+    mAudioPolicyService->mCaptureStateNotifier.setCaptureState(active);
 }
 
 } // namespace android

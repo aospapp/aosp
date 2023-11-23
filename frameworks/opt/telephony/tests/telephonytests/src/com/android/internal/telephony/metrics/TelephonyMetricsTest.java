@@ -16,6 +16,8 @@
 
 package com.android.internal.telephony.metrics;
 
+import static android.telephony.NetworkRegistrationInfo.NR_STATE_NONE;
+import static android.telephony.ServiceState.FREQUENCY_RANGE_UNKNOWN;
 import static android.telephony.ServiceState.RIL_RADIO_TECHNOLOGY_LTE;
 import static android.telephony.ServiceState.ROAMING_TYPE_DOMESTIC;
 
@@ -35,8 +37,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 
+import android.net.InetAddresses;
 import android.net.LinkAddress;
-import android.net.NetworkUtils;
+import android.net.NetworkCapabilities;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
@@ -67,6 +70,8 @@ import com.android.internal.telephony.nano.TelephonyProto.TelephonyCallSession.E
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyEvent;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyLog;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState;
+import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState.FrequencyRange;
+import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState.NrState;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState.RoamingType;
 
 import org.junit.After;
@@ -99,6 +104,7 @@ public class TelephonyMetricsTest extends TelephonyTest {
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
         mMetrics = new TelephonyMetrics();
+        mMetrics.setContext(mContext);
         mUusInfo = new UUSInfo(1, 2, new byte[]{1, 2});
         doReturn("123").when(mImsCallSession).getCallId();
         mImsReasonInfo = new ImsReasonInfo();
@@ -108,14 +114,13 @@ public class TelephonyMetricsTest extends TelephonyTest {
 
         doReturn(ROAMING_TYPE_DOMESTIC).when(mServiceState).getVoiceRoamingType();
         doReturn(ROAMING_TYPE_DOMESTIC).when(mServiceState).getDataRoamingType();
-        doReturn("voiceshort").when(mServiceState).getVoiceOperatorAlphaShort();
-        doReturn("voicelong").when(mServiceState).getVoiceOperatorAlphaLong();
-        doReturn("datashort").when(mServiceState).getDataOperatorAlphaShort();
-        doReturn("datalong").when(mServiceState).getDataOperatorAlphaLong();
-        doReturn("123456").when(mServiceState).getVoiceOperatorNumeric();
-        doReturn("123456").when(mServiceState).getDataOperatorNumeric();
+        doReturn("short").when(mServiceState).getOperatorAlphaShort();
+        doReturn("long").when(mServiceState).getOperatorAlphaLong();
+        doReturn("123456").when(mServiceState).getOperatorNumeric();
         doReturn(RIL_RADIO_TECHNOLOGY_LTE).when(mServiceState).getRilVoiceRadioTechnology();
         doReturn(RIL_RADIO_TECHNOLOGY_LTE).when(mServiceState).getRilDataRadioTechnology();
+        doReturn(FREQUENCY_RANGE_UNKNOWN).when(mServiceState).getNrFrequencyRange();
+        doReturn(NR_STATE_NONE).when(mServiceState).getNrState();
     }
 
     @After
@@ -280,7 +285,8 @@ public class TelephonyMetricsTest extends TelephonyTest {
                 EmergencyNumber.EMERGENCY_NUMBER_SOURCE_NETWORK_SIGNALING,
                 EmergencyNumber.EMERGENCY_CALL_ROUTING_NORMAL);
 
-        mMetrics.writeEmergencyNumberUpdateEvent(mPhone.getPhoneId(), number);
+        mMetrics.writeEmergencyNumberUpdateEvent(mPhone.getPhoneId(), number,
+                TelephonyManager.INVALID_EMERGENCY_NUMBER_DB_VERSION);
         TelephonyLog log = buildProto();
 
         assertEquals(1, log.events.length);
@@ -298,6 +304,34 @@ public class TelephonyMetricsTest extends TelephonyTest {
                 log.events[0].updatedEmergencyNumber.numberSourcesBitmask);
         assertEquals(EmergencyNumber.EMERGENCY_CALL_ROUTING_NORMAL,
                 log.events[0].updatedEmergencyNumber.routing);
+        assertEquals(TelephonyManager.INVALID_EMERGENCY_NUMBER_DB_VERSION,
+                log.events[0].emergencyNumberDatabaseVersion);
+    }
+
+    // Test write Network Capabilities changed event
+    @Test
+    @SmallTest
+    public void testWriteNetworkCapabilitiesChangedEvent() throws Exception {
+        NetworkCapabilities caps = new NetworkCapabilities();
+        caps.addCapability(NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED);
+        mMetrics.writeNetworkCapabilitiesChangedEvent(mPhone.getPhoneId(), caps);
+
+        caps.removeCapability(NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED);
+        mMetrics.writeNetworkCapabilitiesChangedEvent(mPhone.getPhoneId(), caps);
+
+        TelephonyLog log = buildProto();
+
+        assertEquals(2, log.events.length);
+        assertEquals(0, log.callSessions.length);
+        assertEquals(0, log.smsSessions.length);
+
+        assertEquals(mPhone.getPhoneId(), log.events[0].phoneId);
+        assertEquals(TelephonyEvent.Type.NETWORK_CAPABILITIES_CHANGED, log.events[0].type);
+        assertTrue(log.events[0].networkCapabilities.isNetworkUnmetered);
+
+        assertEquals(mPhone.getPhoneId(), log.events[1].phoneId);
+        assertEquals(TelephonyEvent.Type.NETWORK_CAPABILITIES_CHANGED, log.events[1].type);
+        assertFalse(log.events[1].networkCapabilities.isNetworkUnmetered);
     }
 
     // Test write on IMS call start
@@ -470,19 +504,22 @@ public class TelephonyMetricsTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testWriteOnSetupDataCallResponse() throws Exception {
-        DataCallResponse response = new DataCallResponse(
-                5, /* status */
-                6, /* suggestedRetryTime */
-                7, /* cid */
-                8, /* active */
-                ApnSetting.PROTOCOL_IPV4V6, /* protocolType */
-                FAKE_IFNAME, /* ifname */
-                Arrays.asList(new LinkAddress(
-                       NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)), /* addresses */
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)), /* dnses */
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)), /* gateways */
-                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)), /* pcscfs */
-                1440 /* mtu */);
+        DataCallResponse response = new DataCallResponse.Builder()
+                .setCause(5)
+                .setSuggestedRetryTime(6)
+                .setId(7)
+                .setLinkStatus(8)
+                .setProtocolType(ApnSetting.PROTOCOL_IPV4V6)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
 
         mMetrics.writeOnRilSolicitedResponse(mPhone.getPhoneId(), 1, 2,
                 RIL_REQUEST_SETUP_DATA_CALL, response);
@@ -675,17 +712,21 @@ public class TelephonyMetricsTest extends TelephonyTest {
 
         assertEquals(RoamingType.ROAMING_TYPE_DOMESTIC, state.dataRoamingType);
 
-        assertEquals("voicelong", state.voiceOperator.alphaLong);
+        assertEquals("long", state.voiceOperator.alphaLong);
 
-        assertEquals("voiceshort", state.voiceOperator.alphaShort);
+        assertEquals("short", state.voiceOperator.alphaShort);
 
         assertEquals("123456", state.voiceOperator.numeric);
 
-        assertEquals("datalong", state.dataOperator.alphaLong);
+        assertEquals("long", state.dataOperator.alphaLong);
 
-        assertEquals("datashort", state.dataOperator.alphaShort);
+        assertEquals("short", state.dataOperator.alphaShort);
 
         assertEquals("123456", state.dataOperator.numeric);
+
+        assertEquals(FrequencyRange.FREQUENCY_RANGE_UNKNOWN, state.nrFrequencyRange);
+
+        assertEquals(NrState.NR_STATE_NONE, state.nrState);
     }
 
     // Test reset scenario
@@ -719,15 +760,15 @@ public class TelephonyMetricsTest extends TelephonyTest {
 
         assertEquals(RoamingType.ROAMING_TYPE_DOMESTIC, state.dataRoamingType);
 
-        assertEquals("voicelong", state.voiceOperator.alphaLong);
+        assertEquals("long", state.voiceOperator.alphaLong);
 
-        assertEquals("voiceshort", state.voiceOperator.alphaShort);
+        assertEquals("short", state.voiceOperator.alphaShort);
 
         assertEquals("123456", state.voiceOperator.numeric);
 
-        assertEquals("datalong", state.dataOperator.alphaLong);
+        assertEquals("long", state.dataOperator.alphaLong);
 
-        assertEquals("datashort", state.dataOperator.alphaShort);
+        assertEquals("short", state.dataOperator.alphaShort);
 
         assertEquals("123456", state.dataOperator.numeric);
     }

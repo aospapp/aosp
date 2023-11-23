@@ -16,23 +16,18 @@
 package com.android.server.wifi;
 
 import static android.net.wifi.WifiManager.WIFI_FEATURE_DPP;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_FILS_SHA256;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_FILS_SHA384;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_MBO;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_OCE;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_OWE;
+import static android.net.wifi.WifiManager.WIFI_FEATURE_WAPI;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_WPA3_SAE;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_WPA3_SUITE_B;
 
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.ANQP3GPPNetwork;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.ANQPDomName;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.ANQPIPAddrAvailability;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.ANQPNAIRealm;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.ANQPRoamingConsortium;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.ANQPVenueName;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.HSConnCapability;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.HSFriendlyName;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.HSOSUProviders;
-import static com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType.HSWANMetrics;
-
 import android.annotation.NonNull;
 import android.content.Context;
+import android.hardware.wifi.V1_0.WifiChannelWidthInMhz;
 import android.hardware.wifi.supplicant.V1_0.ISupplicant;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantIface;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantNetwork;
@@ -43,49 +38,41 @@ import android.hardware.wifi.supplicant.V1_0.IfaceType;
 import android.hardware.wifi.supplicant.V1_0.SupplicantStatus;
 import android.hardware.wifi.supplicant.V1_0.SupplicantStatusCode;
 import android.hardware.wifi.supplicant.V1_0.WpsConfigMethods;
-import android.hardware.wifi.supplicant.V1_2.DppAkm;
-import android.hardware.wifi.supplicant.V1_2.DppFailureCode;
+import android.hardware.wifi.supplicant.V1_3.ConnectionCapabilities;
+import android.hardware.wifi.supplicant.V1_3.WifiTechnology;
+import android.hardware.wifi.supplicant.V1_3.WpaDriverCapabilitiesMask;
 import android.hidl.manager.V1_0.IServiceManager;
 import android.hidl.manager.V1_0.IServiceNotification;
-import android.net.IpConfiguration;
-import android.net.wifi.SupplicantState;
+import android.net.MacAddress;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiAnnotations.WifiStandard;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiManager;
-import android.net.wifi.WifiSsid;
 import android.os.Handler;
-import android.os.HidlSupport.Mutable;
-import android.os.HwRemoteBinder;
-import android.os.Looper;
-import android.os.Process;
+import android.os.IHwBinder.DeathRecipient;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.MutableBoolean;
 import android.util.MutableInt;
 import android.util.Pair;
-import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.wifi.WifiNative.DppEventCallback;
 import com.android.server.wifi.WifiNative.SupplicantDeathEventHandler;
-import com.android.server.wifi.hotspot2.AnqpEvent;
-import com.android.server.wifi.hotspot2.IconEvent;
-import com.android.server.wifi.hotspot2.WnmData;
-import com.android.server.wifi.hotspot2.anqp.ANQPElement;
-import com.android.server.wifi.hotspot2.anqp.ANQPParser;
-import com.android.server.wifi.hotspot2.anqp.Constants;
+import com.android.server.wifi.util.GeneralUtil.Mutable;
 import com.android.server.wifi.util.NativeUtil;
 
-import java.io.IOException;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -103,11 +90,9 @@ public class SupplicantStaIfaceHal {
     @VisibleForTesting
     public static final String HAL_INSTANCE_NAME = "default";
     @VisibleForTesting
-    public static final String INIT_START_PROPERTY = "ctl.start";
+    public static final long WAIT_FOR_DEATH_TIMEOUT_MS = 50L;
     @VisibleForTesting
-    public static final String INIT_STOP_PROPERTY = "ctl.stop";
-    @VisibleForTesting
-    public static final String INIT_SERVICE_NAME = "wpa_supplicant";
+    static final String PMK_CACHE_EXPIRATION_ALARM_TAG = "PMK_CACHE_EXPIRATION_TIMER";
     /**
      * Regex pattern for extracting the wps device type bytes.
      * Matches a strings like the following: "<categ>-<OUI>-<subcateg>";
@@ -126,6 +111,8 @@ public class SupplicantStaIfaceHal {
             new HashMap<>();
     private HashMap<String, SupplicantStaNetworkHal> mCurrentNetworkRemoteHandles = new HashMap<>();
     private HashMap<String, WifiConfiguration> mCurrentNetworkLocalConfigs = new HashMap<>();
+    @VisibleForTesting
+    HashMap<Integer, PmkCacheStoreData> mPmkCacheEntries = new HashMap<>();
     private SupplicantDeathEventHandler mDeathEventHandler;
     private ServiceManagerDeathRecipient mServiceManagerDeathRecipient;
     private SupplicantDeathRecipient mSupplicantDeathRecipient;
@@ -133,9 +120,11 @@ public class SupplicantStaIfaceHal {
     private long mDeathRecipientCookie = 0;
     private final Context mContext;
     private final WifiMonitor mWifiMonitor;
-    private final PropertyService mPropertyService;
+    private final FrameworkFacade mFrameworkFacade;
     private final Handler mEventHandler;
     private DppEventCallback mDppCallback = null;
+    private final Clock mClock;
+    private final WifiMetrics mWifiMetrics;
 
     private final IServiceNotification mServiceNotificationCallback =
             new IServiceNotification.Stub() {
@@ -154,7 +143,7 @@ public class SupplicantStaIfaceHal {
             }
         }
     };
-    private class ServiceManagerDeathRecipient implements HwRemoteBinder.DeathRecipient {
+    private class ServiceManagerDeathRecipient implements DeathRecipient {
         @Override
         public void serviceDied(long cookie) {
             mEventHandler.post(() -> {
@@ -166,7 +155,7 @@ public class SupplicantStaIfaceHal {
             });
         }
     }
-    private class SupplicantDeathRecipient implements HwRemoteBinder.DeathRecipient {
+    private class SupplicantDeathRecipient implements DeathRecipient {
         @Override
         public void serviceDied(long cookie) {
             mEventHandler.post(() -> {
@@ -178,12 +167,28 @@ public class SupplicantStaIfaceHal {
         }
     }
 
+    @VisibleForTesting
+    static class PmkCacheStoreData {
+        public long expirationTimeInSec;
+        public ArrayList<Byte> data;
+        public MacAddress macAddress;
+
+        PmkCacheStoreData(long timeInSec, ArrayList<Byte> serializedData, MacAddress macAddress) {
+            expirationTimeInSec = timeInSec;
+            data = serializedData;
+            this.macAddress = macAddress;
+        }
+    }
+
     public SupplicantStaIfaceHal(Context context, WifiMonitor monitor,
-                                 PropertyService propertyService, Looper looper) {
+                                 FrameworkFacade frameworkFacade, Handler handler,
+                                 Clock clock, WifiMetrics wifiMetrics) {
         mContext = context;
         mWifiMonitor = monitor;
-        mPropertyService = propertyService;
-        mEventHandler = new Handler(looper);
+        mFrameworkFacade = frameworkFacade;
+        mEventHandler = handler;
+        mClock = clock;
+        mWifiMetrics = wifiMetrics;
 
         mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient();
         mSupplicantDeathRecipient = new SupplicantDeathRecipient();
@@ -198,6 +203,10 @@ public class SupplicantStaIfaceHal {
         synchronized (mLock) {
             mVerboseLoggingEnabled = enable;
         }
+    }
+
+    protected boolean isVerboseLoggingEnabled() {
+        return mVerboseLoggingEnabled;
     }
 
     private boolean linkToServiceManagerDeath() {
@@ -262,11 +271,12 @@ public class SupplicantStaIfaceHal {
         }
     }
 
-    private boolean linkToSupplicantDeath() {
+    private boolean linkToSupplicantDeath(
+            DeathRecipient deathRecipient, long cookie) {
         synchronized (mLock) {
             if (mISupplicant == null) return false;
             try {
-                if (!mISupplicant.linkToDeath(mSupplicantDeathRecipient, ++mDeathRecipientCookie)) {
+                if (!mISupplicant.linkToDeath(deathRecipient, cookie)) {
                     Log.wtf(TAG, "Error on linkToDeath on ISupplicant");
                     supplicantServiceDiedHandler(mDeathRecipientCookie);
                     return false;
@@ -294,14 +304,14 @@ public class SupplicantStaIfaceHal {
                 Log.e(TAG, "Got null ISupplicant service. Stopping supplicant HIDL startup");
                 return false;
             }
-            if (!linkToSupplicantDeath()) {
+            if (!linkToSupplicantDeath(mSupplicantDeathRecipient, ++mDeathRecipientCookie)) {
                 return false;
             }
         }
         return true;
     }
 
-    private int getCurrentNetworkId(@NonNull String ifaceName) {
+    protected int getCurrentNetworkId(@NonNull String ifaceName) {
         synchronized (mLock) {
             WifiConfiguration currentConfig = getCurrentNetworkLocalConfig(ifaceName);
             if (currentConfig == null) {
@@ -309,6 +319,94 @@ public class SupplicantStaIfaceHal {
             }
             return currentConfig.networkId;
         }
+    }
+
+    private boolean trySetupStaIfaceV1_3(@NonNull String ifaceName,
+            @NonNull ISupplicantStaIface iface)  throws RemoteException {
+        if (!isV1_3()) return false;
+
+        SupplicantStaIfaceHalCallbackV1_3 callbackV13 =
+                new SupplicantStaIfaceHalCallbackV1_3(ifaceName);
+        if (!registerCallbackV1_3(getStaIfaceMockableV1_3(iface), callbackV13)) {
+            throw new RemoteException("Init StaIface V1_3 failed.");
+        }
+        /* keep this in a store to avoid recycling by garbage collector. */
+        mISupplicantStaIfaceCallbacks.put(ifaceName, callbackV13);
+        return true;
+    }
+
+    private boolean trySetupStaIfaceV1_2(@NonNull String ifaceName,
+            @NonNull ISupplicantStaIface iface) throws RemoteException {
+        if (!isV1_2()) return false;
+
+        /* try newer version fist. */
+        if (trySetupStaIfaceV1_3(ifaceName, iface)) {
+            logd("Newer HAL is found, skip V1_2 remaining init flow.");
+            return true;
+        }
+
+        SupplicantStaIfaceHalCallbackV1_2 callbackV12 =
+                new SupplicantStaIfaceHalCallbackV1_2(ifaceName);
+        if (!registerCallbackV1_2(getStaIfaceMockableV1_2(iface), callbackV12)) {
+            throw new RemoteException("Init StaIface V1_2 failed.");
+        }
+        /* keep this in a store to avoid recycling by garbage collector. */
+        mISupplicantStaIfaceCallbacks.put(ifaceName, callbackV12);
+        return true;
+    }
+
+    private boolean trySetupStaIfaceV1_1(@NonNull String ifaceName,
+            @NonNull ISupplicantStaIface iface) throws RemoteException {
+        if (!isV1_1()) return false;
+
+        /* try newer version fist. */
+        if (trySetupStaIfaceV1_2(ifaceName, iface)) {
+            logd("Newer HAL is found, skip V1_1 remaining init flow.");
+            return true;
+        }
+
+        SupplicantStaIfaceHalCallbackV1_1 callbackV11 =
+                new SupplicantStaIfaceHalCallbackV1_1(ifaceName);
+        if (!registerCallbackV1_1(getStaIfaceMockableV1_1(iface), callbackV11)) {
+            throw new RemoteException("Init StaIface V1_1 failed.");
+        }
+        /* keep this in a store to avoid recycling by garbage collector. */
+        mISupplicantStaIfaceCallbacks.put(ifaceName, callbackV11);
+        return true;
+    }
+
+    /**
+     * Helper function to set up StaIface with different HAL version.
+     *
+     * This helper function would try newer version recursively.
+     * Once the latest version is found, it would register the callback
+     * of the latest version and skip unnecessary older HAL init flow.
+     *
+     * New version callback will be extended from the older one, as a result,
+     * older callback is always created regardless of the latest version.
+     *
+     * Uprev steps:
+     * 1. add new helper function trySetupStaIfaceV1_Y.
+     * 2. call newly added function in trySetupStaIfaceV1_X (X should be Y-1).
+     */
+    private ISupplicantStaIface setupStaIface(@NonNull String ifaceName,
+            @NonNull ISupplicantIface ifaceHwBinder) throws RemoteException {
+        /* Prepare base type for later cast. */
+        ISupplicantStaIface iface = getStaIfaceMockable(ifaceHwBinder);
+
+        /* try newer version first. */
+        if (trySetupStaIfaceV1_1(ifaceName, iface)) {
+            logd("Newer HAL is found, skip V1_0 remaining init flow.");
+            return iface;
+        }
+
+        SupplicantStaIfaceHalCallback callback = new SupplicantStaIfaceHalCallback(ifaceName);
+        if (!registerCallback(iface, callback)) {
+            throw new RemoteException("Init StaIface V1_0 failed.");
+        }
+        /* keep this in a store to avoid recycling by garbage collector. */
+        mISupplicantStaIfaceCallbacks.put(ifaceName, callback);
+        return iface;
     }
 
     /**
@@ -331,43 +429,15 @@ public class SupplicantStaIfaceHal {
             Log.e(TAG, "setupIface got null iface");
             return false;
         }
-        SupplicantStaIfaceHalCallback callback = new SupplicantStaIfaceHalCallback(ifaceName);
 
-        if (isV1_2()) {
-            android.hardware.wifi.supplicant.V1_2.ISupplicantStaIface iface =
-                    getStaIfaceMockableV1_2(ifaceHwBinder);
-
-            SupplicantStaIfaceHalCallbackV1_1 callbackV11 =
-                    new SupplicantStaIfaceHalCallbackV1_1(ifaceName, callback);
-
-            SupplicantStaIfaceHalCallbackV1_2 callbackV12 =
-                    new SupplicantStaIfaceHalCallbackV1_2(callbackV11);
-
-            if (!registerCallbackV1_2(iface, callbackV12)) {
-                return false;
-            }
+        try {
+            ISupplicantStaIface iface = setupStaIface(ifaceName, ifaceHwBinder);
             mISupplicantStaIfaces.put(ifaceName, iface);
-            mISupplicantStaIfaceCallbacks.put(ifaceName, callbackV11);
-        } else if (isV1_1()) {
-            android.hardware.wifi.supplicant.V1_1.ISupplicantStaIface iface =
-                    getStaIfaceMockableV1_1(ifaceHwBinder);
-            SupplicantStaIfaceHalCallbackV1_1 callbackV1_1 =
-                    new SupplicantStaIfaceHalCallbackV1_1(ifaceName, callback);
-
-            if (!registerCallbackV1_1(iface, callbackV1_1)) {
-                return false;
-            }
-            mISupplicantStaIfaces.put(ifaceName, iface);
-            mISupplicantStaIfaceCallbacks.put(ifaceName, callbackV1_1);
-        } else {
-            ISupplicantStaIface iface = getStaIfaceMockable(ifaceHwBinder);
-
-            if (!registerCallback(iface, callback)) {
-                return false;
-            }
-            mISupplicantStaIfaces.put(ifaceName, iface);
-            mISupplicantStaIfaceCallbacks.put(ifaceName, callback);
+        } catch (RemoteException e) {
+            loge("setup StaIface failed: " + e.toString());
+            return false;
         }
+
         return true;
     }
 
@@ -621,7 +691,7 @@ public class SupplicantStaIfaceHal {
                 return startDaemon_V1_1();
             } else {
                 Log.i(TAG, "Starting supplicant using init");
-                mPropertyService.set(INIT_START_PROPERTY, INIT_SERVICE_NAME);
+                mFrameworkFacade.startSupplicant();
                 return true;
             }
         }
@@ -645,16 +715,34 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
-     * Terminate the supplicant daemon.
+     * Terminate the supplicant daemon & wait for it's death.
      */
     public void terminate() {
         synchronized (mLock) {
+            // Register for a new death listener to block until supplicant is dead.
+            final long waitForDeathCookie = new Random().nextLong();
+            final CountDownLatch waitForDeathLatch = new CountDownLatch(1);
+            linkToSupplicantDeath((cookie) -> {
+                Log.d(TAG, "ISupplicant died: cookie=" + cookie);
+                if (cookie != waitForDeathCookie) return;
+                waitForDeathLatch.countDown();
+            }, waitForDeathCookie);
+
             if (isV1_1()) {
                 Log.i(TAG, "Terminating supplicant using HIDL");
                 terminate_V1_1();
             } else {
                 Log.i(TAG, "Terminating supplicant using init");
-                mPropertyService.set(INIT_STOP_PROPERTY, INIT_SERVICE_NAME);
+                mFrameworkFacade.stopSupplicant();
+            }
+
+            // Now wait for death listener callback to confirm that it's dead.
+            try {
+                if (!waitForDeathLatch.await(WAIT_FOR_DEATH_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    Log.w(TAG, "Timed out waiting for confirmation of supplicant death");
+                }
+            } catch (InterruptedException e) {
+                Log.w(TAG, "Failed to wait for supplicant death");
             }
         }
     }
@@ -670,23 +758,37 @@ public class SupplicantStaIfaceHal {
 
     protected ISupplicant getSupplicantMockable() throws RemoteException, NoSuchElementException {
         synchronized (mLock) {
-            return ISupplicant.getService();
+            ISupplicant iSupplicant = ISupplicant.getService();
+            if (iSupplicant == null) {
+                throw new NoSuchElementException("Cannot get root service.");
+            }
+            return iSupplicant;
         }
     }
 
     protected android.hardware.wifi.supplicant.V1_1.ISupplicant getSupplicantMockableV1_1()
             throws RemoteException, NoSuchElementException {
         synchronized (mLock) {
-            return android.hardware.wifi.supplicant.V1_1.ISupplicant.castFrom(
-                    ISupplicant.getService());
+            android.hardware.wifi.supplicant.V1_1.ISupplicant iSupplicantDerived =
+                    android.hardware.wifi.supplicant.V1_1.ISupplicant.castFrom(
+                            getSupplicantMockable());
+            if (iSupplicantDerived == null) {
+                throw new NoSuchElementException("Cannot cast to V1.1 service.");
+            }
+            return iSupplicantDerived;
         }
     }
 
     protected android.hardware.wifi.supplicant.V1_2.ISupplicant getSupplicantMockableV1_2()
             throws RemoteException, NoSuchElementException {
         synchronized (mLock) {
-            return android.hardware.wifi.supplicant.V1_2.ISupplicant.castFrom(
-                    ISupplicant.getService());
+            android.hardware.wifi.supplicant.V1_2.ISupplicant iSupplicantDerived =
+                    android.hardware.wifi.supplicant.V1_2.ISupplicant.castFrom(
+                            getSupplicantMockable());
+            if (iSupplicantDerived == null) {
+                throw new NoSuchElementException("Cannot cast to V1.1 service.");
+            }
+            return iSupplicantDerived;
         }
     }
 
@@ -712,6 +814,14 @@ public class SupplicantStaIfaceHal {
         }
     }
 
+    protected android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface
+            getStaIfaceMockableV1_3(ISupplicantIface iface) {
+        synchronized (mLock) {
+            return android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface
+                    .asInterface(iface.asBinder());
+        }
+    }
+
     /**
      * Uses the IServiceManager to check if the device is running V1_1 of the HAL from the VINTF for
      * the device.
@@ -730,6 +840,16 @@ public class SupplicantStaIfaceHal {
     private boolean isV1_2() {
         return checkHalVersionByInterfaceName(
                 android.hardware.wifi.supplicant.V1_2.ISupplicant.kInterfaceName);
+    }
+
+    /**
+     * Uses the IServiceManager to check if the device is running V1_3 of the HAL from the VINTF for
+     * the device.
+     * @return true if supported, false otherwise.
+     */
+    private boolean isV1_3() {
+        return checkHalVersionByInterfaceName(
+                android.hardware.wifi.supplicant.V1_3.ISupplicant.kInterfaceName);
     }
 
     private boolean checkHalVersionByInterfaceName(String interfaceName) {
@@ -771,7 +891,7 @@ public class SupplicantStaIfaceHal {
     /**
      * Helper method to look up the network config or the specified iface.
      */
-    private WifiConfiguration getCurrentNetworkLocalConfig(@NonNull String ifaceName) {
+    protected WifiConfiguration getCurrentNetworkLocalConfig(@NonNull String ifaceName) {
         return mCurrentNetworkLocalConfigs.get(ifaceName);
     }
 
@@ -802,7 +922,7 @@ public class SupplicantStaIfaceHal {
                 Log.e(TAG, "Exception while saving config params: " + config, e);
             }
             if (!saveSuccess) {
-                loge("Failed to save variables for: " + config.configKey());
+                loge("Failed to save variables for: " + config.getKey());
                 if (!removeAllNetworks(ifaceName)) {
                     loge("Failed to remove all networks on failure.");
                 }
@@ -825,7 +945,7 @@ public class SupplicantStaIfaceHal {
      */
     public boolean connectToNetwork(@NonNull String ifaceName, @NonNull WifiConfiguration config) {
         synchronized (mLock) {
-            logd("connectToNetwork " + config.configKey());
+            logd("connectToNetwork " + config.getKey());
             WifiConfiguration currentConfig = getCurrentNetworkLocalConfig(ifaceName);
             if (WifiConfigurationUtil.isSameNetwork(config, currentConfig)) {
                 String networkSelectionBSSID = config.getNetworkSelectionStatus()
@@ -854,7 +974,7 @@ public class SupplicantStaIfaceHal {
                 Pair<SupplicantStaNetworkHal, WifiConfiguration> pair =
                         addNetworkAndSaveConfig(ifaceName, config);
                 if (pair == null) {
-                    loge("Failed to add/save network configuration: " + config.configKey());
+                    loge("Failed to add/save network configuration: " + config.getKey());
                     return false;
                 }
                 mCurrentNetworkRemoteHandles.put(ifaceName, pair.first);
@@ -862,8 +982,24 @@ public class SupplicantStaIfaceHal {
             }
             SupplicantStaNetworkHal networkHandle =
                     checkSupplicantStaNetworkAndLogFailure(ifaceName, "connectToNetwork");
-            if (networkHandle == null || !networkHandle.select()) {
-                loge("Failed to select network configuration: " + config.configKey());
+            if (networkHandle == null) {
+                loge("No valid remote network handle for network configuration: "
+                        + config.getKey());
+                return false;
+            }
+
+            PmkCacheStoreData pmkData = mPmkCacheEntries.get(config.networkId);
+            if (pmkData != null
+                    && !WifiConfigurationUtil.isConfigForPskNetwork(config)
+                    && pmkData.expirationTimeInSec > mClock.getElapsedSinceBootMillis() / 1000) {
+                logi("Set PMK cache for config id " + config.networkId);
+                if (networkHandle.setPmkCache(pmkData.data)) {
+                    mWifiMetrics.setConnectionPmkCache(true);
+                }
+            }
+
+            if (!networkHandle.select()) {
+                loge("Failed to select network configuration: " + config.getKey());
                 return false;
             }
             return true;
@@ -891,12 +1027,12 @@ public class SupplicantStaIfaceHal {
                 return connectToNetwork(ifaceName, config);
             }
             String bssid = config.getNetworkSelectionStatus().getNetworkSelectionBSSID();
-            logd("roamToNetwork" + config.configKey() + " (bssid " + bssid + ")");
+            logd("roamToNetwork" + config.getKey() + " (bssid " + bssid + ")");
 
             SupplicantStaNetworkHal networkHandle =
                     checkSupplicantStaNetworkAndLogFailure(ifaceName, "roamToNetwork");
             if (networkHandle == null || !networkHandle.setBssid(bssid)) {
-                loge("Failed to set new bssid on network: " + config.configKey());
+                loge("Failed to set new bssid on network: " + config.getKey());
                 return false;
             }
             if (!reassociate(ifaceName)) {
@@ -908,73 +1044,32 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
-     * Load all the configured networks from wpa_supplicant.
+     * Clean HAL cached data for |networkId| in the framework.
      *
-     * @param ifaceName     Name of the interface.
-     * @param configs       Map of configuration key to configuration objects corresponding to all
-     *                      the networks.
-     * @param networkExtras Map of extra configuration parameters stored in wpa_supplicant.conf
-     * @return true if succeeds, false otherwise.
+     * @param networkId network id of the network to be removed from supplicant.
      */
-    public boolean loadNetworks(@NonNull String ifaceName, Map<String, WifiConfiguration> configs,
-                                SparseArray<Map<String, String>> networkExtras) {
+    public void removeNetworkCachedData(int networkId) {
         synchronized (mLock) {
-            List<Integer> networkIds = listNetworks(ifaceName);
-            if (networkIds == null) {
-                Log.e(TAG, "Failed to list networks");
-                return false;
-            }
-            for (Integer networkId : networkIds) {
-                SupplicantStaNetworkHal network = getNetwork(ifaceName, networkId);
-                if (network == null) {
-                    Log.e(TAG, "Failed to get network with ID: " + networkId);
-                    return false;
-                }
-                WifiConfiguration config = new WifiConfiguration();
-                Map<String, String> networkExtra = new HashMap<>();
-                boolean loadSuccess = false;
-                try {
-                    loadSuccess = network.loadWifiConfiguration(config, networkExtra);
-                } catch (IllegalArgumentException e) {
-                    Log.wtf(TAG, "Exception while loading config params: " + config, e);
-                }
-                if (!loadSuccess) {
-                    Log.e(TAG, "Failed to load wifi configuration for network with ID: " + networkId
-                            + ". Skipping...");
-                    continue;
-                }
-                // Set the default IP assignments.
-                config.setIpAssignment(IpConfiguration.IpAssignment.DHCP);
-                config.setProxySettings(IpConfiguration.ProxySettings.NONE);
-
-                networkExtras.put(networkId, networkExtra);
-                String configKey =
-                        networkExtra.get(SupplicantStaNetworkHal.ID_STRING_KEY_CONFIG_KEY);
-                final WifiConfiguration duplicateConfig = configs.put(configKey, config);
-                if (duplicateConfig != null) {
-                    // The network is already known. Overwrite the duplicate entry.
-                    Log.i(TAG, "Replacing duplicate network: " + duplicateConfig.networkId);
-                    removeNetwork(ifaceName, duplicateConfig.networkId);
-                    networkExtras.remove(duplicateConfig.networkId);
-                }
-            }
-            return true;
+            logd("Remove cached HAL data for config id " + networkId);
+            removePmkCacheEntry(networkId);
         }
     }
 
     /**
-     * Remove the request |networkId| from supplicant if it's the current network,
-     * if the current configured network matches |networkId|.
+     * Clear HAL cached data if MAC address is changed.
      *
-     * @param ifaceName Name of the interface.
-     * @param networkId network id of the network to be removed from supplicant.
+     * @param networkId network id of the network to be checked.
+     * @param curMacAddress current MAC address
      */
-    public void removeNetworkIfCurrent(@NonNull String ifaceName, int networkId) {
+    public void removeNetworkCachedDataIfNeeded(int networkId, MacAddress curMacAddress) {
         synchronized (mLock) {
-            if (getCurrentNetworkId(ifaceName) == networkId) {
-                // Currently we only save 1 network in supplicant.
-                removeAllNetworks(ifaceName);
-            }
+            PmkCacheStoreData pmkData = mPmkCacheEntries.get(networkId);
+
+            if (pmkData == null) return;
+
+            if (curMacAddress.equals(pmkData.macAddress)) return;
+
+            removeNetworkCachedData(networkId);
         }
     }
 
@@ -1300,6 +1395,23 @@ public class SupplicantStaIfaceHal {
             if (iface == null) return false;
             try {
                 SupplicantStatus status =  iface.registerCallback_1_2(callback);
+                return checkStatusAndLogFailure(status, methodStr);
+            } catch (RemoteException e) {
+                handleRemoteException(e, methodStr);
+                return false;
+            }
+        }
+    }
+
+    private boolean registerCallbackV1_3(
+            android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface iface,
+            android.hardware.wifi.supplicant.V1_3.ISupplicantStaIfaceCallback callback) {
+        synchronized (mLock) {
+            String methodStr = "registerCallback_1_3";
+
+            if (iface == null) return false;
+            try {
+                SupplicantStatus status =  iface.registerCallback_1_3(callback);
                 return checkStatusAndLogFailure(status, methodStr);
             } catch (RemoteException e) {
                 handleRemoteException(e, methodStr);
@@ -2058,6 +2170,88 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
+     * Flush all previously configured HLPs.
+     *
+     * @param ifaceName Name of the interface.
+     * @return true if request is sent successfully, false otherwise.
+     */
+    public boolean flushAllHlp(@NonNull String ifaceName) {
+        synchronized (mLock) {
+            final String methodStr = "filsHlpFlushRequest";
+            if (isV1_3()) {
+                ISupplicantStaIface iface =
+                        checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
+                if (iface == null) {
+                    return false;
+                }
+
+                // Get a v1.3 supplicant STA Interface
+                android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface staIfaceV13 =
+                        getStaIfaceMockableV1_3(iface);
+
+                if (staIfaceV13 == null) {
+                    Log.e(TAG, methodStr
+                            + ": ISupplicantStaIface is null, cannot flushAllHlp");
+                    return false;
+                }
+                try {
+                    SupplicantStatus status = staIfaceV13.filsHlpFlushRequest();
+                    return checkStatusAndLogFailure(status, methodStr);
+                } catch (RemoteException e) {
+                    handleRemoteException(e, methodStr);
+                    return false;
+                }
+            } else {
+                Log.e(TAG, "Method " + methodStr + " is not supported in existing HAL");
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Set FILS HLP packet.
+     *
+     * @param ifaceName Name of the interface.
+     * @param dst Destination MAC address.
+     * @param hlpPacket Hlp Packet data in hex.
+     * @return true if request is sent successfully, false otherwise.
+     */
+    public boolean addHlpReq(@NonNull String ifaceName, byte [] dst, byte [] hlpPacket) {
+        synchronized (mLock) {
+            final String methodStr = "filsHlpAddRequest";
+            if (isV1_3()) {
+                ISupplicantStaIface iface =
+                        checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
+                if (iface == null) {
+                    return false;
+                }
+
+                // Get a v1.3 supplicant STA Interface
+                android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface staIfaceV13 =
+                        getStaIfaceMockableV1_3(iface);
+
+                if (staIfaceV13 == null) {
+                    Log.e(TAG, methodStr
+                            + ": ISupplicantStaIface is null, cannot addHlpReq");
+                    return false;
+                }
+                try {
+                    ArrayList<Byte> payload = NativeUtil.byteArrayToArrayList(hlpPacket);
+                    SupplicantStatus status = staIfaceV13.filsHlpAddRequest(dst, payload);
+                    return checkStatusAndLogFailure(status, methodStr);
+                } catch (RemoteException e) {
+                    handleRemoteException(e, methodStr);
+                    return false;
+                }
+            } else {
+                Log.e(TAG, "Method " + methodStr + " is not supported in existing HAL");
+                return false;
+            }
+        }
+    }
+
+
+    /**
      * Start WPS pin registrar operation with the specified peer and pin.
      *
      * @param ifaceName Name of the interface.
@@ -2377,7 +2571,7 @@ public class SupplicantStaIfaceHal {
     /**
      * Helper function to log callbacks.
      */
-    private void logCallback(final String methodStr) {
+    protected void logCallback(final String methodStr) {
         synchronized (mLock) {
             if (mVerboseLoggingEnabled) {
                 Log.d(TAG, "ISupplicantStaIfaceCallback." + methodStr + " received");
@@ -2438,593 +2632,90 @@ public class SupplicantStaIfaceHal {
         }
     }
 
-    /**
-     * Converts the supplicant state received from HIDL to the equivalent framework state.
-     */
-    private static SupplicantState supplicantHidlStateToFrameworkState(int state) {
-        switch (state) {
-            case ISupplicantStaIfaceCallback.State.DISCONNECTED:
-                return SupplicantState.DISCONNECTED;
-            case ISupplicantStaIfaceCallback.State.IFACE_DISABLED:
-                return SupplicantState.INTERFACE_DISABLED;
-            case ISupplicantStaIfaceCallback.State.INACTIVE:
-                return SupplicantState.INACTIVE;
-            case ISupplicantStaIfaceCallback.State.SCANNING:
-                return SupplicantState.SCANNING;
-            case ISupplicantStaIfaceCallback.State.AUTHENTICATING:
-                return SupplicantState.AUTHENTICATING;
-            case ISupplicantStaIfaceCallback.State.ASSOCIATING:
-                return SupplicantState.ASSOCIATING;
-            case ISupplicantStaIfaceCallback.State.ASSOCIATED:
-                return SupplicantState.ASSOCIATED;
-            case ISupplicantStaIfaceCallback.State.FOURWAY_HANDSHAKE:
-                return SupplicantState.FOUR_WAY_HANDSHAKE;
-            case ISupplicantStaIfaceCallback.State.GROUP_HANDSHAKE:
-                return SupplicantState.GROUP_HANDSHAKE;
-            case ISupplicantStaIfaceCallback.State.COMPLETED:
-                return SupplicantState.COMPLETED;
-            default:
-                throw new IllegalArgumentException("Invalid state: " + state);
-        }
-    }
-
-    private class SupplicantStaIfaceHalCallback extends ISupplicantStaIfaceCallback.Stub {
-        private String mIfaceName;
-        private boolean mStateIsFourway = false; // Used to help check for PSK password mismatch
-
+    protected class SupplicantStaIfaceHalCallback extends SupplicantStaIfaceCallbackImpl {
         SupplicantStaIfaceHalCallback(@NonNull String ifaceName) {
-            mIfaceName = ifaceName;
-        }
-
-        /**
-         * Parses the provided payload into an ANQP element.
-         *
-         * @param infoID  Element type.
-         * @param payload Raw payload bytes.
-         * @return AnqpElement instance on success, null on failure.
-         */
-        private ANQPElement parseAnqpElement(Constants.ANQPElementType infoID,
-                                             ArrayList<Byte> payload) {
-            synchronized (mLock) {
-                try {
-                    return Constants.getANQPElementID(infoID) != null
-                            ? ANQPParser.parseElement(
-                            infoID, ByteBuffer.wrap(NativeUtil.byteArrayFromArrayList(payload)))
-                            : ANQPParser.parseHS20Element(
-                            infoID, ByteBuffer.wrap(NativeUtil.byteArrayFromArrayList(payload)));
-                } catch (IOException | BufferUnderflowException e) {
-                    Log.e(TAG, "Failed parsing ANQP element payload: " + infoID, e);
-                    return null;
-                }
-            }
-        }
-
-        /**
-         * Parse the ANQP element data and add to the provided elements map if successful.
-         *
-         * @param elementsMap Map to add the parsed out element to.
-         * @param infoID  Element type.
-         * @param payload Raw payload bytes.
-         */
-        private void addAnqpElementToMap(Map<Constants.ANQPElementType, ANQPElement> elementsMap,
-                                         Constants.ANQPElementType infoID,
-                                         ArrayList<Byte> payload) {
-            synchronized (mLock) {
-                if (payload == null || payload.isEmpty()) return;
-                ANQPElement element = parseAnqpElement(infoID, payload);
-                if (element != null) {
-                    elementsMap.put(infoID, element);
-                }
-            }
-        }
-
-        @Override
-        public void onNetworkAdded(int id) {
-            synchronized (mLock) {
-                logCallback("onNetworkAdded");
-            }
-        }
-
-        @Override
-        public void onNetworkRemoved(int id) {
-            synchronized (mLock) {
-                logCallback("onNetworkRemoved");
-                // Reset 4way handshake state since network has been removed.
-                mStateIsFourway = false;
-            }
-        }
-
-        @Override
-        public void onStateChanged(int newState, byte[/* 6 */] bssid, int id,
-                                   ArrayList<Byte> ssid) {
-            synchronized (mLock) {
-                logCallback("onStateChanged");
-                SupplicantState newSupplicantState = supplicantHidlStateToFrameworkState(newState);
-                WifiSsid wifiSsid =
-                        WifiSsid.createFromByteArray(NativeUtil.byteArrayFromArrayList(ssid));
-                String bssidStr = NativeUtil.macAddressFromByteArray(bssid);
-                mStateIsFourway = (newState == ISupplicantStaIfaceCallback.State.FOURWAY_HANDSHAKE);
-                if (newSupplicantState == SupplicantState.COMPLETED) {
-                    mWifiMonitor.broadcastNetworkConnectionEvent(
-                            mIfaceName, getCurrentNetworkId(mIfaceName), bssidStr);
-                }
-                mWifiMonitor.broadcastSupplicantStateChangeEvent(
-                        mIfaceName, getCurrentNetworkId(mIfaceName), wifiSsid,
-                        bssidStr, newSupplicantState);
-            }
-        }
-
-        @Override
-        public void onAnqpQueryDone(byte[/* 6 */] bssid,
-                                    ISupplicantStaIfaceCallback.AnqpData data,
-                                    ISupplicantStaIfaceCallback.Hs20AnqpData hs20Data) {
-            synchronized (mLock) {
-                logCallback("onAnqpQueryDone");
-                Map<Constants.ANQPElementType, ANQPElement> elementsMap = new HashMap<>();
-                addAnqpElementToMap(elementsMap, ANQPVenueName, data.venueName);
-                addAnqpElementToMap(elementsMap, ANQPRoamingConsortium, data.roamingConsortium);
-                addAnqpElementToMap(
-                        elementsMap, ANQPIPAddrAvailability, data.ipAddrTypeAvailability);
-                addAnqpElementToMap(elementsMap, ANQPNAIRealm, data.naiRealm);
-                addAnqpElementToMap(elementsMap, ANQP3GPPNetwork, data.anqp3gppCellularNetwork);
-                addAnqpElementToMap(elementsMap, ANQPDomName, data.domainName);
-                addAnqpElementToMap(elementsMap, HSFriendlyName, hs20Data.operatorFriendlyName);
-                addAnqpElementToMap(elementsMap, HSWANMetrics, hs20Data.wanMetrics);
-                addAnqpElementToMap(elementsMap, HSConnCapability, hs20Data.connectionCapability);
-                addAnqpElementToMap(elementsMap, HSOSUProviders, hs20Data.osuProvidersList);
-                mWifiMonitor.broadcastAnqpDoneEvent(
-                        mIfaceName, new AnqpEvent(NativeUtil.macAddressToLong(bssid), elementsMap));
-            }
-        }
-
-        @Override
-        public void onHs20IconQueryDone(byte[/* 6 */] bssid, String fileName,
-                                        ArrayList<Byte> data) {
-            synchronized (mLock) {
-                logCallback("onHs20IconQueryDone");
-                mWifiMonitor.broadcastIconDoneEvent(
-                        mIfaceName,
-                        new IconEvent(NativeUtil.macAddressToLong(bssid), fileName, data.size(),
-                                NativeUtil.byteArrayFromArrayList(data)));
-            }
-        }
-
-        @Override
-        public void onHs20SubscriptionRemediation(byte[/* 6 */] bssid, byte osuMethod, String url) {
-            synchronized (mLock) {
-                logCallback("onHs20SubscriptionRemediation");
-                mWifiMonitor.broadcastWnmEvent(
-                        mIfaceName,
-                        new WnmData(NativeUtil.macAddressToLong(bssid), url, osuMethod));
-            }
-        }
-
-        @Override
-        public void onHs20DeauthImminentNotice(byte[/* 6 */] bssid, int reasonCode,
-                                               int reAuthDelayInSec, String url) {
-            synchronized (mLock) {
-                logCallback("onHs20DeauthImminentNotice");
-                mWifiMonitor.broadcastWnmEvent(
-                        mIfaceName,
-                        new WnmData(NativeUtil.macAddressToLong(bssid), url,
-                                reasonCode == WnmData.ESS, reAuthDelayInSec));
-            }
-        }
-
-        @Override
-        public void onDisconnected(byte[/* 6 */] bssid, boolean locallyGenerated, int reasonCode) {
-            synchronized (mLock) {
-                logCallback("onDisconnected");
-                if (mVerboseLoggingEnabled) {
-                    Log.e(TAG, "onDisconnected 4way=" + mStateIsFourway
-                            + " locallyGenerated=" + locallyGenerated
-                            + " reasonCode=" + reasonCode);
-                }
-                if (mStateIsFourway
-                        && (!locallyGenerated || reasonCode != ReasonCode.IE_IN_4WAY_DIFFERS)) {
-                    mWifiMonitor.broadcastAuthenticationFailureEvent(
-                            mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1);
-                }
-                mWifiMonitor.broadcastNetworkDisconnectionEvent(
-                        mIfaceName, locallyGenerated ? 1 : 0, reasonCode,
-                        NativeUtil.macAddressFromByteArray(bssid));
-            }
-        }
-
-        @Override
-        public void onAssociationRejected(byte[/* 6 */] bssid, int statusCode, boolean timedOut) {
-            synchronized (mLock) {
-                logCallback("onAssociationRejected");
-
-                if (statusCode == StatusCode.UNSPECIFIED_FAILURE) {
-                    WifiConfiguration curConfiguration = getCurrentNetworkLocalConfig(mIfaceName);
-
-                    if (curConfiguration != null
-                            && curConfiguration.allowedKeyManagement
-                                    .get(WifiConfiguration.KeyMgmt.SAE)) {
-                        // Special handling for WPA3-Personal networks. If the password is
-                        // incorrect, the AP will send association rejection, with status code 1
-                        // (unspecified failure). In SAE networks, the password authentication
-                        // is not related to the 4-way handshake. In this case, we will send an
-                        // authentication failure event up.
-                        logCallback("SAE incorrect password");
-                        mWifiMonitor.broadcastAuthenticationFailureEvent(
-                                mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1);
-                    }
-                }
-                mWifiMonitor.broadcastAssociationRejectionEvent(mIfaceName, statusCode, timedOut,
-                        NativeUtil.macAddressFromByteArray(bssid));
-            }
-        }
-
-        @Override
-        public void onAuthenticationTimeout(byte[/* 6 */] bssid) {
-            synchronized (mLock) {
-                logCallback("onAuthenticationTimeout");
-                mWifiMonitor.broadcastAuthenticationFailureEvent(
-                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_TIMEOUT, -1);
-            }
-        }
-
-        @Override
-        public void onBssidChanged(byte reason, byte[/* 6 */] bssid) {
-            synchronized (mLock) {
-                logCallback("onBssidChanged");
-                if (reason == BssidChangeReason.ASSOC_START) {
-                    mWifiMonitor.broadcastTargetBssidEvent(
-                            mIfaceName, NativeUtil.macAddressFromByteArray(bssid));
-                } else if (reason == BssidChangeReason.ASSOC_COMPLETE) {
-                    mWifiMonitor.broadcastAssociatedBssidEvent(
-                            mIfaceName, NativeUtil.macAddressFromByteArray(bssid));
-                }
-            }
-        }
-
-        @Override
-        public void onEapFailure() {
-            synchronized (mLock) {
-                logCallback("onEapFailure");
-                mWifiMonitor.broadcastAuthenticationFailureEvent(
-                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_EAP_FAILURE, -1);
-            }
-        }
-
-        @Override
-        public void onWpsEventSuccess() {
-            logCallback("onWpsEventSuccess");
-            synchronized (mLock) {
-                mWifiMonitor.broadcastWpsSuccessEvent(mIfaceName);
-            }
-        }
-
-        @Override
-        public void onWpsEventFail(byte[/* 6 */] bssid, short configError, short errorInd) {
-            synchronized (mLock) {
-                logCallback("onWpsEventFail");
-                if (configError == WpsConfigError.MSG_TIMEOUT
-                        && errorInd == WpsErrorIndication.NO_ERROR) {
-                    mWifiMonitor.broadcastWpsTimeoutEvent(mIfaceName);
-                } else {
-                    mWifiMonitor.broadcastWpsFailEvent(mIfaceName, configError, errorInd);
-                }
-            }
-        }
-
-        @Override
-        public void onWpsEventPbcOverlap() {
-            synchronized (mLock) {
-                logCallback("onWpsEventPbcOverlap");
-                mWifiMonitor.broadcastWpsOverlapEvent(mIfaceName);
-            }
-        }
-
-        @Override
-        public void onExtRadioWorkStart(int id) {
-            synchronized (mLock) {
-                logCallback("onExtRadioWorkStart");
-            }
-        }
-
-        @Override
-        public void onExtRadioWorkTimeout(int id) {
-            synchronized (mLock) {
-                logCallback("onExtRadioWorkTimeout");
-            }
+            super(SupplicantStaIfaceHal.this, ifaceName, mLock, mWifiMonitor);
         }
     }
 
-    private class SupplicantStaIfaceHalCallbackV1_1 extends
-            android.hardware.wifi.supplicant.V1_1.ISupplicantStaIfaceCallback.Stub {
-        private String mIfaceName;
-        private SupplicantStaIfaceHalCallback mCallbackV1_0;
-
-        SupplicantStaIfaceHalCallbackV1_1(@NonNull String ifaceName,
-                @NonNull SupplicantStaIfaceHalCallback callback) {
-            mIfaceName = ifaceName;
-            mCallbackV1_0 = callback;
-        }
-
-        @Override
-        public void onNetworkAdded(int id) {
-            mCallbackV1_0.onNetworkAdded(id);
-        }
-
-        @Override
-        public void onNetworkRemoved(int id) {
-            mCallbackV1_0.onNetworkRemoved(id);
-        }
-
-        @Override
-        public void onStateChanged(int newState, byte[/* 6 */] bssid, int id,
-                                   ArrayList<Byte> ssid) {
-            mCallbackV1_0.onStateChanged(newState, bssid, id, ssid);
-        }
-
-        @Override
-        public void onAnqpQueryDone(byte[/* 6 */] bssid,
-                                    ISupplicantStaIfaceCallback.AnqpData data,
-                                    ISupplicantStaIfaceCallback.Hs20AnqpData hs20Data) {
-            mCallbackV1_0.onAnqpQueryDone(bssid, data, hs20Data);
-        }
-
-        @Override
-        public void onHs20IconQueryDone(byte[/* 6 */] bssid, String fileName,
-                                        ArrayList<Byte> data) {
-            mCallbackV1_0.onHs20IconQueryDone(bssid, fileName, data);
-        }
-
-        @Override
-        public void onHs20SubscriptionRemediation(byte[/* 6 */] bssid,
-                                                  byte osuMethod, String url) {
-            mCallbackV1_0.onHs20SubscriptionRemediation(bssid, osuMethod, url);
-        }
-
-        @Override
-        public void onHs20DeauthImminentNotice(byte[/* 6 */] bssid, int reasonCode,
-                                               int reAuthDelayInSec, String url) {
-            mCallbackV1_0.onHs20DeauthImminentNotice(bssid, reasonCode, reAuthDelayInSec, url);
-        }
-
-        @Override
-        public void onDisconnected(byte[/* 6 */] bssid, boolean locallyGenerated,
-                                   int reasonCode) {
-            mCallbackV1_0.onDisconnected(bssid, locallyGenerated, reasonCode);
-        }
-
-        @Override
-        public void onAssociationRejected(byte[/* 6 */] bssid, int statusCode,
-                                          boolean timedOut) {
-            mCallbackV1_0.onAssociationRejected(bssid, statusCode, timedOut);
-        }
-
-        @Override
-        public void onAuthenticationTimeout(byte[/* 6 */] bssid) {
-            mCallbackV1_0.onAuthenticationTimeout(bssid);
-        }
-
-        @Override
-        public void onBssidChanged(byte reason, byte[/* 6 */] bssid) {
-            mCallbackV1_0.onBssidChanged(reason, bssid);
-        }
-
-        @Override
-        public void onEapFailure() {
-            mCallbackV1_0.onEapFailure();
-        }
-
-        @Override
-        public void onEapFailure_1_1(int code) {
-            synchronized (mLock) {
-                logCallback("onEapFailure_1_1");
-                mWifiMonitor.broadcastAuthenticationFailureEvent(
-                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_EAP_FAILURE, code);
-            }
-        }
-
-        @Override
-        public void onWpsEventSuccess() {
-            mCallbackV1_0.onWpsEventSuccess();
-        }
-
-        @Override
-        public void onWpsEventFail(byte[/* 6 */] bssid, short configError, short errorInd) {
-            mCallbackV1_0.onWpsEventFail(bssid, configError, errorInd);
-        }
-
-        @Override
-        public void onWpsEventPbcOverlap() {
-            mCallbackV1_0.onWpsEventPbcOverlap();
-        }
-
-        @Override
-        public void onExtRadioWorkStart(int id) {
-            mCallbackV1_0.onExtRadioWorkStart(id);
-        }
-
-        @Override
-        public void onExtRadioWorkTimeout(int id) {
-            mCallbackV1_0.onExtRadioWorkTimeout(id);
+    protected class SupplicantStaIfaceHalCallbackV1_1 extends SupplicantStaIfaceCallbackV1_1Impl {
+        SupplicantStaIfaceHalCallbackV1_1(@NonNull String ifaceName) {
+            super(SupplicantStaIfaceHal.this, ifaceName, mLock, mWifiMonitor);
         }
     }
 
-    private class SupplicantStaIfaceHalCallbackV1_2 extends
-            android.hardware.wifi.supplicant.V1_2.ISupplicantStaIfaceCallback.Stub {
-        private SupplicantStaIfaceHalCallbackV1_1 mCallbackV1_1;
-
-        SupplicantStaIfaceHalCallbackV1_2(
-                @NonNull SupplicantStaIfaceHalCallbackV1_1 callback) {
-            mCallbackV1_1 = callback;
+    protected class SupplicantStaIfaceHalCallbackV1_2 extends SupplicantStaIfaceCallbackV1_2Impl {
+        SupplicantStaIfaceHalCallbackV1_2(@NonNull String ifaceName) {
+            super(SupplicantStaIfaceHal.this, ifaceName, mContext);
         }
+    }
 
-        @Override
-        public void onNetworkAdded(int id) {
-            mCallbackV1_1.onNetworkAdded(id);
+    protected class SupplicantStaIfaceHalCallbackV1_3 extends SupplicantStaIfaceCallbackV1_3Impl {
+        SupplicantStaIfaceHalCallbackV1_3(@NonNull String ifaceName) {
+            super(SupplicantStaIfaceHal.this, ifaceName, mWifiMonitor);
         }
+    }
 
-        @Override
-        public void onNetworkRemoved(int id) {
-            mCallbackV1_1.onNetworkRemoved(id);
+    protected void addPmkCacheEntry(
+            String ifaceName,
+            int networkId, long expirationTimeInSec, ArrayList<Byte> serializedEntry) {
+        String macAddressStr = getMacAddress(ifaceName);
+        if (macAddressStr == null) {
+            Log.w(TAG, "Omit PMK cache due to no valid MAC address on " + ifaceName);
+            return;
         }
-
-        @Override
-        public void onStateChanged(int newState, byte[/* 6 */] bssid, int id,
-                ArrayList<Byte> ssid) {
-            mCallbackV1_1.onStateChanged(newState, bssid, id, ssid);
+        try {
+            MacAddress macAddress = MacAddress.fromString(macAddressStr);
+            mPmkCacheEntries.put(networkId,
+                    new PmkCacheStoreData(expirationTimeInSec, serializedEntry, macAddress));
+            updatePmkCacheExpiration();
+        } catch (IllegalArgumentException ex) {
+            Log.w(TAG, "Invalid MAC address string " + macAddressStr);
         }
+    }
 
-        @Override
-        public void onAnqpQueryDone(byte[/* 6 */] bssid,
-                ISupplicantStaIfaceCallback.AnqpData data,
-                ISupplicantStaIfaceCallback.Hs20AnqpData hs20Data) {
-            mCallbackV1_1.onAnqpQueryDone(bssid, data, hs20Data);
+    protected void removePmkCacheEntry(int networkId) {
+        if (mPmkCacheEntries.remove(networkId) != null) {
+            updatePmkCacheExpiration();
         }
+    }
 
-        @Override
-        public void onHs20IconQueryDone(byte[/* 6 */] bssid, String fileName,
-                ArrayList<Byte> data) {
-            mCallbackV1_1.onHs20IconQueryDone(bssid, fileName, data);
-        }
+    private void updatePmkCacheExpiration() {
+        synchronized (mLock) {
+            mEventHandler.removeCallbacksAndMessages(PMK_CACHE_EXPIRATION_ALARM_TAG);
 
-        @Override
-        public void onHs20SubscriptionRemediation(byte[/* 6 */] bssid,
-                byte osuMethod, String url) {
-            mCallbackV1_1.onHs20SubscriptionRemediation(bssid, osuMethod, url);
-        }
+            long elapseTimeInSecond = mClock.getElapsedSinceBootMillis() / 1000;
+            long nextUpdateTimeInSecond = Long.MAX_VALUE;
+            logd("Update PMK cache expiration at " + elapseTimeInSecond);
 
-        @Override
-        public void onHs20DeauthImminentNotice(byte[/* 6 */] bssid, int reasonCode,
-                int reAuthDelayInSec, String url) {
-            mCallbackV1_1.onHs20DeauthImminentNotice(bssid, reasonCode, reAuthDelayInSec, url);
-        }
+            Iterator<Map.Entry<Integer, PmkCacheStoreData>> iter =
+                    mPmkCacheEntries.entrySet().iterator();
+            while (iter.hasNext()) {
+                Map.Entry<Integer, PmkCacheStoreData> entry = iter.next();
+                if (entry.getValue().expirationTimeInSec <= elapseTimeInSecond) {
+                    logd("Config " + entry.getKey() + " PMK is expired.");
+                    iter.remove();
+                } else if (entry.getValue().expirationTimeInSec <= 0) {
+                    logd("Config " + entry.getKey() + " PMK expiration time is invalid.");
+                    iter.remove();
+                } else if (nextUpdateTimeInSecond > entry.getValue().expirationTimeInSec) {
+                    nextUpdateTimeInSecond = entry.getValue().expirationTimeInSec;
+                }
+            }
 
-        @Override
-        public void onDisconnected(byte[/* 6 */] bssid, boolean locallyGenerated,
-                int reasonCode) {
-            mCallbackV1_1.onDisconnected(bssid, locallyGenerated, reasonCode);
-        }
-
-        @Override
-        public void onAssociationRejected(byte[/* 6 */] bssid, int statusCode,
-                boolean timedOut) {
-            mCallbackV1_1.onAssociationRejected(bssid, statusCode, timedOut);
-        }
-
-        @Override
-        public void onAuthenticationTimeout(byte[/* 6 */] bssid) {
-            mCallbackV1_1.onAuthenticationTimeout(bssid);
-        }
-
-        @Override
-        public void onBssidChanged(byte reason, byte[/* 6 */] bssid) {
-            mCallbackV1_1.onBssidChanged(reason, bssid);
-        }
-
-        @Override
-        public void onEapFailure() {
-            mCallbackV1_1.onEapFailure();
-        }
-
-        @Override
-        public void onEapFailure_1_1(int code) {
-            mCallbackV1_1.onEapFailure_1_1(code);
-        }
-
-        @Override
-        public void onWpsEventSuccess() {
-            mCallbackV1_1.onWpsEventSuccess();
-        }
-
-        @Override
-        public void onWpsEventFail(byte[/* 6 */] bssid, short configError, short errorInd) {
-            mCallbackV1_1.onWpsEventFail(bssid, configError, errorInd);
-        }
-
-        @Override
-        public void onWpsEventPbcOverlap() {
-            mCallbackV1_1.onWpsEventPbcOverlap();
-        }
-
-        @Override
-        public void onExtRadioWorkStart(int id) {
-            mCallbackV1_1.onExtRadioWorkStart(id);
-        }
-
-        @Override
-        public void onExtRadioWorkTimeout(int id) {
-            mCallbackV1_1.onExtRadioWorkTimeout(id);
-        }
-
-        @Override
-        public void onDppSuccessConfigReceived(ArrayList<Byte> ssid, String password,
-                byte[] psk, int securityAkm) {
-            if (mDppCallback == null) {
-                loge("onDppSuccessConfigReceived callback is null");
+            // No need to arrange next update since there is no valid PMK in the cache.
+            if (nextUpdateTimeInSecond == Long.MAX_VALUE) {
                 return;
             }
 
-            WifiConfiguration newWifiConfiguration = new WifiConfiguration();
-
-            // Set up SSID
-            WifiSsid wifiSsid =
-                    WifiSsid.createFromByteArray(NativeUtil.byteArrayFromArrayList(ssid));
-
-            newWifiConfiguration.SSID = "\"" + wifiSsid.toString() + "\"";
-
-            // Set up password or PSK
-            if (password != null) {
-                newWifiConfiguration.preSharedKey = "\"" + password + "\"";
-            } else if (psk != null) {
-                newWifiConfiguration.preSharedKey = psk.toString();
-            }
-
-            // Set up key management: SAE or PSK
-            if (securityAkm == DppAkm.SAE || securityAkm == DppAkm.PSK_SAE) {
-                newWifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.SAE);
-                newWifiConfiguration.requirePMF = true;
-            } else if (securityAkm == DppAkm.PSK) {
-                newWifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-            } else {
-                // No other AKMs are currently supported
-                onDppFailure(DppFailureCode.NOT_SUPPORTED);
-                return;
-            }
-
-            // Set up default values
-            newWifiConfiguration.creatorName = mContext.getPackageManager()
-                    .getNameForUid(Process.WIFI_UID);
-            newWifiConfiguration.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
-            newWifiConfiguration.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-            newWifiConfiguration.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-            newWifiConfiguration.status = WifiConfiguration.Status.ENABLED;
-
-            mDppCallback.onSuccessConfigReceived(newWifiConfiguration);
-        }
-
-        @Override
-        public void onDppSuccessConfigSent() {
-            if (mDppCallback != null) {
-                mDppCallback.onSuccessConfigSent();
-            } else {
-                loge("onSuccessConfigSent callback is null");
-            }
-        }
-
-        @Override
-        public void onDppProgress(int code) {
-            if (mDppCallback != null) {
-                mDppCallback.onProgress(code);
-            } else {
-                loge("onDppProgress callback is null");
-            }
-        }
-
-        @Override
-        public void onDppFailure(int code) {
-            if (mDppCallback != null) {
-                mDppCallback.onFailure(code);
-            } else {
-                loge("onDppFailure callback is null");
-            }
+            logd("PMK cache next expiration time: " + nextUpdateTimeInSecond);
+            long delayedTimeInMs = (nextUpdateTimeInSecond - elapseTimeInSecond) * 1000;
+            mEventHandler.postDelayed(
+                    () -> {
+                        updatePmkCacheExpiration();
+                    },
+                    PMK_CACHE_EXPIRATION_ALARM_TAG,
+                    (delayedTimeInMs > 0) ? delayedTimeInMs : 0);
         }
     }
 
@@ -3050,10 +2741,10 @@ public class SupplicantStaIfaceHal {
      *  This is a v1.2+ HAL feature.
      *  On error, or if these features are not supported, 0 is returned.
      */
-    public int getAdvancedKeyMgmtCapabilities(@NonNull String ifaceName) {
+    public long getAdvancedKeyMgmtCapabilities(@NonNull String ifaceName) {
         final String methodStr = "getAdvancedKeyMgmtCapabilities";
 
-        int advancedCapabilities = 0;
+        long advancedCapabilities = 0;
         int keyMgmtCapabilities = getKeyMgmtCapabilities(ifaceName);
 
         if ((keyMgmtCapabilities & android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
@@ -3092,6 +2783,32 @@ public class SupplicantStaIfaceHal {
             }
         }
 
+        if ((keyMgmtCapabilities & android.hardware.wifi.supplicant.V1_3.ISupplicantStaNetwork
+                .KeyMgmtMask.WAPI_PSK) != 0) {
+            advancedCapabilities |= WIFI_FEATURE_WAPI;
+
+            if (mVerboseLoggingEnabled) {
+                Log.v(TAG, methodStr + ": WAPI supported");
+            }
+        }
+
+        if ((keyMgmtCapabilities & android.hardware.wifi.supplicant.V1_3.ISupplicantStaNetwork
+                .KeyMgmtMask.FILS_SHA256) != 0) {
+            advancedCapabilities |= WIFI_FEATURE_FILS_SHA256;
+
+            if (mVerboseLoggingEnabled) {
+                Log.v(TAG, methodStr + ": FILS_SHA256 supported");
+            }
+        }
+        if ((keyMgmtCapabilities & android.hardware.wifi.supplicant.V1_3.ISupplicantStaNetwork
+                .KeyMgmtMask.FILS_SHA384) != 0) {
+            advancedCapabilities |= WIFI_FEATURE_FILS_SHA384;
+
+            if (mVerboseLoggingEnabled) {
+                Log.v(TAG, methodStr + ": FILS_SHA384 supported");
+            }
+        }
+
         if (mVerboseLoggingEnabled) {
             Log.v(TAG, methodStr + ": Capability flags = " + keyMgmtCapabilities);
         }
@@ -3099,12 +2816,47 @@ public class SupplicantStaIfaceHal {
         return advancedCapabilities;
     }
 
+    private int getKeyMgmtCapabilities_1_3(@NonNull String ifaceName) {
+        final String methodStr = "getKeyMgmtCapabilities_1_3";
+        MutableInt keyMgmtMask = new MutableInt(0);
+        ISupplicantStaIface iface = checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
+        if (iface == null) {
+            return 0;
+        }
+
+        // Get a v1.3 supplicant STA Interface
+        android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface staIfaceV13 =
+                getStaIfaceMockableV1_3(iface);
+        if (staIfaceV13 == null) {
+            Log.e(TAG, methodStr
+                    + ": ISupplicantStaIface V1.3 is null, cannot get advanced capabilities");
+            return 0;
+        }
+
+        try {
+            // Support for new key management types; WAPI_PSK, WAPI_CERT
+            // Requires HAL v1.3 or higher
+            staIfaceV13.getKeyMgmtCapabilities_1_3(
+                    (SupplicantStatus statusInternal, int keyMgmtMaskInternal) -> {
+                        if (statusInternal.code == SupplicantStatusCode.SUCCESS) {
+                            keyMgmtMask.value = keyMgmtMaskInternal;
+                        }
+                        checkStatusAndLogFailure(statusInternal, methodStr);
+                    });
+        } catch (RemoteException e) {
+            handleRemoteException(e, methodStr);
+        }
+        return keyMgmtMask.value;
+    }
+
     private int getKeyMgmtCapabilities(@NonNull String ifaceName) {
         final String methodStr = "getKeyMgmtCapabilities";
         MutableBoolean status = new MutableBoolean(false);
         MutableInt keyMgmtMask = new MutableInt(0);
 
-        if (isV1_2()) {
+        if (isV1_3()) {
+            keyMgmtMask.value = getKeyMgmtCapabilities_1_3(ifaceName);
+        } else if (isV1_2()) {
             ISupplicantStaIface iface = checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
             if (iface == null) {
                 return 0;
@@ -3140,6 +2892,142 @@ public class SupplicantStaIfaceHal {
 
         // 0 is returned in case of an error
         return keyMgmtMask.value;
+    }
+
+    /**
+     * Get the driver supported features through supplicant.
+     *
+     * @param ifaceName Name of the interface.
+     * @return bitmask defined by WifiManager.WIFI_FEATURE_*.
+     */
+    public long getWpaDriverFeatureSet(@NonNull String ifaceName) {
+        final String methodStr = "getWpaDriverFeatureSet";
+        MutableInt drvCapabilitiesMask = new MutableInt(0);
+        long featureSet = 0;
+
+        if (isV1_3()) {
+            ISupplicantStaIface iface = checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
+            if (iface == null) {
+                return 0;
+            }
+            // Get a v1.3 supplicant STA Interface
+            android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface staIfaceV13 =
+                    getStaIfaceMockableV1_3(iface);
+            if (staIfaceV13 == null) {
+                Log.e(TAG, methodStr
+                        + ": SupplicantStaIface is null, cannot get wpa driver features");
+                return 0;
+            }
+
+            try {
+                staIfaceV13.getWpaDriverCapabilities(
+                        (SupplicantStatus statusInternal, int drvCapabilities) -> {
+                            if (statusInternal.code == SupplicantStatusCode.SUCCESS) {
+                                drvCapabilitiesMask.value = drvCapabilities;
+                            }
+                            checkStatusAndLogFailure(statusInternal, methodStr);
+                        });
+            } catch (RemoteException e) {
+                handleRemoteException(e, methodStr);
+            }
+        } else {
+            Log.i(TAG, "Method " + methodStr + " is not supported in existing HAL");
+            return 0;
+        }
+
+        if ((drvCapabilitiesMask.value & WpaDriverCapabilitiesMask.MBO) != 0) {
+            featureSet |= WIFI_FEATURE_MBO;
+            if (mVerboseLoggingEnabled) {
+                Log.v(TAG, methodStr + ": MBO supported");
+            }
+            if ((drvCapabilitiesMask.value
+                    & WpaDriverCapabilitiesMask.OCE) != 0) {
+                featureSet |= WIFI_FEATURE_OCE;
+                if (mVerboseLoggingEnabled) {
+                    Log.v(TAG, methodStr + ": OCE supported");
+                }
+            }
+        }
+
+        return featureSet;
+    }
+
+    private @WifiStandard int getWifiStandardFromCap(ConnectionCapabilities capa) {
+        switch(capa.technology) {
+            case WifiTechnology.HE:
+                return ScanResult.WIFI_STANDARD_11AX;
+            case WifiTechnology.VHT:
+                return ScanResult.WIFI_STANDARD_11AC;
+            case WifiTechnology.HT:
+                return ScanResult.WIFI_STANDARD_11N;
+            case WifiTechnology.LEGACY:
+                return ScanResult.WIFI_STANDARD_LEGACY;
+            default:
+                return ScanResult.WIFI_STANDARD_UNKNOWN;
+        }
+    }
+
+    private int getChannelBandwidthFromCap(ConnectionCapabilities cap) {
+        switch(cap.channelBandwidth) {
+            case WifiChannelWidthInMhz.WIDTH_20:
+                return ScanResult.CHANNEL_WIDTH_20MHZ;
+            case WifiChannelWidthInMhz.WIDTH_40:
+                return ScanResult.CHANNEL_WIDTH_40MHZ;
+            case WifiChannelWidthInMhz.WIDTH_80:
+                return ScanResult.CHANNEL_WIDTH_80MHZ;
+            case WifiChannelWidthInMhz.WIDTH_160:
+                return ScanResult.CHANNEL_WIDTH_160MHZ;
+            case WifiChannelWidthInMhz.WIDTH_80P80:
+                return ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ;
+            default:
+                return ScanResult.CHANNEL_WIDTH_20MHZ;
+        }
+    }
+
+    /**
+     * Returns connection capabilities of the current network
+     *
+     *  This is a v1.3+ HAL feature.
+     * @param ifaceName Name of the interface.
+     * @return connection capabilities of the current network
+     */
+    public WifiNative.ConnectionCapabilities getConnectionCapabilities(@NonNull String ifaceName) {
+        final String methodStr = "getConnectionCapabilities";
+        WifiNative.ConnectionCapabilities capOut = new WifiNative.ConnectionCapabilities();
+        if (isV1_3()) {
+            ISupplicantStaIface iface = checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
+            if (iface == null) {
+                return capOut;
+            }
+
+            // Get a v1.3 supplicant STA Interface
+            android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface staIfaceV13 =
+                    getStaIfaceMockableV1_3(iface);
+
+            if (staIfaceV13 == null) {
+                Log.e(TAG, methodStr
+                        + ": SupplicantStaIface is null, cannot get Connection Capabilities");
+                return capOut;
+            }
+
+            try {
+                staIfaceV13.getConnectionCapabilities(
+                        (SupplicantStatus statusInternal, ConnectionCapabilities cap) -> {
+                            if (statusInternal.code == SupplicantStatusCode.SUCCESS) {
+                                capOut.wifiStandard = getWifiStandardFromCap(cap);
+                                capOut.channelBandwidth = getChannelBandwidthFromCap(cap);
+                                capOut.maxNumberTxSpatialStreams = cap.maxNumberTxSpatialStreams;
+                                capOut.maxNumberRxSpatialStreams = cap.maxNumberRxSpatialStreams;
+                            }
+                            checkStatusAndLogFailure(statusInternal, methodStr);
+                        });
+            } catch (RemoteException e) {
+                handleRemoteException(e, methodStr);
+            }
+        } else {
+            Log.e(TAG, "Method " + methodStr + " is not supported in existing HAL");
+        }
+        return capOut;
     }
 
     /**
@@ -3369,4 +3257,48 @@ public class SupplicantStaIfaceHal {
     public void registerDppCallback(DppEventCallback dppCallback) {
         mDppCallback = dppCallback;
     }
+
+    protected DppEventCallback getDppCallback() {
+        return mDppCallback;
+    }
+
+   /**
+     * Set MBO cellular data availability.
+     *
+     * @param ifaceName Name of the interface.
+     * @param available true means cellular data available, false otherwise.
+     * @return None.
+     */
+    public boolean setMboCellularDataStatus(@NonNull String ifaceName, boolean available) {
+        final String methodStr = "setMboCellularDataStatus";
+
+        if (isV1_3()) {
+            ISupplicantStaIface iface = checkSupplicantStaIfaceAndLogFailure(ifaceName, methodStr);
+            if (iface == null) {
+                return false;
+            }
+
+            // Get a v1.3 supplicant STA Interface
+            android.hardware.wifi.supplicant.V1_3.ISupplicantStaIface staIfaceV13 =
+                    getStaIfaceMockableV1_3(iface);
+            if (staIfaceV13 == null) {
+                Log.e(TAG, methodStr
+                        + ": SupplicantStaIface is null, cannot update cell status");
+                return false;
+            }
+
+            try {
+                SupplicantStatus status = staIfaceV13.setMboCellularDataStatus(available);
+                return checkStatusAndLogFailure(status, methodStr);
+            } catch (RemoteException e) {
+                handleRemoteException(e, methodStr);
+            }
+        } else {
+            Log.e(TAG, "Method " + methodStr + " is not supported in existing HAL");
+            return false;
+        }
+
+        return false;
+    }
+
 }

@@ -65,6 +65,7 @@ public:
 
         struct VSync {
             uint32_t count;
+            nsecs_t expectedVSyncTimestamp;
         };
 
         struct Hotplug {
@@ -73,6 +74,7 @@ public:
 
         struct Config {
             int32_t configId;
+            nsecs_t vsyncPeriod;
         };
 
         Header header;
@@ -88,10 +90,13 @@ public:
      * DisplayEventReceiver creates and registers an event connection with
      * SurfaceFlinger. VSync events are disabled by default. Call setVSyncRate
      * or requestNextVsync to receive them.
+     * To receive Config Changed events specify this in the constructor.
      * Other events start being delivered immediately.
      */
     explicit DisplayEventReceiver(
-            ISurfaceComposer::VsyncSource vsyncSource = ISurfaceComposer::eVsyncSourceApp);
+            ISurfaceComposer::VsyncSource vsyncSource = ISurfaceComposer::eVsyncSourceApp,
+            ISurfaceComposer::ConfigChanged configChanged =
+                    ISurfaceComposer::eConfigChangedSuppress);
 
     /*
      * ~DisplayEventReceiver severs the connection with SurfaceFlinger, new events
@@ -140,6 +145,12 @@ public:
      * if the vsync rate is > 0.
      */
     status_t requestNextVsync();
+
+    /*
+     * requestLatestConfig() force-requests the current config for the primary
+     * display.
+     */
+    status_t requestLatestConfig();
 
 private:
     sp<IDisplayEventConnection> mEventConnection;

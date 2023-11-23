@@ -214,6 +214,33 @@ static bool VerifyUsesFeature(xml::Element* el, SourcePathDiagnostics* diag) {
   return true;
 }
 
+// Ensure that 'ns_decls' contains a declaration for 'uri', using 'prefix' as
+// the xmlns prefix if possible.
+static void EnsureNamespaceIsDeclared(const std::string& prefix, const std::string& uri,
+                                      std::vector<xml::NamespaceDecl>* ns_decls) {
+  if (std::find_if(ns_decls->begin(), ns_decls->end(), [&](const xml::NamespaceDecl& ns_decl) {
+        return ns_decl.uri == uri;
+      }) != ns_decls->end()) {
+    return;
+  }
+
+  std::set<std::string> used_prefixes;
+  for (const auto& ns_decl : *ns_decls) {
+    used_prefixes.insert(ns_decl.prefix);
+  }
+
+  // Make multiple attempts in the unlikely event that 'prefix' is already taken.
+  std::string disambiguator;
+  for (int i = 0; i < used_prefixes.size() + 1; i++) {
+    std::string attempted_prefix = prefix + disambiguator;
+    if (used_prefixes.find(attempted_prefix) == used_prefixes.end()) {
+      ns_decls->push_back(xml::NamespaceDecl{attempted_prefix, uri});
+      return;
+    }
+    disambiguator = std::to_string(i);
+  }
+}
+
 bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
                                IDiagnostics* diag) {
   // First verify some options.
@@ -231,6 +258,16 @@ bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
       diag->Error(DiagMessage()
                   << "invalid instrumentation target package override '"
                   << options_.rename_instrumentation_target_package.value()
+                  << "'");
+      return false;
+    }
+  }
+
+  if (options_.rename_overlay_target_package) {
+    if (!util::IsJavaPackageName(options_.rename_overlay_target_package.value())) {
+      diag->Error(DiagMessage()
+                  << "invalid overlay target package override '"
+                  << options_.rename_overlay_target_package.value()
                   << "'");
       return false;
     }
@@ -262,6 +299,8 @@ bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
   manifest_action.Action(VerifyManifest);
   manifest_action.Action(FixCoreAppAttribute);
   manifest_action.Action([&](xml::Element* el) -> bool {
+    EnsureNamespaceIsDeclared("android", xml::kSchemaAndroid, &el->namespace_decls);
+
     if (options_.version_name_default) {
       if (options_.replace_version) {
         el->RemoveAttribute(xml::kSchemaAndroid, "versionName");
@@ -320,6 +359,7 @@ bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
     }
     return true;
   });
+  manifest_action["uses-sdk"]["extension-sdk"];
 
   // Instrumentation actions.
   manifest_action["instrumentation"].Action(RequiredNameIsJavaClassName);
@@ -336,8 +376,24 @@ bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
   });
   manifest_action["instrumentation"]["meta-data"] = meta_data_action;
 
+  // TODO moltmann: Remove
+  manifest_action["feature"];
+  manifest_action["feature"]["inherit-from"];
+
+  manifest_action["attribution"];
+  manifest_action["attribution"]["inherit-from"];
   manifest_action["original-package"];
-  manifest_action["overlay"];
+  manifest_action["overlay"].Action([&](xml::Element* el) -> bool {
+    if (!options_.rename_overlay_target_package) {
+      return true;
+    }
+
+    if (xml::Attribute* attr =
+            el->FindAttribute(xml::kSchemaAndroid, "targetPackage")) {
+      attr->value = options_.rename_overlay_target_package.value();
+    }
+    return true;
+  });
   manifest_action["protected-broadcast"];
   manifest_action["adopt-permissions"];
   manifest_action["uses-permission"];
@@ -357,6 +413,10 @@ bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
   manifest_action["package-verifier"];
   manifest_action["meta-data"] = meta_data_action;
   manifest_action["uses-split"].Action(RequiredNameIsJavaPackage);
+  manifest_action["queries"]["package"].Action(RequiredNameIsJavaPackage);
+  manifest_action["queries"]["intent"] = intent_filter_action;
+  manifest_action["queries"]["provider"].Action(RequiredAndroidAttribute("authorities"));
+  // TODO: more complicated component name tag
 
   manifest_action["key-sets"]["key-set"]["public-key"];
   manifest_action["key-sets"]["upgrade-key-set"];
@@ -392,6 +452,12 @@ bool ManifestFixer::BuildRules(xml::XmlActionExecutor* executor,
   }
 
   application_action["meta-data"] = meta_data_action;
+
+  application_action["processes"];
+  application_action["processes"]["deny-permission"];
+  application_action["processes"]["allow-permission"];
+  application_action["processes"]["process"]["deny-permission"];
+  application_action["processes"]["process"]["allow-permission"];
 
   application_action["activity"] = component_action;
   application_action["activity"]["layout"];

@@ -16,17 +16,16 @@
 
 package com.android.internal.telephony.uicc;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.telephony.PhoneNumberUtils;
-import android.telephony.Rlog;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.GsmAlphabet;
+import com.android.telephony.Rlog;
 
 import java.util.Arrays;
-
 
 /**
  *
@@ -93,7 +92,7 @@ public class AdnRecord implements Parcelable {
             recordNumber = source.readInt();
             alphaTag = source.readString();
             number = source.readString();
-            emails = source.readStringArray();
+            emails = source.createStringArray();
 
             return new AdnRecord(efid, recordNumber, alphaTag, number, emails);
         }

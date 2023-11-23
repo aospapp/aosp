@@ -24,6 +24,8 @@
 #include <inttypes.h>
 #include <utils/Trace.h>
 
+#include <android/hardware/media/omx/1.0/IGraphicBufferSource.h>
+
 #include <gui/Surface.h>
 
 #include <media/stagefright/ACodec.h>
@@ -45,6 +47,7 @@
 #include <media/hardware/HardwareAPI.h>
 #include <media/MediaBufferHolder.h>
 #include <media/OMXBuffer.h>
+#include <media/omx/1.0/Conversion.h>
 #include <media/omx/1.0/WOmxNode.h>
 
 #include <hidlmemory/mapping.h>
@@ -63,7 +66,9 @@
 
 namespace android {
 
-using binder::Status;
+typedef hardware::media::omx::V1_0::IGraphicBufferSource HGraphicBufferSource;
+
+using hardware::media::omx::V1_0::Status;
 
 enum {
     kMaxIndicesToCheck = 32, // used when enumerating supported formats and profiles
@@ -98,16 +103,11 @@ static inline status_t statusFromOMXError(int32_t omxError) {
     }
 }
 
-static inline status_t statusFromBinderStatus(const Status &status) {
+static inline status_t statusFromBinderStatus(hardware::Return<Status> &&status) {
     if (status.isOk()) {
-        return OK;
-    }
-    status_t err;
-    if ((err = status.serviceSpecificErrorCode()) != OK) {
-        return err;
-    }
-    if ((err = status.transactionError()) != OK) {
-        return err;
+        return static_cast<status_t>(status.withDefault(Status::UNKNOWN_ERROR));
+    } else if (status.isDeadObject()) {
+        return DEAD_OBJECT;
     }
     // Other exception
     return UNKNOWN_ERROR;
@@ -1310,7 +1310,7 @@ status_t ACodec::allocateOutputMetadataBuffers() {
     OMX_U32 bufferCount, bufferSize, minUndequeuedBuffers;
     status_t err = configureOutputBuffersFromNativeWindow(
             &bufferCount, &bufferSize, &minUndequeuedBuffers,
-            false /* preregister */);
+            mFlags & kFlagPreregisterMetadataBuffers /* preregister */);
     if (err != OK)
         return err;
     mNumUndequeuedBuffers = minUndequeuedBuffers;
@@ -1780,6 +1780,14 @@ status_t ACodec::configureCodec(
         }
     }
 
+    int32_t lowLatency = 0;
+    if (msg->findInt32("low-latency", &lowLatency)) {
+        err = setLowLatency(lowLatency);
+        if (err != OK) {
+            return err;
+        }
+    }
+
     int32_t prependSPSPPS = 0;
     if (encoder && mIsVideo
             && msg->findInt32("prepend-sps-pps-to-idr-frames", &prependSPSPPS)
@@ -1826,6 +1834,23 @@ status_t ACodec::configureCodec(
             mRepeatFrameDelayUs = -1LL;
         }
 
+        if (!msg->findDouble("time-lapse-fps", &mCaptureFps)) {
+            float captureRate;
+            if (msg->findAsFloat(KEY_CAPTURE_RATE, &captureRate)) {
+                mCaptureFps = captureRate;
+            } else {
+                mCaptureFps = -1.0;
+            }
+        }
+
+        if (!msg->findInt32(
+                KEY_CREATE_INPUT_SURFACE_SUSPENDED,
+                (int32_t*)&mCreateInputBuffersSuspended)) {
+            mCreateInputBuffersSuspended = false;
+        }
+    }
+
+    if (encoder && (mIsVideo || mIsImage)) {
         // only allow 32-bit value, since we pass it as U32 to OMX.
         if (!msg->findInt64(KEY_MAX_PTS_GAP_TO_ENCODER, &mMaxPtsGapUs)) {
             mMaxPtsGapUs = 0LL;
@@ -1841,16 +1866,6 @@ status_t ACodec::configureCodec(
         // notify GraphicBufferSource to allow backward frames
         if (mMaxPtsGapUs < 0LL) {
             mMaxFps = -1;
-        }
-
-        if (!msg->findDouble("time-lapse-fps", &mCaptureFps)) {
-            mCaptureFps = -1.0;
-        }
-
-        if (!msg->findInt32(
-                KEY_CREATE_INPUT_SURFACE_SUSPENDED,
-                (int32_t*)&mCreateInputBuffersSuspended)) {
-            mCreateInputBuffersSuspended = false;
         }
     }
 
@@ -1880,6 +1895,19 @@ status_t ACodec::configureCodec(
             ALOGI("falling back to non-native_handles");
             setPortMode(kPortIndexInput, IOMX::kPortModePresetByteBuffer);
             err = OK; // ignore error for now
+        }
+
+        OMX_INDEXTYPE index;
+        if (mOMXNode->getExtensionIndex(
+                "OMX.google.android.index.preregisterMetadataBuffers", &index) == OK) {
+            OMX_CONFIG_BOOLEANTYPE param;
+            InitOMXParams(&param);
+            param.bEnabled = OMX_FALSE;
+            if (mOMXNode->getParameter(index, &param, sizeof(param)) == OK) {
+                if (param.bEnabled == OMX_TRUE) {
+                    mFlags |= kFlagPreregisterMetadataBuffers;
+                }
+            }
         }
     }
     if (haveNativeWindow) {
@@ -2025,16 +2053,33 @@ status_t ACodec::configureCodec(
     if (mIsVideo || mIsImage) {
         // determine need for software renderer
         bool usingSwRenderer = false;
-        if (haveNativeWindow && mComponentName.startsWith("OMX.google.")) {
-            usingSwRenderer = true;
-            haveNativeWindow = false;
-            (void)setPortMode(kPortIndexOutput, IOMX::kPortModePresetByteBuffer);
-        } else if (haveNativeWindow && !storingMetadataInDecodedBuffers()) {
-            err = setPortMode(kPortIndexOutput, IOMX::kPortModePresetANWBuffer);
-            if (err != OK) {
-                return err;
+        if (haveNativeWindow) {
+            bool requiresSwRenderer = false;
+            OMX_PARAM_U32TYPE param;
+            InitOMXParams(&param);
+            param.nPortIndex = kPortIndexOutput;
+
+            status_t err = mOMXNode->getParameter(
+                    (OMX_INDEXTYPE)OMX_IndexParamVideoAndroidRequiresSwRenderer,
+                    &param, sizeof(param));
+
+            if (err == OK && param.nU32 == 1) {
+                requiresSwRenderer = true;
             }
+
+            if (mComponentName.startsWith("OMX.google.") || requiresSwRenderer) {
+                usingSwRenderer = true;
+                haveNativeWindow = false;
+                (void)setPortMode(kPortIndexOutput, IOMX::kPortModePresetByteBuffer);
+            } else if (!storingMetadataInDecodedBuffers()) {
+                err = setPortMode(kPortIndexOutput, IOMX::kPortModePresetANWBuffer);
+                if (err != OK) {
+                    return err;
+                }
+            }
+
         }
+
 
         if (encoder) {
             err = setupVideoEncoder(mime, msg, outputFormat, inputFormat);
@@ -2153,11 +2198,19 @@ status_t ACodec::configureCodec(
             }
             if (!msg->findInt32("aac-target-ref-level", &drc.targetRefLevel)) {
                 // value is unknown
-                drc.targetRefLevel = -1;
+                drc.targetRefLevel = -2;
             }
             if (!msg->findInt32("aac-drc-effect-type", &drc.effectType)) {
                 // value is unknown
                 drc.effectType = -2; // valid values are -1 and over
+            }
+            if (!msg->findInt32("aac-drc-album-mode", &drc.albumMode)) {
+                // value is unknown
+                drc.albumMode = -1; // valid values are 0 and 1
+            }
+            if (!msg->findInt32("aac-drc-output-loudness", &drc.outputLoudness)) {
+                // value is unknown
+                drc.outputLoudness = -1;
             }
 
             err = setupAACCodec(
@@ -2341,6 +2394,24 @@ status_t ACodec::configureCodec(
     return err;
 }
 
+status_t ACodec::setLowLatency(int32_t lowLatency) {
+    if (mIsEncoder) {
+        ALOGE("encoder does not support low-latency");
+        return BAD_VALUE;
+    }
+
+    OMX_CONFIG_BOOLEANTYPE config;
+    InitOMXParams(&config);
+    config.bEnabled = (OMX_BOOL)(lowLatency != 0);
+    status_t err = mOMXNode->setConfig(
+            (OMX_INDEXTYPE)OMX_IndexConfigLowLatency,
+            &config, sizeof(config));
+    if (err != OK) {
+        ALOGE("decoder can not set low-latency to %d (err %d)", lowLatency, err);
+    }
+    return err;
+}
+
 status_t ACodec::setLatency(uint32_t latency) {
     OMX_PARAM_U32TYPE config;
     InitOMXParams(&config);
@@ -2403,7 +2474,7 @@ status_t ACodec::setOperatingRate(float rateFloat, bool isVideo) {
         }
         rate = (OMX_U32)(rateFloat * 65536.0f + 0.5f);
     } else {
-        if (rateFloat > UINT_MAX) {
+        if (rateFloat > (float)UINT_MAX) {
             return BAD_VALUE;
         }
         rate = (OMX_U32)(rateFloat);
@@ -2830,6 +2901,8 @@ status_t ACodec::setupAACCodec(
     presentation.nEncodedTargetLevel = drc.encodedTargetLevel;
     presentation.nPCMLimiterEnable = pcmLimiterEnable;
     presentation.nDrcEffectType = drc.effectType;
+    presentation.nDrcAlbumMode = drc.albumMode;
+    presentation.nDrcOutputLoudness = drc.outputLoudness;
 
     status_t res = mOMXNode->setParameter(
             OMX_IndexParamAudioAac, &profile, sizeof(profile));
@@ -3309,6 +3382,7 @@ static const struct VideoCodingMapEntry {
     { MEDIA_MIMETYPE_VIDEO_VP9, OMX_VIDEO_CodingVP9 },
     { MEDIA_MIMETYPE_VIDEO_DOLBY_VISION, OMX_VIDEO_CodingDolbyVision },
     { MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC, OMX_VIDEO_CodingImageHEIC },
+    { MEDIA_MIMETYPE_VIDEO_AV1, OMX_VIDEO_CodingAV1 },
 };
 
 static status_t GetVideoCodingTypeFromMime(
@@ -4505,21 +4579,37 @@ status_t ACodec::setupAVCEncoderParameters(const sp<AMessage> &msg) {
 status_t ACodec::configureImageGrid(
         const sp<AMessage> &msg, sp<AMessage> &outputFormat) {
     int32_t tileWidth, tileHeight, gridRows, gridCols;
-    if (!msg->findInt32("tile-width", &tileWidth) ||
-        !msg->findInt32("tile-height", &tileHeight) ||
-        !msg->findInt32("grid-rows", &gridRows) ||
-        !msg->findInt32("grid-cols", &gridCols)) {
+    OMX_BOOL useGrid = OMX_FALSE;
+    if (msg->findInt32("tile-width", &tileWidth) &&
+        msg->findInt32("tile-height", &tileHeight) &&
+        msg->findInt32("grid-rows", &gridRows) &&
+        msg->findInt32("grid-cols", &gridCols)) {
+        useGrid = OMX_TRUE;
+    } else {
+        // when bEnabled is false, the tile info is not used,
+        // but clear out these too.
+        tileWidth = tileHeight = gridRows = gridCols = 0;
+    }
+
+    if (!mIsImage && !useGrid) {
         return OK;
     }
 
     OMX_VIDEO_PARAM_ANDROID_IMAGEGRIDTYPE gridType;
     InitOMXParams(&gridType);
     gridType.nPortIndex = kPortIndexOutput;
-    gridType.bEnabled = OMX_TRUE;
+    gridType.bEnabled = useGrid;
     gridType.nTileWidth = tileWidth;
     gridType.nTileHeight = tileHeight;
     gridType.nGridRows = gridRows;
     gridType.nGridCols = gridCols;
+
+    ALOGV("sending image grid info to component: bEnabled %d, tile %dx%d, grid %dx%d",
+            gridType.bEnabled,
+            gridType.nTileWidth,
+            gridType.nTileHeight,
+            gridType.nGridRows,
+            gridType.nGridCols);
 
     status_t err = mOMXNode->setParameter(
             (OMX_INDEXTYPE)OMX_IndexParamVideoAndroidImageGrid,
@@ -4540,6 +4630,13 @@ status_t ACodec::configureImageGrid(
     err = mOMXNode->getParameter(
             (OMX_INDEXTYPE)OMX_IndexParamVideoAndroidImageGrid,
             &gridType, sizeof(gridType));
+
+    ALOGV("received image grid info from component: bEnabled %d, tile %dx%d, grid %dx%d",
+            gridType.bEnabled,
+            gridType.nTileWidth,
+            gridType.nTileHeight,
+            gridType.nGridRows,
+            gridType.nGridCols);
 
     if (err == OK && gridType.bEnabled) {
         outputFormat->setInt32("tile-width", gridType.nTileWidth);
@@ -6850,8 +6947,11 @@ status_t ACodec::LoadedState::setupInputSurface() {
         return err;
     }
 
+    using hardware::media::omx::V1_0::utils::TWOmxNode;
     err = statusFromBinderStatus(
-            mCodec->mGraphicBufferSource->configure(mCodec->mOMXNode, dataSpace));
+            mCodec->mGraphicBufferSource->configure(
+                    new TWOmxNode(mCodec->mOMXNode),
+                    static_cast<hardware::graphics::common::V1_0::Dataspace>(dataSpace)));
     if (err != OK) {
         ALOGE("[%s] Unable to configure for node (err %d)",
               mCodec->mComponentName.c_str(), err);
@@ -6871,7 +6971,7 @@ status_t ACodec::LoadedState::setupInputSurface() {
         }
     }
 
-    if (mCodec->mMaxPtsGapUs != 0LL) {
+    if (mCodec->mIsVideo && mCodec->mMaxPtsGapUs != 0LL) {
         OMX_PARAM_U32TYPE maxPtsGapParams;
         InitOMXParams(&maxPtsGapParams);
         maxPtsGapParams.nPortIndex = kPortIndexInput;
@@ -6937,8 +7037,9 @@ status_t ACodec::LoadedState::setupInputSurface() {
         }
 
         err = statusFromBinderStatus(
-                mCodec->mGraphicBufferSource->setColorAspects(ColorUtils::packToU32(
-                        *(ColorAspects *)colorAspectsBuffer->base())));
+                mCodec->mGraphicBufferSource->setColorAspects(
+                        hardware::media::omx::V1_0::utils::toHardwareColorAspects(
+                                *(ColorAspects *)colorAspectsBuffer->base())));
 
         if (err != OK) {
             ALOGE("[%s] Unable to configure color aspects (err %d)",
@@ -6954,8 +7055,10 @@ void ACodec::LoadedState::onCreateInputSurface(
     ALOGV("onCreateInputSurface");
 
     sp<IGraphicBufferProducer> bufferProducer;
+    sp<HGraphicBufferSource> bufferSource;
     status_t err = mCodec->mOMX->createInputSurface(
-            &bufferProducer, &mCodec->mGraphicBufferSource);
+            &bufferProducer, &bufferSource);
+    mCodec->mGraphicBufferSource = bufferSource;
 
     if (err == OK) {
         err = setupInputSurface();
@@ -6988,8 +7091,12 @@ void ACodec::LoadedState::onSetInputSurface(const sp<AMessage> &msg) {
     }
 
     sp<PersistentSurface> surface = static_cast<PersistentSurface *>(obj.get());
-    mCodec->mGraphicBufferSource = surface->getBufferSource();
-    status_t err = setupInputSurface();
+    sp<HGraphicBufferSource> hgbs = HGraphicBufferSource::castFrom(surface->getHidlTarget());
+    status_t err = BAD_VALUE;
+    if (hgbs) {
+        mCodec->mGraphicBufferSource = hgbs;
+        err = setupInputSurface();
+    }
 
     if (err == OK) {
         mCodec->mCallback->onInputSurfaceAccepted(
@@ -7508,8 +7615,14 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
         }
 
         int64_t stopTimeOffsetUs;
-        err = statusFromBinderStatus(
-                mGraphicBufferSource->getStopTimeOffsetUs(&stopTimeOffsetUs));
+        hardware::Return<void> trans = mGraphicBufferSource->getStopTimeOffsetUs(
+                [&err, &stopTimeOffsetUs](auto status, auto result) {
+                    err = static_cast<status_t>(status);
+                    stopTimeOffsetUs = result;
+                });
+        if (!trans.isOk()) {
+            err = trans.isDeadObject() ? DEAD_OBJECT : UNKNOWN_ERROR;
+        }
 
         if (err != OK) {
             ALOGE("Failed to get stop time offset (err %d)", err);
@@ -7549,6 +7662,14 @@ status_t ACodec::setParameters(const sp<AMessage> &params) {
             ALOGI("[%s] failed setIntraRefreshPeriod. Failure is fine since this key is optional",
                     mComponentName.c_str());
             err = OK;
+        }
+    }
+
+    int32_t lowLatency = 0;
+    if (params->findInt32("low-latency", &lowLatency)) {
+        status_t err = setLowLatency(lowLatency);
+        if (err != OK) {
+            return err;
         }
     }
 

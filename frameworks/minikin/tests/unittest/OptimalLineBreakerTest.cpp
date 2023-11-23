@@ -1496,6 +1496,81 @@ TEST_F(OptimalLineBreakerTest, testReplacementSpanNotBreakTest_MultipleChars) {
     }
 }
 
+TEST_F(OptimalLineBreakerTest, testReplacementSpanNotBreakTest_continuedReplacementSpan) {
+    constexpr float CHAR_WIDTH = 10.0;
+
+    constexpr StartHyphenEdit NO_START_HYPHEN = StartHyphenEdit::NO_EDIT;
+    constexpr EndHyphenEdit NO_END_HYPHEN = EndHyphenEdit::NO_EDIT;
+
+    const auto textBuf = utf8ToUtf16("This is an example text.");
+
+    // In this test case, assign a replacement run for "is an " with 5 times of CHAR_WIDTH.
+    auto doLineBreak = [=](float width) {
+        MeasuredTextBuilder builder;
+        builder.addReplacementRun(0, 5, 5 * CHAR_WIDTH, LocaleListCache::getId("en-US"));
+        builder.addReplacementRun(5, 8, 3 * CHAR_WIDTH, LocaleListCache::getId("en-US"));
+        builder.addReplacementRun(8, 11, 3 * CHAR_WIDTH, LocaleListCache::getId("en-US"));
+        builder.addReplacementRun(11, 19, 8 * CHAR_WIDTH, LocaleListCache::getId("en-US"));
+        builder.addReplacementRun(19, 24, 5 * CHAR_WIDTH, LocaleListCache::getId("en-US"));
+        std::unique_ptr<MeasuredText> measuredText =
+                builder.build(textBuf, false /* compute hyphenation */,
+                              false /* compute full layout */, nullptr /* no hint */);
+        RectangleLineWidth rectangleLineWidth(width);
+        TabStops tabStops(nullptr, 0, 0);
+        return breakLineOptimal(textBuf, *measuredText, rectangleLineWidth,
+                                BreakStrategy::HighQuality, HyphenationFrequency::None,
+                                false /* justified */);
+    };
+
+    {
+        constexpr float LINE_WIDTH = 100;
+        // clang-format off
+        std::vector<LineBreakExpectation> expect = {
+                {"This ",    50, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"is an ",   60, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"example ", 80, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"text.",    50, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+        };
+        // clang-format on
+        const auto actual = doLineBreak(LINE_WIDTH);
+        EXPECT_TRUE(sameLineBreak(expect, actual)) << toString(expect) << std::endl
+                                                   << " vs " << std::endl
+                                                   << toString(textBuf, actual);
+    }
+    {
+        constexpr float LINE_WIDTH = 40;
+        // clang-format off
+        std::vector<LineBreakExpectation> expect = {
+                {"This ",    50, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"is ",      30, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"an ",      30, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"example ", 80, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"text.",    50, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+        };
+        // clang-format on
+        const auto actual = doLineBreak(LINE_WIDTH);
+        EXPECT_TRUE(sameLineBreak(expect, actual)) << toString(expect) << std::endl
+                                                   << " vs " << std::endl
+                                                   << toString(textBuf, actual);
+    }
+    {
+        constexpr float LINE_WIDTH = 10;
+        // clang-format off
+        std::vector<LineBreakExpectation> expect = {
+                {"This ",    50, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"is ",      30, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"an ",      30, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"example ", 80, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+                {"text.",    50, NO_START_HYPHEN, NO_END_HYPHEN, 0, 0},
+        };
+        // clang-format on
+        const auto actual = doLineBreak(LINE_WIDTH);
+        EXPECT_TRUE(sameLineBreak(expect, actual)) << toString(expect) << std::endl
+                                                   << " vs " << std::endl
+                                                   << toString(textBuf, actual);
+    }
+}
+
 TEST_F(OptimalLineBreakerTest, testReplacementSpanNotBreakTest_CJK) {
     constexpr float CHAR_WIDTH = 10.0;
 

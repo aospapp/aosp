@@ -21,12 +21,11 @@
 #include "packages/PackageInfoListener.h"
 #include "stats_util.h"
 
-#include <binder/IResultReceiver.h>
-#include <binder/IShellCallback.h>
 #include <gtest/gtest_prod.h>
-#include <log/logprint.h>
 #include <stdio.h>
 #include <utils/RefBase.h>
+#include <utils/String16.h>
+
 #include <list>
 #include <mutex>
 #include <set>
@@ -118,12 +117,10 @@ public:
     // adb shell cmd stats print-uid-map
     void printUidMap(int outFd) const;
 
-    // Commands for indicating to the map that a producer should be notified if an app is updated.
-    // This allows the metric producer to distinguish when the same uid or app represents a
-    // different version of an app.
-    void addListener(wp<PackageInfoListener> producer);
-    // Remove the listener from the set of metric producers that subscribe to updates.
-    void removeListener(wp<PackageInfoListener> producer);
+    // Command for indicating to the map that StatsLogProcessor should be notified if an app is
+    // updated. This allows metric producers and managers to distinguish when the same uid or app
+    // represents a different version of an app.
+    void setListener(wp<PackageInfoListener> listener);
 
     // Informs uid map that a config is added/updated. Used for keeping mConfigKeys up to date.
     void OnConfigUpdated(const ConfigKey& key);
@@ -142,7 +139,7 @@ public:
     // record is deleted.
     void appendUidMap(const int64_t& timestamp, const ConfigKey& key, std::set<string>* str_set,
                       bool includeVersionStrings, bool includeInstaller,
-                      util::ProtoOutputStream* proto);
+                      ProtoOutputStream* proto);
 
     // Forces the output to be cleared. We still generate a snapshot based on the current state.
     // This results in extra data uploaded but helps us reconstruct the uid mapping on the server
@@ -152,7 +149,7 @@ public:
     // Get currently cached value of memory used by UID map.
     size_t getBytesUsed() const;
 
-    std::set<int32_t> getAppUid(const string& package) const;
+    virtual std::set<int32_t> getAppUid(const string& package) const;
 
     // Write current PackageInfoSnapshot to ProtoOutputStream.
     // interestingUids: If not empty, only write the package info for these uids. If empty, write
@@ -166,8 +163,6 @@ public:
 private:
     std::set<string> getAppNamesFromUidLocked(const int32_t& uid, bool returnNormalized) const;
     string normalizeAppName(const string& appName) const;
-
-    void getListenerListCopyLocked(std::vector<wp<PackageInfoListener>>* output);
 
     void writeUidMapSnapshotLocked(int64_t timestamp, bool includeVersionStrings,
                                    bool includeInstaller, const std::set<int32_t>& interestingUids,
@@ -195,8 +190,8 @@ private:
     // Store which uid and apps represent deleted ones.
     std::list<std::pair<int, string>> mDeletedApps;
 
-    // Metric producers that should be notified if there's an upgrade in any app.
-    set<wp<PackageInfoListener>> mSubscribers;
+    // Notify StatsLogProcessor if there's an upgrade/removal in any app.
+    wp<PackageInfoListener> mSubscriber;
 
     // Mapping of config keys we're aware of to the epoch time they last received an update. This
     // lets us know it's safe to delete events older than the oldest update. The value is nanosec.

@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_RUNTIME_CALLBACKS_H
-#define ANDROID_ML_NN_RUNTIME_CALLBACKS_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_CALLBACKS_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_CALLBACKS_H
+
+#include "HalInterfaces.h"
 
 #include <android-base/thread_annotations.h>
-#include <android/hardware/neuralnetworks/1.0/IExecutionCallback.h>
-#include <android/hardware/neuralnetworks/1.0/IPreparedModelCallback.h>
-#include <android/hardware/neuralnetworks/1.2/IExecutionCallback.h>
-#include <android/hardware/neuralnetworks/1.2/IPreparedModelCallback.h>
-#include <hidl/MQDescriptor.h>
-#include <hidl/Status.h>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 /*
  * The Callback classes are used internally by the NeuralNetworks runtime to
@@ -47,9 +44,7 @@
  * instead.
  */
 
-namespace android::hardware::neuralnetworks::V1_2::implementation {
-
-using V1_0::ErrorStatus;
+namespace android::nn {
 
 /**
  * The PreparedModelCallback class is used to receive the error status of
@@ -57,7 +52,7 @@ using V1_0::ErrorStatus;
  * asynchronously with respect to the runtime. If a calling thread calls wait
  * or get* on a PreparedModelCallback object and the corresponding asynchronous
  * task has not finished preparing the model, the calling thread will block
- * until the asynchronous task has either called notify or notify_1_2.
+ * until the asynchronous task has called notify*.
  *
  * If the callback object is notified more than once, only the results of the
  * first call to notify* are used, and the results from subsequent calls are
@@ -65,7 +60,7 @@ using V1_0::ErrorStatus;
  *
  * This callback object is passed as an argument to IDevice::prepareModel*.
  */
-class PreparedModelCallback : public IPreparedModelCallback {
+class PreparedModelCallback : public hal::IPreparedModelCallback {
    public:
     /**
      * IPreparedModelCallback::notify marks the callback object with the return
@@ -73,8 +68,8 @@ class PreparedModelCallback : public IPreparedModelCallback {
      * model, and allows all prior and future wait calls on the
      * PreparedModelCallback object to proceed.
      *
-     * Either IPreparedModelCallback::notify or
-     * IPreparedModelCallback::notify_1_2 must be called on a given
+     * One of IPreparedModelCallback::notify, IPreparedModelCallback::notify_1_2,
+     * or IPreparedModelCallback::notify_1_3 must be called on a given
      * PreparedModelCallback object.
      *
      * If the callback object is notified more than once, only the results of
@@ -90,7 +85,8 @@ class PreparedModelCallback : public IPreparedModelCallback {
      * @param preparedModel Returned model that has been prepared for execution,
      *     nullptr if the model was unable to be prepared.
      */
-    Return<void> notify(ErrorStatus status, const sp<V1_0::IPreparedModel>& preparedModel) override;
+    hal::Return<void> notify(hal::V1_0::ErrorStatus status,
+                             const sp<hal::V1_0::IPreparedModel>& preparedModel) override;
 
     /**
      * IPreparedModelCallback::notify_1_2 marks the callback object with the
@@ -98,8 +94,8 @@ class PreparedModelCallback : public IPreparedModelCallback {
      * prepared model, and allows all prior and future wait calls on the
      * PreparedModelCallback object to proceed.
      *
-     * Either IPreparedModelCallback::notify or
-     * IPreparedModelCallback::notify_1_2 must be called on a given
+     * One of IPreparedModelCallback::notify, IPreparedModelCallback::notify_1_2,
+     * or IPreparedModelCallback::notify_1_3 must be called on a given
      * PreparedModelCallback object.
      *
      * If the callback object is notified more than once, only the results of
@@ -115,8 +111,41 @@ class PreparedModelCallback : public IPreparedModelCallback {
      * @param preparedModel Returned model that has been prepared for execution,
      *     nullptr if the model was unable to be prepared.
      */
-    Return<void> notify_1_2(ErrorStatus status,
-                            const sp<V1_2::IPreparedModel>& preparedModel) override;
+    hal::Return<void> notify_1_2(hal::V1_0::ErrorStatus status,
+                                 const sp<hal::V1_2::IPreparedModel>& preparedModel) override;
+
+    /**
+     * IPreparedModelCallback::notify_1_3 marks the callback object with the
+     * return status of the asynchronous model preparation along with the
+     * prepared model, and allows all prior and future wait calls on the
+     * PreparedModelCallback object to proceed.
+     *
+     * One of IPreparedModelCallback::notify, IPreparedModelCallback::notify_1_2,
+     * or IPreparedModelCallback::notify_1_3 must be called on a given
+     * PreparedModelCallback object.
+     *
+     * If the callback object is notified more than once, only the results of
+     * the first call to notify* are used, and the results from subsequent calls
+     * are discarded.
+     *
+     * @param status Error status returned from asynchronously preparing the
+     *     model; will be:
+     *     - NONE if the asynchronous preparation was successful
+     *     - DEVICE_UNAVAILABLE if driver is offline or busy
+     *     - GENERAL_FAILURE if there is an unspecified error
+     *     - INVALID_ARGUMENT if the input model is invalid
+     *     - MISSED_DEADLINE_* if the deadline could not be met
+     *     - RESOURCE_EXHAUSTED_* if the task was aborted by the driver
+     * @param preparedModel Returned model that has been prepared for execution,
+     *     nullptr if the model was unable to be prepared.
+     */
+    hal::Return<void> notify_1_3(hal::V1_3::ErrorStatus status,
+                                 const sp<hal::V1_3::IPreparedModel>& preparedModel) override;
+
+    /**
+     * Mark the callback object as a dead object. This acts as a call to notify.
+     */
+    void notifyAsDeadObject();
 
     /**
      * PreparedModelCallback::wait blocks until notify* has been called on the
@@ -136,8 +165,11 @@ class PreparedModelCallback : public IPreparedModelCallback {
      *     - DEVICE_UNAVAILABLE if driver is offline or busy
      *     - GENERAL_FAILURE if there is an unspecified error
      *     - INVALID_ARGUMENT if the input model is invalid
+     *     - MISSED_DEADLINE_* if the deadline could not be met
+     *     - RESOURCE_EXHAUSTED_* if the task was aborted by the driver
+     *     - DEAD_OBJECT if the driver crashed without returning a result
      */
-    ErrorStatus getStatus() const;
+    hal::V1_3::ErrorStatus getStatus() const;
 
     /**
      * Retrieves the model that has been prepared for execution from the
@@ -149,14 +181,25 @@ class PreparedModelCallback : public IPreparedModelCallback {
      * @return preparedModel Returned model that has been prepared for
      *     execution, nullptr if the model was unable to be prepared.
      */
-    sp<V1_0::IPreparedModel> getPreparedModel() const;
+    sp<hal::V1_0::IPreparedModel> getPreparedModel() const;
+
+    /**
+     * Queries whether the object is dead.
+     *
+     * @return 'true' if dead, 'false' otherwise.
+     */
+    bool isDeadObject() const;
 
    private:
+    hal::Return<void> notifyInternal(bool deadObject, hal::ErrorStatus errorStatus,
+                                     const sp<hal::V1_0::IPreparedModel>& preparedModel);
+
     mutable std::mutex mMutex;
     mutable std::condition_variable mCondition;
     bool mNotified GUARDED_BY(mMutex) = false;
-    ErrorStatus mErrorStatus = ErrorStatus::GENERAL_FAILURE;
-    sp<V1_0::IPreparedModel> mPreparedModel;
+    bool mDeadObject = false;
+    hal::ErrorStatus mErrorStatus = hal::ErrorStatus::GENERAL_FAILURE;
+    sp<hal::V1_0::IPreparedModel> mPreparedModel;
 };
 
 /**
@@ -164,8 +207,8 @@ class PreparedModelCallback : public IPreparedModelCallback {
  * from a task executing asynchronously with respect to the runtime. If a
  * calling thread calls wait or get* on a ExecutionCallback object and the
  * corresponding asynchronous task has not finished the execution, the calling
- * thread will block until the asynchronous task has either called notify or
- * notify_1_2.
+ * thread will block until the asynchronous task has called one of the notify*
+ * methods.
  *
  * If the callback object is notified more than once, only the results of the
  * first call to notify* are used, and the results from subsequent calls are
@@ -173,9 +216,9 @@ class PreparedModelCallback : public IPreparedModelCallback {
  *
  * This callback object is passed as an argument to IPreparedModel::execute*.
  */
-class ExecutionCallback : public IExecutionCallback {
+class ExecutionCallback : public hal::IExecutionCallback {
     using ExecutionFinish =
-            std::function<ErrorStatus(ErrorStatus, const std::vector<OutputShape>&)>;
+            std::function<hal::ErrorStatus(hal::ErrorStatus, const std::vector<hal::OutputShape>&)>;
 
    public:
     /**
@@ -184,8 +227,8 @@ class ExecutionCallback : public IExecutionCallback {
      * all prior and future wait calls on the ExecutionCallback object to
      * proceed.
      *
-     * Either IExecutionCallback::notify or IExecutionCallback::notify_1_2 must
-     * be called on a given ExecutionCallback object.
+     * One of the IExecutionCallback::notify* methods must be called on a given
+     * ExecutionCallback object.
      *
      * If the callback object is notified more than once, only the results of
      * the first call to notify* are used, and the results from subsequent calls
@@ -201,7 +244,7 @@ class ExecutionCallback : public IExecutionCallback {
      *         enough to store the resultant values
      *     - INVALID_ARGUMENT if the input request is invalid
      */
-    Return<void> notify(ErrorStatus status) override;
+    hal::Return<void> notify(hal::V1_0::ErrorStatus status) override;
 
     /**
      * IExecutionCallback::notify_1_2 marks the callback object with the results
@@ -209,8 +252,8 @@ class ExecutionCallback : public IExecutionCallback {
      * asynchronous execution that held this callback and enables all prior and
      * future wait calls on the ExecutionCallback object to proceed.
      *
-     * Either IExecutionCallback::notify or IExecutionCallback::notify_1_2 must
-     * be called on a given ExecutionCallback object.
+     * One of the IExecutionCallback::notify* methods must be called on a given
+     * ExecutionCallback object.
      *
      * If the callback object is notified more than once, only the results of
      * the first call to notify* are used, and the results from subsequent calls
@@ -236,14 +279,60 @@ class ExecutionCallback : public IExecutionCallback {
      *     reported as UINT64_MAX. A driver may choose to report any time as
      *     UINT64_MAX, indicating that particular measurement is not available.
      */
-    Return<void> notify_1_2(ErrorStatus status, const hidl_vec<OutputShape>& outputShapes,
-                            const Timing& timing) override;
+    hal::Return<void> notify_1_2(hal::V1_0::ErrorStatus status,
+                                 const hal::hidl_vec<hal::OutputShape>& outputShapes,
+                                 const hal::Timing& timing) override;
+
+    /**
+     * IExecutionCallback::notify_1_3 marks the callback object with the results
+     * (error status, dynamic output shapes, and timing information) of the
+     * asynchronous execution that held this callback and enables all prior and
+     * future wait calls on the ExecutionCallback object to proceed.
+     *
+     * One of the IExecutionCallback::notify* methods must be called on a given
+     * ExecutionCallback object.
+     *
+     * If the callback object is notified more than once, only the results of
+     * the first call to notify* are used, and the results from subsequent calls
+     * are discarded.
+     *
+     * @param status Error status returned from launching the asynchronous task
+     *     (if the launch fails) or from the asynchronous task itself (if the
+     *     launch succeeds). Must be:
+     *     - NONE if the asynchronous execution was successful
+     *     - DEVICE_UNAVAILABLE if driver is offline or busy
+     *     - GENERAL_FAILURE if the asynchronous task resulted in an unspecified
+     *         error
+     *     - OUTPUT_INSUFFICIENT_SIZE if at least one output operand buffer is
+     *         not large enough to store the corresponding output
+     *     - INVALID_ARGUMENT if one of the input arguments to prepareModel is
+     *         invalid
+     *     - MISSED_DEADLINE_* if the deadline could not be met
+     *     - RESOURCE_EXHAUSTED_* if the execution was aborted by the driver
+     * @param outputShapes A list of shape information of model output operands.
+     *     The index into "outputShapes" corresponds to the index of the output
+     *     operand in the Request outputs vector. outputShapes must be empty
+     *     unless the status is either NONE or OUTPUT_INSUFFICIENT_SIZE.
+     * @param Timing Duration of execution. Unless MeasureTiming::YES was passed
+     *     when launching the execution and status is NONE, all times must be
+     *     reported as UINT64_MAX. A driver may choose to report any time as
+     *     UINT64_MAX, indicating that particular measurement is not available.
+     */
+    hal::Return<void> notify_1_3(hal::V1_3::ErrorStatus status,
+                                 const hal::hidl_vec<hal::OutputShape>& outputShapes,
+                                 const hal::Timing& timing) override;
 
     // An overload of the latest notify interface to hide the version from ExecutionBuilder.
-    Return<void> notify(ErrorStatus status, const hidl_vec<OutputShape>& outputShapes,
-                        const Timing& timing) {
-        return notify_1_2(status, outputShapes, timing);
+    hal::Return<void> notify(hal::V1_3::ErrorStatus status,
+                             const hal::hidl_vec<hal::OutputShape>& outputShapes,
+                             const hal::Timing& timing) {
+        return notify_1_3(status, outputShapes, timing);
     }
+
+    /**
+     * Mark the callback object as a dead object. This acts as a call to notify.
+     */
+    void notifyAsDeadObject();
 
     /**
      * ExecutionCallback::wait blocks until notify* has been called on the
@@ -253,10 +342,10 @@ class ExecutionCallback : public IExecutionCallback {
 
     /**
      * Retrieves the error status returned from the asynchronous task launched
-     * by either IPreparedModel::execute or IPreparedModel::execute_1_2. If
-     * IPreparedModel::execute or IPreparedModel::execute_1_2 has not finished
-     * asynchronously executing, this call will block until the asynchronous
-     * task notifies the object.
+     * by IPreparedModel::execute* (but not by
+     * IPreparedModel::executeSynchronously*). If IPreparedModel::execute* has
+     * not finished asynchronously executing, this call will block until the
+     * asynchronous task notifies the object.
      *
      * @return status Error status returned from launching the asynchronous task
      *     (if the launch fails) or from the asynchronous task itself (if the
@@ -269,12 +358,16 @@ class ExecutionCallback : public IExecutionCallback {
      *         not large enough to store the corresponding output
      *     - INVALID_ARGUMENT if one of the input arguments to prepareModel is
      *         invalid
+     *     - MISSED_DEADLINE_* if the deadline could not be met
+     *     - RESOURCE_EXHAUSTED_* if the task was aborted by the driver
+     *     - DEAD_OBJECT if the driver crashed without returning a result
      */
-    ErrorStatus getStatus() const;
+    hal::V1_3::ErrorStatus getStatus() const;
 
     /**
      * Retrieves the output shapes returned from the asynchronous task launched
-     * by IPreparedModel::execute_1_2. If IPreparedModel::execute_1_2 has not
+     * by either IPreparedModel::execute_1_2 or IPreparedModel::execute_1_3. If
+     * IPreparedModel::execute_1_2 or IPreparedModel::execute_1_3 has not
      * finished asynchronously executing, this call will block until the
      * asynchronous task notifies the object.
      *
@@ -292,11 +385,12 @@ class ExecutionCallback : public IExecutionCallback {
      *     OUTPUT_INSUFFICIENT_SIZE, or if the status is NONE and the model has
      *     at least one output operand that is not fully-specified.
      */
-    const std::vector<OutputShape>& getOutputShapes() const;
+    const std::vector<hal::OutputShape>& getOutputShapes() const;
 
     /**
      * Retrieves the duration of execution of the asynchronous task launched by
-     * IPreparedModel::execute_1_2. If IPreparedModel::execute_1_2 has not
+     * by either IPreparedModel::execute_1_2 or IPreparedModel::execute_1_3. If
+     * IPreparedModel::execute_1_2 or IPreparedModel::execute_1_3 has not
      * finished asynchronously executing, this call will block until the
      * asynchronous task notifies the object.
      *
@@ -306,7 +400,7 @@ class ExecutionCallback : public IExecutionCallback {
      * @return timing Duration of the execution. Every time must be UINT64_MAX
      *     unless the status is NONE.
      */
-    Timing getTiming() const;
+    hal::Timing getTiming() const;
 
     /**
      * ExecutionCallback::bindThread binds a thread to the ExecutionCallback
@@ -352,6 +446,13 @@ class ExecutionCallback : public IExecutionCallback {
      */
     void setOnFinish(const ExecutionFinish& finish);
 
+    /**
+     * Queries whether the object is dead.
+     *
+     * @return 'true' if dead, 'false' otherwise.
+     */
+    bool isDeadObject() const;
+
    private:
     /*
      * ExecutionCallback::notifyInternal stores the results of the execution
@@ -360,8 +461,9 @@ class ExecutionCallback : public IExecutionCallback {
      * before any call to wait or get* return. It then enables all prior and
      * future wait calls on the ExecutionCallback object to proceed.
      */
-    void notifyInternal(ErrorStatus errorStatus, const hidl_vec<OutputShape>& outputShapes,
-                        const Timing& timing);
+    hal::Return<void> notifyInternal(bool deadObject, hal::ErrorStatus errorStatus,
+                                     std::vector<hal::OutputShape> outputShapes,
+                                     hal::Timing timing);
 
     // members
     mutable std::mutex mMutex;
@@ -369,18 +471,12 @@ class ExecutionCallback : public IExecutionCallback {
     mutable std::thread mThread GUARDED_BY(mMutex);
     ExecutionFinish mOnFinish GUARDED_BY(mMutex);
     bool mNotified GUARDED_BY(mMutex) = false;
-    ErrorStatus mErrorStatus = ErrorStatus::GENERAL_FAILURE;
-    std::vector<OutputShape> mOutputShapes = {};
-    Timing mTiming = {};
+    bool mDeadObject = false;
+    hal::ErrorStatus mErrorStatus = hal::ErrorStatus::GENERAL_FAILURE;
+    std::vector<hal::OutputShape> mOutputShapes;
+    hal::Timing mTiming = {};
 };
-
-}  // namespace android::hardware::neuralnetworks::V1_2::implementation
-
-namespace android::nn {
-
-using ::android::hardware::neuralnetworks::V1_2::implementation::ExecutionCallback;
-using ::android::hardware::neuralnetworks::V1_2::implementation::PreparedModelCallback;
 
 }  // namespace android::nn
 
-#endif  // ANDROID_ML_NN_RUNTIME_CALLBACKS_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_CALLBACKS_H

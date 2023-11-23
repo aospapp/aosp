@@ -16,7 +16,7 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * An AudioPortConfig contains a possible configuration of an audio port chosen
@@ -95,7 +95,6 @@ public class AudioPortConfig {
 
     /**
      * The gain configuration if this port supports gain control, null otherwise
-     * @see AudioGainConfig.
      */
     public AudioGainConfig gain() {
         return mGain;

@@ -26,4 +26,8 @@ Example({
 }).AddVariations("float16")
 
 # PAD of TENSOR_FLOAT32 data type is introduced in V1_1.
-Example.SetVersion("V1_1", "pad_low_rank")
+Example.SetVersion("V1_1", 
+                   "pad_low_rank", 
+                   "pad_low_rank_all_inputs_as_internal",
+                   "pad_low_rank_all_tensors_as_inputs",
+                   "pad_low_rank_all_tensors_as_inputs_all_inputs_as_internal")

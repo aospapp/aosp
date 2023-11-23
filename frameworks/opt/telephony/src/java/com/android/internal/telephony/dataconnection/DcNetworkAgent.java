@@ -17,28 +17,38 @@
 package com.android.internal.telephony.dataconnection;
 
 import android.annotation.NonNull;
+import android.net.KeepalivePacketData;
 import android.net.LinkProperties;
 import android.net.NattKeepalivePacketData;
 import android.net.NetworkAgent;
+import android.net.NetworkAgentConfig;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
-import android.net.NetworkMisc;
+import android.net.NetworkProvider;
 import android.net.SocketKeepalive;
+import android.net.Uri;
 import android.os.Message;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.AccessNetworkConstants.TransportType;
-import android.telephony.Rlog;
+import android.telephony.AnomalyReporter;
+import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.LocalLog;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.DctConstants;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.RILConstants;
+import com.android.internal.telephony.metrics.TelephonyMetrics;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * This class represents a network agent which is communication channel between
@@ -51,7 +61,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * different {@link DataConnection}. Thus each method in this class needs to be synchronized.
  */
 public class DcNetworkAgent extends NetworkAgent {
-    private String mTag;
+    private final String mTag;
 
     private Phone mPhone;
 
@@ -65,42 +75,52 @@ public class DcNetworkAgent extends NetworkAgent {
 
     private final LocalLog mNetCapsLocalLog = new LocalLog(50);
 
-    private static AtomicInteger sSerialNumber = new AtomicInteger(0);
+    private NetworkInfo mNetworkInfo;
 
-    private DcNetworkAgent(DataConnection dc, String tag, Phone phone, NetworkInfo ni,
-                           int score, NetworkMisc misc, int factorySerialNumber,
-                           int transportType) {
-        super(dc.getHandler().getLooper(), phone.getContext(), tag, ni,
-                dc.getNetworkCapabilities(), dc.getLinkProperties(), score, misc,
-                factorySerialNumber);
-        mTag = tag;
+    // For debugging duplicate interface issue. Remove before R released.
+    private static Set<String> sInterfaceNames = new HashSet<>();
+
+    DcNetworkAgent(DataConnection dc, Phone phone, NetworkInfo ni, int score,
+            NetworkAgentConfig config, NetworkProvider networkProvider, int transportType) {
+        super(phone.getContext(), dc.getHandler().getLooper(), "DcNetworkAgent",
+                dc.getNetworkCapabilities(), dc.getLinkProperties(), score, config,
+                networkProvider);
+        register();
+        mTag = "DcNetworkAgent" + "-" + getNetwork().netId;
         mPhone = phone;
         mNetworkCapabilities = dc.getNetworkCapabilities();
         mTransportType = transportType;
         mDataConnection = dc;
-        logd(tag + " created for data connection " + dc.getName());
+        mNetworkInfo = new NetworkInfo(ni);
+        setLegacySubtype(ni.getSubtype(), ni.getSubtypeName());
+        setLegacyExtraInfo(ni.getExtraInfo());
+        // TODO: Remove before R is released.
+        if (dc.getLinkProperties() != null
+                && !TextUtils.isEmpty(dc.getLinkProperties().getInterfaceName())) {
+            checkDuplicateInterface(dc.getLinkProperties().getInterfaceName());
+        }
+        logd(mTag + " created for data connection " + dc.getName());
+    }
+
+    // This is a temp code to catch the duplicate network interface issue.
+    // TODO: Remove before R is released.
+    private void checkDuplicateInterface(String interfaceName) {
+        if (sInterfaceNames.contains(interfaceName)) {
+            String message = "Duplicate interface " + interfaceName + " is detected.";
+            log(message);
+            // Using fixed UUID to avoid duplicate bugreport notification
+            AnomalyReporter.reportAnomaly(
+                    UUID.fromString("02f3d3f6-4613-4415-b6cb-8d92c8a938a6"),
+                    message);
+        }
+        sInterfaceNames.add(interfaceName);
     }
 
     /**
-     * Constructor
-     *
-     * @param dc The data connection owns this network agent.
-     * @param phone The phone object.
-     * @param ni Network info.
-     * @param score Score of the data connection.
-     * @param misc The miscellaneous information of the data connection.
-     * @param factorySerialNumber Serial number of telephony network factory.
-     * @param transportType The transport of the data connection.
-     * @return The network agent
+     * @return The tag
      */
-    public static DcNetworkAgent createDcNetworkAgent(DataConnection dc, Phone phone,
-                                                      NetworkInfo ni, int score, NetworkMisc misc,
-                                                      int factorySerialNumber, int transportType) {
-        // Use serial number only. Do not use transport type because it can be transferred to
-        // a different transport.
-        String tag = "DcNetworkAgent-" + sSerialNumber.incrementAndGet();
-        return new DcNetworkAgent(dc, tag, phone, ni, score, misc, factorySerialNumber,
-                transportType);
+    String getTag() {
+        return mTag;
     }
 
     /**
@@ -132,23 +152,30 @@ public class DcNetworkAgent extends NetworkAgent {
         mDataConnection = null;
     }
 
+    /**
+     * @return The data connection that owns this agent
+     */
+    public synchronized DataConnection getDataConnection() {
+        return mDataConnection;
+    }
+
     @Override
-    protected synchronized void unwanted() {
+    public synchronized void onNetworkUnwanted() {
         if (mDataConnection == null) {
-            loge("Unwanted found called on no-owner DcNetworkAgent!");
+            loge("onNetworkUnwanted found called on no-owner DcNetworkAgent!");
             return;
         }
 
-        logd("unwanted called. Now tear down the data connection "
+        logd("onNetworkUnwanted called. Now tear down the data connection "
                 + mDataConnection.getName());
         mDataConnection.tearDownAll(Phone.REASON_RELEASED_BY_CONNECTIVITY_SERVICE,
                 DcTracker.RELEASE_TYPE_DETACH, null);
     }
 
     @Override
-    protected synchronized void pollLceData() {
+    public synchronized void onBandwidthUpdateRequested() {
         if (mDataConnection == null) {
-            loge("pollLceData called on no-owner DcNetworkAgent!");
+            loge("onBandwidthUpdateRequested called on no-owner DcNetworkAgent!");
             return;
         }
 
@@ -160,19 +187,31 @@ public class DcNetworkAgent extends NetworkAgent {
     }
 
     @Override
-    protected synchronized void networkStatus(int status, String redirectUrl) {
+    public synchronized void onValidationStatus(int status, Uri redirectUri) {
         if (mDataConnection == null) {
-            loge("networkStatus called on no-owner DcNetworkAgent!");
+            loge("onValidationStatus called on no-owner DcNetworkAgent!");
             return;
         }
 
-        logd("validation status: " + status + " with redirection URL: " + redirectUrl);
+        logd("validation status: " + status + " with redirection URL: " + redirectUri);
         DcTracker dct = mPhone.getDcTracker(mTransportType);
         if (dct != null) {
             Message msg = dct.obtainMessage(DctConstants.EVENT_NETWORK_STATUS_CHANGED,
-                    status, 0, redirectUrl);
+                    status, mDataConnection.getCid(), redirectUri.toString());
             msg.sendToTarget();
         }
+    }
+
+    private synchronized boolean isOwned(DataConnection dc, String reason) {
+        if (mDataConnection == null) {
+            loge(reason + " called on no-owner DcNetworkAgent!");
+            return false;
+        } else if (mDataConnection != dc) {
+            loge(reason + ": This agent belongs to "
+                    + mDataConnection.getName() + ", ignored the request from " + dc.getName());
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -183,14 +222,7 @@ public class DcNetworkAgent extends NetworkAgent {
      */
     public synchronized void sendNetworkCapabilities(NetworkCapabilities networkCapabilities,
                                                      DataConnection dc) {
-        if (mDataConnection == null) {
-            loge("sendNetworkCapabilities called on no-owner DcNetworkAgent!");
-            return;
-        } else if (mDataConnection != dc) {
-            loge("sendNetworkCapabilities: This agent belongs to "
-                    + mDataConnection.getName() + ", ignored the request from " + dc.getName());
-            return;
-        }
+        if (!isOwned(dc, "sendNetworkCapabilities")) return;
 
         if (!networkCapabilities.equals(mNetworkCapabilities)) {
             String logStr = "Changed from " + mNetworkCapabilities + " to "
@@ -199,6 +231,17 @@ public class DcNetworkAgent extends NetworkAgent {
                     + ", dc=" + mDataConnection.getName();
             logd(logStr);
             mNetCapsLocalLog.log(logStr);
+            if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                // only log metrics for DataConnection with NET_CAPABILITY_INTERNET
+                if (mNetworkCapabilities == null
+                        || networkCapabilities.hasCapability(
+                                NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED)
+                        != mNetworkCapabilities.hasCapability(
+                                NetworkCapabilities.NET_CAPABILITY_TEMPORARILY_NOT_METERED)) {
+                    TelephonyMetrics.getInstance().writeNetworkCapabilitiesChangedEvent(
+                            mPhone.getPhoneId(), networkCapabilities);
+                }
+            }
             mNetworkCapabilities = networkCapabilities;
         }
         sendNetworkCapabilities(networkCapabilities);
@@ -212,14 +255,7 @@ public class DcNetworkAgent extends NetworkAgent {
      */
     public synchronized void sendLinkProperties(LinkProperties linkProperties,
                                                 DataConnection dc) {
-        if (mDataConnection == null) {
-            loge("sendLinkProperties called on no-owner DcNetworkAgent!");
-            return;
-        } else if (mDataConnection != dc) {
-            loge("sendLinkProperties: This agent belongs to "
-                    + mDataConnection.getName() + ", ignored the request from " + dc.getName());
-            return;
-        }
+        if (!isOwned(dc, "sendLinkProperties")) return;
         sendLinkProperties(linkProperties);
     }
 
@@ -230,15 +266,24 @@ public class DcNetworkAgent extends NetworkAgent {
      * @param dc The data connection that invokes this method.
      */
     public synchronized void sendNetworkScore(int score, DataConnection dc) {
-        if (mDataConnection == null) {
-            loge("sendNetworkScore called on no-owner DcNetworkAgent!");
-            return;
-        } else if (mDataConnection != dc) {
-            loge("sendNetworkScore: This agent belongs to "
-                    + mDataConnection.getName() + ", ignored the request from " + dc.getName());
-            return;
-        }
+        if (!isOwned(dc, "sendNetworkScore")) return;
         sendNetworkScore(score);
+    }
+
+    /**
+     * Unregister the network agent from connectivity service.
+     *
+     * @param dc The data connection that invokes this method.
+     */
+    public synchronized void unregister(DataConnection dc) {
+        if (!isOwned(dc, "unregister")) return;
+
+        if (dc.getLinkProperties() != null
+                && !TextUtils.isEmpty(dc.getLinkProperties().getInterfaceName())) {
+            sInterfaceNames.remove(dc.getLinkProperties().getInterfaceName());
+        }
+        logd("Unregister from connectivity service");
+        super.unregister();
     }
 
     /**
@@ -248,41 +293,57 @@ public class DcNetworkAgent extends NetworkAgent {
      * @param dc The data connection that invokes this method.
      */
     public synchronized void sendNetworkInfo(NetworkInfo networkInfo, DataConnection dc) {
-        if (mDataConnection == null) {
-            loge("sendNetworkInfo called on no-owner DcNetworkAgent!");
-            return;
-        } else if (mDataConnection != dc) {
-            loge("sendNetworkInfo: This agent belongs to "
-                    + mDataConnection.getName() + ", ignored the request from " + dc.getName());
-            return;
+        if (!isOwned(dc, "sendNetworkInfo")) return;
+        final NetworkInfo.State oldState = mNetworkInfo.getState();
+        final NetworkInfo.State state = networkInfo.getState();
+        if (mNetworkInfo.getExtraInfo() != networkInfo.getExtraInfo()) {
+            setLegacyExtraInfo(networkInfo.getExtraInfo());
         }
-        sendNetworkInfo(networkInfo);
+        int subType = networkInfo.getSubtype();
+        if (mNetworkInfo.getSubtype() != subType) {
+            setLegacySubtype(subType, TelephonyManager.getNetworkTypeName(subType));
+        }
+        if ((oldState == NetworkInfo.State.SUSPENDED || oldState == NetworkInfo.State.CONNECTED)
+                && state == NetworkInfo.State.DISCONNECTED) {
+            unregister(dc);
+        }
+        mNetworkInfo = new NetworkInfo(networkInfo);
+    }
+
+    /**
+     * Get the latest sent network info.
+     *
+     * @return network info
+     */
+    public synchronized NetworkInfo getNetworkInfo() {
+        return mNetworkInfo;
     }
 
     @Override
-    protected synchronized void startSocketKeepalive(Message msg) {
+    public synchronized void onStartSocketKeepalive(int slot, @NonNull Duration interval,
+            @NonNull KeepalivePacketData packet) {
         if (mDataConnection == null) {
-            loge("startSocketKeepalive called on no-owner DcNetworkAgent!");
+            loge("onStartSocketKeepalive called on no-owner DcNetworkAgent!");
             return;
         }
 
-        if (msg.obj instanceof NattKeepalivePacketData) {
+        if (packet instanceof NattKeepalivePacketData) {
             mDataConnection.obtainMessage(DataConnection.EVENT_KEEPALIVE_START_REQUEST,
-                    msg.arg1, msg.arg2, msg.obj).sendToTarget();
+                    slot, (int) interval.getSeconds(), packet).sendToTarget();
         } else {
-            onSocketKeepaliveEvent(msg.arg1, SocketKeepalive.ERROR_UNSUPPORTED);
+            sendSocketKeepaliveEvent(slot, SocketKeepalive.ERROR_UNSUPPORTED);
         }
     }
 
     @Override
-    protected synchronized void stopSocketKeepalive(Message msg) {
+    public synchronized void onStopSocketKeepalive(int slot) {
         if (mDataConnection == null) {
-            loge("stopSocketKeepalive called on no-owner DcNetworkAgent!");
+            loge("onStopSocketKeepalive called on no-owner DcNetworkAgent!");
             return;
         }
 
-        mDataConnection.obtainMessage(DataConnection.EVENT_KEEPALIVE_STOP_REQUEST,
-                msg.arg1, msg.arg2, msg.obj).sendToTarget();
+        mDataConnection.obtainMessage(DataConnection.EVENT_KEEPALIVE_STOP_REQUEST, slot)
+                .sendToTarget();
     }
 
     @Override
@@ -367,11 +428,11 @@ public class DcNetworkAgent extends NetworkAgent {
         void handleKeepaliveStarted(final int slot, KeepaliveStatus ks) {
             switch (ks.statusCode) {
                 case KeepaliveStatus.STATUS_INACTIVE:
-                    DcNetworkAgent.this.onSocketKeepaliveEvent(slot,
+                    DcNetworkAgent.this.sendSocketKeepaliveEvent(slot,
                             keepaliveStatusErrorToPacketKeepaliveError(ks.errorCode));
                     break;
                 case KeepaliveStatus.STATUS_ACTIVE:
-                    DcNetworkAgent.this.onSocketKeepaliveEvent(
+                    DcNetworkAgent.this.sendSocketKeepaliveEvent(
                             slot, SocketKeepalive.SUCCESS);
                     // fall through to add record
                 case KeepaliveStatus.STATUS_PENDING:
@@ -402,13 +463,13 @@ public class DcNetworkAgent extends NetworkAgent {
             switch (kr.currentStatus) {
                 case KeepaliveStatus.STATUS_INACTIVE:
                     logd("Inactive Keepalive received status!");
-                    DcNetworkAgent.this.onSocketKeepaliveEvent(
+                    DcNetworkAgent.this.sendSocketKeepaliveEvent(
                             kr.slotId, SocketKeepalive.ERROR_HARDWARE_ERROR);
                     break;
                 case KeepaliveStatus.STATUS_PENDING:
                     switch (ks.statusCode) {
                         case KeepaliveStatus.STATUS_INACTIVE:
-                            DcNetworkAgent.this.onSocketKeepaliveEvent(kr.slotId,
+                            DcNetworkAgent.this.sendSocketKeepaliveEvent(kr.slotId,
                                     keepaliveStatusErrorToPacketKeepaliveError(ks.errorCode));
                             kr.currentStatus = KeepaliveStatus.STATUS_INACTIVE;
                             mKeepalives.remove(ks.sessionHandle);
@@ -416,7 +477,7 @@ public class DcNetworkAgent extends NetworkAgent {
                         case KeepaliveStatus.STATUS_ACTIVE:
                             logd("Pending Keepalive received active status!");
                             kr.currentStatus = KeepaliveStatus.STATUS_ACTIVE;
-                            DcNetworkAgent.this.onSocketKeepaliveEvent(
+                            DcNetworkAgent.this.sendSocketKeepaliveEvent(
                                     kr.slotId, SocketKeepalive.SUCCESS);
                             break;
                         case KeepaliveStatus.STATUS_PENDING:
@@ -430,7 +491,7 @@ public class DcNetworkAgent extends NetworkAgent {
                     switch (ks.statusCode) {
                         case KeepaliveStatus.STATUS_INACTIVE:
                             logd("Keepalive received stopped status!");
-                            DcNetworkAgent.this.onSocketKeepaliveEvent(
+                            DcNetworkAgent.this.sendSocketKeepaliveEvent(
                                     kr.slotId, SocketKeepalive.SUCCESS);
 
                             kr.currentStatus = KeepaliveStatus.STATUS_INACTIVE;

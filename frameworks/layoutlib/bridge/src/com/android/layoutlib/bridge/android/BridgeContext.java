@@ -32,6 +32,7 @@ import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.BridgeConstants;
 import com.android.layoutlib.bridge.android.view.WindowManagerImpl;
 import com.android.layoutlib.bridge.impl.ParserFactory;
+import com.android.layoutlib.bridge.impl.ResourceHelper;
 import com.android.layoutlib.bridge.impl.Stack;
 import com.android.resources.ResourceType;
 import com.android.util.Pair;
@@ -41,8 +42,9 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.app.SystemServiceRegistry_Accessor;
+import android.app.SystemServiceRegistry;
 import android.content.BroadcastReceiver;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -65,7 +67,6 @@ import android.database.DatabaseErrorHandler;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
@@ -90,6 +91,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
+import android.view.autofill.AutofillManager;
+import android.view.autofill.IAutoFillManager.Default;
+import android.view.inputmethod.InputMethodManager;
 import android.view.textservice.TextServicesManager;
 
 import java.io.File;
@@ -149,6 +153,8 @@ public class BridgeContext extends Context {
      */
     private final HashMap<Object, Object> mViewKeyHelpMap = new HashMap<>();
     private final BridgeAssetManager mAssets;
+    private final boolean mShadowsEnabled;
+    private final boolean mHighQualityShadows;
     private Resources mSystemResources;
     private final Object mProjectKey;
     private final DisplayMetrics mMetrics;
@@ -158,6 +164,8 @@ public class BridgeContext extends Context {
     private final LayoutlibCallback mLayoutlibCallback;
     private final WindowManager mWindowManager;
     private final DisplayManager mDisplayManager;
+    private final AutofillManager mAutofillManager;
+    private final ClipboardManager mClipboardManager;
     private final HashMap<View, Integer> mScrollYPos = new HashMap<>();
     private final HashMap<View, Integer> mScrollXPos = new HashMap<>();
 
@@ -218,7 +226,9 @@ public class BridgeContext extends Context {
             @NonNull LayoutlibCallback layoutlibCallback,
             @NonNull Configuration config,
             int targetSdkVersion,
-            boolean hasRtlSupport) {
+            boolean hasRtlSupport,
+            boolean shadowsEnabled,
+            boolean highQualityShadows) {
         mProjectKey = projectKey;
         mMetrics = metrics;
         mLayoutlibCallback = layoutlibCallback;
@@ -239,8 +249,10 @@ public class BridgeContext extends Context {
             mApplicationInfo.flags = mApplicationInfo.flags | ApplicationInfo.FLAG_SUPPORTS_RTL;
         }
 
-        mWindowManager = new WindowManagerImpl(mMetrics);
+        mWindowManager = new WindowManagerImpl(this, mMetrics);
         mDisplayManager = new DisplayManager(this);
+        mAutofillManager = new AutofillManager(this, new Default());
+        mClipboardManager = new ClipboardManager(this, null);
 
         if (mLayoutlibCallback.isResourceNamespacingRequired()) {
             if (mLayoutlibCallback.hasAndroidXAppCompat()) {
@@ -251,6 +263,9 @@ public class BridgeContext extends Context {
         } else {
             mAppCompatNamespace = ResourceNamespace.RES_AUTO;
         }
+
+        mShadowsEnabled = shadowsEnabled;
+        mHighQualityShadows = highQualityShadows;
     }
 
     /**
@@ -401,11 +416,27 @@ public class BridgeContext extends Context {
         String stringValue = value.getValue();
         if (!stringValue.isEmpty()) {
             if (stringValue.charAt(0) == '#') {
-                outValue.type = TypedValue.TYPE_INT_COLOR_ARGB8;
-                outValue.data = Color.parseColor(value.getValue());
+                outValue.data = ResourceHelper.getColor(stringValue);
+                switch (stringValue.length()) {
+                    case 4:
+                        outValue.type = TypedValue.TYPE_INT_COLOR_RGB4;
+                        break;
+                    case 5:
+                        outValue.type = TypedValue.TYPE_INT_COLOR_ARGB4;
+                        break;
+                    case 7:
+                        outValue.type = TypedValue.TYPE_INT_COLOR_RGB8;
+                        break;
+                    default:
+                        outValue.type = TypedValue.TYPE_INT_COLOR_ARGB8;
+                }
             }
             else if (stringValue.charAt(0) == '@') {
                 outValue.type = TypedValue.TYPE_REFERENCE;
+            }
+            else if ("true".equals(stringValue) || "false".equals(stringValue)) {
+                outValue.type = TypedValue.TYPE_INT_BOOLEAN;
+                outValue.data = "true".equals(stringValue) ? 1 : 0;
             }
         }
 
@@ -492,11 +523,11 @@ public class BridgeContext extends Context {
                     }
                 } else {
                     Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                            String.format("File %s is missing!", path), null);
+                            String.format("File %s is missing!", path), null, null);
                 }
             } catch (XmlPullParserException e) {
                 Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                        "Failed to parse file " + path, e, null /*data*/);
+                        "Failed to parse file " + path, e, null, null /*data*/);
                 // we'll return null below.
             } finally {
                 mBridgeInflater.setResourceReference(null);
@@ -504,7 +535,7 @@ public class BridgeContext extends Context {
         } else {
             Bridge.getLog().error(LayoutLog.TAG_BROKEN,
                     String.format("Layout %s%s does not exist.", isPlatformLayout ? "android:" : "",
-                            layout.getName()), null);
+                            layout.getName()), null, null);
         }
 
         return Pair.of(null, Boolean.FALSE);
@@ -599,7 +630,8 @@ public class BridgeContext extends Context {
                 return mWindowManager;
 
             case POWER_SERVICE:
-                return new PowerManager(this, new BridgePowerManager(), new Handler());
+                return new PowerManager(this, new BridgePowerManager(), new BridgeThermalService(),
+                        new Handler());
 
             case DISPLAY_SERVICE:
                 return mDisplayManager;
@@ -607,8 +639,15 @@ public class BridgeContext extends Context {
             case ACCESSIBILITY_SERVICE:
                 return AccessibilityManager.getInstance(this);
 
-            case INPUT_METHOD_SERVICE:  // needed by SearchView
+            case INPUT_METHOD_SERVICE:  // needed by SearchView and Compose
+                return InputMethodManager.forContext(this);
+
             case AUTOFILL_MANAGER_SERVICE:
+                return mAutofillManager;
+
+            case CLIPBOARD_SERVICE:
+                return mClipboardManager;
+
             case AUDIO_SERVICE:
             case TEXT_CLASSIFICATION_SERVICE:
             case CONTENT_CAPTURE_MANAGER_SERVICE:
@@ -622,7 +661,7 @@ public class BridgeContext extends Context {
 
     @Override
     public String getSystemServiceName(Class<?> serviceClass) {
-        return SystemServiceRegistry_Accessor.getSystemServiceName(serviceClass);
+        return SystemServiceRegistry.getSystemServiceName(serviceClass);
     }
 
     /**
@@ -647,7 +686,7 @@ public class BridgeContext extends Context {
 
             if (style == null) {
                 Bridge.getLog().error(LayoutLog.TAG_RESOURCES_RESOLVE,
-                        "Failed to find style with " + resId, null);
+                        "Failed to find style with " + resId, null, null);
                 return null;
             }
         }
@@ -716,7 +755,7 @@ public class BridgeContext extends Context {
         } else if (set != null) {
             // really this should not be happening since its instantiated in Bridge
             Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                    "Parser is not a BridgeXmlBlockParser!", null);
+                    "Parser is not a BridgeXmlBlockParser!", null, null);
             return null;
         } else {
             // `set` is null, so there will be no values to resolve.
@@ -755,7 +794,8 @@ public class BridgeContext extends Context {
                 // This will happen if the user explicitly used a non existing int value for
                 // defStyleAttr or there's something wrong with the project structure/build.
                 Bridge.getLog().error(LayoutLog.TAG_RESOURCES_RESOLVE,
-                        "Failed to find the style corresponding to the id " + defStyleAttr, null);
+                        "Failed to find the style corresponding to the id " + defStyleAttr, null,
+                        null);
             } else {
                 // look for the style in the current theme, and its parent:
                 ResourceValue item = mRenderResources.findItemInTheme(defStyleAttribute);
@@ -798,21 +838,21 @@ public class BridgeContext extends Context {
                                     String.format(
                                             "Style with id 0x%x (resolved to '%s') does not exist.",
                                             defStyleRes, value.getName()),
-                                    null);
+                                    null, null);
                         }
                     } else {
                         Bridge.getLog().error(null,
                                 String.format(
                                         "Resource id 0x%x is not of type STYLE (instead %s)",
                                         defStyleRes, value.getResourceType().name()),
-                                null);
+                                null, null);
                     }
                 } else {
                     Bridge.getLog().error(null,
                             String.format(
                                     "Failed to find style with id 0x%x in current theme",
                                     defStyleRes),
-                            null);
+                            null, null);
                 }
             }
         }
@@ -914,7 +954,7 @@ public class BridgeContext extends Context {
                                 }
                                 Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_RESOLVE_THEME_ATTR,
                                         String.format("Failed to find '%s' in current theme.", val),
-                                        val);
+                                        null, val);
                             }
                         }
                     }
@@ -1056,7 +1096,7 @@ public class BridgeContext extends Context {
      * Maps a given style to a numeric id.
      *
      * <p>For now Bridge handles numeric ids (both fixed and dynamic) for framework and the callback
-     * for non-framework. TODO(namespaces): teach the IDE about fixed framework ids and handle this
+     * for non-framework. TODO(b/156609434): teach the IDE about fixed framework ids and handle this
      * all in the callback.
      */
     public int getDynamicIdByStyle(StyleResourceValue resValue) {
@@ -1071,7 +1111,7 @@ public class BridgeContext extends Context {
      * Maps a numeric id back to {@link StyleResourceValue}.
      *
      * <p>For now framework numeric ids are handled by Bridge, so try there first and fall back to
-     * the callback, which manages ids for non-framework resources. TODO(namespaces): manage all
+     * the callback, which manages ids for non-framework resources. TODO(b/156609434): manage all
      * ids in the IDE.
      *
      * <p>Once we the resource for the given id, we ask the IDE to get the
@@ -1925,7 +1965,7 @@ public class BridgeContext extends Context {
 
     @Override
     public File getObbDir() {
-        Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED, "OBB not supported", null);
+        Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED, "OBB not supported", null, null);
         return null;
     }
 
@@ -2026,6 +2066,25 @@ public class BridgeContext extends Context {
         return true;
     }
 
+    @Override
+    public boolean isUiContext() {
+        return true;
+    }
+
+    /**
+     * Returns whether shadows should be rendered or not
+     */
+    public boolean isShadowsEnabled() {
+        return mShadowsEnabled;
+    }
+
+    /**
+     * Returns whether high quality shadows should be used
+     */
+    public boolean isHighQualityShadows() {
+        return mHighQualityShadows;
+    }
+
     public <T> void putUserData(@NonNull Key<T> key, @Nullable T data) {
         mUserData.put(key, data);
     }
@@ -2034,6 +2093,31 @@ public class BridgeContext extends Context {
     @Nullable
     public <T> T getUserData(@NonNull Key<T> key) {
         return (T) mUserData.get(key);
+    }
+
+    /** Logs an error message to the error log of the host application. */
+    public void error(@NonNull String message, @NonNull String... details) {
+        mLayoutlibCallback.error(message, details);
+    }
+
+    /** Logs an error message to the error log of the host application. */
+    public void error(@NonNull String message, @Nullable Throwable t) {
+        mLayoutlibCallback.error(message, t);
+    }
+
+    /** Logs an error message to the error log of the host application. */
+    public void error(@NonNull Throwable t) {
+        mLayoutlibCallback.error(t);
+    }
+
+    /** Logs a warning to the log of the host application. */
+    public void warn(@NonNull String message, @Nullable Throwable t) {
+        mLayoutlibCallback.warn(message, t);
+    }
+
+    /** Logs a warning to the log of the host application. */
+    public void warn(@NonNull Throwable t) {
+        mLayoutlibCallback.warn(t);
     }
 
     /**

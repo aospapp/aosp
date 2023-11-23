@@ -18,10 +18,8 @@
      standard Car Toolbar/Application Bar, it doesn't require the same functionality, so it
      doesn't extend it.
 -->
-<!-- Note: This layout needs a background in order for elevation to show up. -->
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="?attr/android:windowBackground"
     android:layout_width="match_parent"
     android:layout_height="@dimen/car_app_bar_height">
 
@@ -75,12 +73,23 @@
             android:layout="@layout/primary_button"/>
     </LinearLayout>
 
+    <ImageView
+        android:id="@+id/divider"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="@color/car_suw_tint"
+        android:layout_above="@id/progress_bar"
+        android:layout_alignWithParentIfMissing="true"/>
+
     <ProgressBar
         android:id="@+id/progress_bar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="2dp"
+        android:minHeight="0dp"
+        android:maxHeight="20dp"
         android:layout_alignParentBottom="true"
+        android:indeterminateDrawable="@drawable/progress_indeterminate_horizontal_material_trimmed"
         android:indeterminateTint="?android:attr/colorAccent"
         android:indeterminateTintMode="src_in"/>
 </RelativeLayout>

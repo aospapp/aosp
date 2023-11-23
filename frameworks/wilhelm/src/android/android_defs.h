@@ -221,5 +221,7 @@ union DataLocator2 {
                                       ANDROID_PERFORMANCE_MODE_NONE | \
                                       ANDROID_PERFORMANCE_MODE_POWER_SAVING)
 
+// This is used for exact matching by MediaMetrics. So do not change it.
+#define ANDROID_OPENSLES_CALLER_NAME       "opensles"
 
 } // namespace android

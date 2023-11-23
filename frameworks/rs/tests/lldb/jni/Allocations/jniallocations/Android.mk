@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libjniallocations
 
-LOCAL_SRC_FILES := jniallocations.cpp allocs.rs
+LOCAL_SRC_FILES := jniallocations.cpp allocs.rscript
 
 LOCAL_RENDERSCRIPT_FLAGS := -g
 

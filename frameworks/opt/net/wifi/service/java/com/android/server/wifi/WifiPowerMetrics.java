@@ -15,17 +15,12 @@
  */
 package com.android.server.wifi;
 
-import android.os.BatteryStats;
-import android.os.RemoteException;
-import android.os.ServiceManager;
+import android.os.BatteryStatsManager;
 import android.os.connectivity.WifiBatteryStats;
 import android.text.format.DateUtils;
-import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.app.IBatteryStats;
-import com.android.server.wifi.nano.WifiMetricsProto.WifiPowerStats;
-import com.android.server.wifi.nano.WifiMetricsProto.WifiRadioUsage;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiPowerStats;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiRadioUsage;
 
 import java.io.PrintWriter;
 import java.text.DecimalFormat;
@@ -39,16 +34,9 @@ public class WifiPowerMetrics {
     private static final String TAG = "WifiPowerMetrics";
 
     /* BatteryStats API */
-    private final IBatteryStats mBatteryStats;
+    private final BatteryStatsManager mBatteryStats;
 
-    public WifiPowerMetrics() {
-        mBatteryStats = IBatteryStats.Stub.asInterface(ServiceManager.getService(
-                BatteryStats.SERVICE_NAME));
-    }
-
-    // This constructor injects IBatteryStats and should be used for testing only.
-    @VisibleForTesting
-    public WifiPowerMetrics(IBatteryStats batteryStats) {
+    public WifiPowerMetrics(BatteryStatsManager batteryStats) {
         mBatteryStats = batteryStats;
     }
 
@@ -63,20 +51,20 @@ public class WifiPowerMetrics {
         WifiPowerStats m = new WifiPowerStats();
         WifiBatteryStats stats = getStats();
         if (stats != null) {
-            m.loggingDurationMs = stats.getLoggingDurationMs();
-            m.energyConsumedMah = stats.getEnergyConsumedMaMs()
+            m.loggingDurationMs = stats.getLoggingDurationMillis();
+            m.energyConsumedMah = stats.getEnergyConsumedMaMillis()
                 / ((double) DateUtils.HOUR_IN_MILLIS);
-            m.idleTimeMs = stats.getIdleTimeMs();
-            m.rxTimeMs = stats.getRxTimeMs();
-            m.txTimeMs = stats.getTxTimeMs();
-            m.wifiKernelActiveTimeMs = stats.getKernelActiveTimeMs();
+            m.idleTimeMs = stats.getIdleTimeMillis();
+            m.rxTimeMs = stats.getRxTimeMillis();
+            m.txTimeMs = stats.getTxTimeMillis();
+            m.wifiKernelActiveTimeMs = stats.getKernelActiveTimeMillis();
             m.numPacketsTx = stats.getNumPacketsTx();
             m.numBytesTx = stats.getNumBytesTx();
             m.numPacketsRx = stats.getNumPacketsRx();
-            m.numBytesRx = stats.getNumPacketsRx();
-            m.sleepTimeMs = stats.getSleepTimeMs();
-            m.scanTimeMs = stats.getScanTimeMs();
-            m.monitoredRailEnergyConsumedMah = stats.getMonitoredRailChargeConsumedMaMs()
+            m.numBytesRx = stats.getNumBytesRx();
+            m.sleepTimeMs = stats.getSleepTimeMillis();
+            m.scanTimeMs = stats.getScanTimeMillis();
+            m.monitoredRailEnergyConsumedMah = stats.getMonitoredRailChargeConsumedMaMillis()
                     / ((double) DateUtils.HOUR_IN_MILLIS);
         }
         return m;
@@ -96,8 +84,8 @@ public class WifiPowerMetrics {
         WifiRadioUsage m = new WifiRadioUsage();
         WifiBatteryStats stats = getStats();
         if (stats != null) {
-            m.loggingDurationMs = stats.getLoggingDurationMs();
-            m.scanTimeMs = stats.getScanTimeMs();
+            m.loggingDurationMs = stats.getLoggingDurationMillis();
+            m.scanTimeMs = stats.getScanTimeMillis();
         }
         return m;
     }
@@ -138,11 +126,6 @@ public class WifiPowerMetrics {
      * @return WifiBatteryStats
      */
     private WifiBatteryStats getStats() {
-        try {
-            return mBatteryStats.getWifiBatteryStats();
-        } catch (RemoteException e) {
-            Log.e(TAG, "Unable to obtain Wifi power stats from BatteryStats");
-        }
-        return null;
+        return mBatteryStats.getWifiBatteryStats();
     }
 }

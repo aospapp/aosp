@@ -438,7 +438,7 @@ public class Region_Delegate {
         // used during aidl call so really this should not be called.
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
                 "AIDL is not suppored, and therefore Regions cannot be created from parcels.",
-                null /*data*/);
+                null, null /*data*/);
         return 0;
     }
 
@@ -449,7 +449,7 @@ public class Region_Delegate {
         // be called.
         Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED,
                 "AIDL is not suppored, and therefore Regions cannot be written to parcels.",
-                null /*data*/);
+                null, null /*data*/);
         return false;
     }
 

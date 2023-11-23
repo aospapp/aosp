@@ -17,13 +17,13 @@
 package com.android.server.wifi.rtt;
 
 import android.content.Context;
-import android.net.wifi.aware.IWifiAwareManager;
+import android.net.wifi.aware.WifiAwareManager;
 import android.os.HandlerThread;
-import android.os.ServiceManager;
 import android.util.Log;
 
 import com.android.server.SystemService;
 import com.android.server.wifi.HalDeviceManager;
+import com.android.server.wifi.WifiContext;
 import com.android.server.wifi.WifiInjector;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 
@@ -32,13 +32,11 @@ import com.android.server.wifi.util.WifiPermissionsUtil;
  */
 public class RttService extends SystemService {
     private static final String TAG = "RttService";
-    private Context mContext;
     private RttServiceImpl mImpl;
 
-    public RttService(Context context) {
-        super(context);
-        mContext = context;
-        mImpl = new RttServiceImpl(context);
+    public RttService(Context contextBase) {
+        super(new WifiContext(contextBase));
+        mImpl = new RttServiceImpl(getContext());
     }
 
     @Override
@@ -63,12 +61,11 @@ public class RttService extends SystemService {
             WifiPermissionsUtil wifiPermissionsUtil = wifiInjector.getWifiPermissionsUtil();
             RttMetrics rttMetrics = wifiInjector.getWifiMetrics().getRttMetrics();
 
-            IWifiAwareManager awareBinder = (IWifiAwareManager) ServiceManager.getService(
-                    Context.WIFI_AWARE_SERVICE);
+            WifiAwareManager awareManager = getContext().getSystemService(WifiAwareManager.class);
 
             RttNative rttNative = new RttNative(mImpl, halDeviceManager);
-            mImpl.start(handlerThread.getLooper(), wifiInjector.getClock(), awareBinder, rttNative,
-                    rttMetrics, wifiPermissionsUtil, wifiInjector.getFrameworkFacade());
+            mImpl.start(handlerThread.getLooper(), wifiInjector.getClock(), awareManager, rttNative,
+                    rttMetrics, wifiPermissionsUtil, wifiInjector.getSettingsConfigStore());
         }
     }
 }

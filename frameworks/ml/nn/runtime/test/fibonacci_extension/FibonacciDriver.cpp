@@ -18,6 +18,9 @@
 
 #include "FibonacciDriver.h"
 
+#include <vector>
+
+#include "FibonacciExtension.h"
 #include "HalInterfaces.h"
 #include "NeuralNetworksExtensions.h"
 #include "OperationResolver.h"
@@ -25,19 +28,19 @@
 #include "Utils.h"
 #include "ValidateHal.h"
 
-#include "FibonacciExtension.h"
-
 namespace android {
 namespace nn {
 namespace sample_driver {
 namespace {
 
-const uint8_t kLowBitsType = static_cast<uint8_t>(Model::ExtensionTypeEncoding::LOW_BITS_TYPE);
+using namespace hal;
+
+const uint8_t kLowBitsType = static_cast<uint8_t>(ExtensionTypeEncoding::LOW_BITS_TYPE);
 const uint32_t kTypeWithinExtensionMask = (1 << kLowBitsType) - 1;
 
 namespace fibonacci_op {
 
-constexpr char kOperationName[] = "TEST_VENDOR_FIBONACCI";
+constexpr char kOperationName[] = "EXAMPLE_FIBONACCI";
 
 constexpr uint32_t kNumInputs = 1;
 constexpr uint32_t kInputN = 0;
@@ -47,7 +50,7 @@ constexpr uint32_t kOutputTensor = 0;
 
 bool getFibonacciExtensionPrefix(const Model& model, uint16_t* prefix) {
     NN_RET_CHECK_EQ(model.extensionNameToPrefix.size(), 1u);  // Assumes no other extensions in use.
-    NN_RET_CHECK_EQ(model.extensionNameToPrefix[0].name, TEST_VENDOR_FIBONACCI_EXTENSION_NAME);
+    NN_RET_CHECK_EQ(model.extensionNameToPrefix[0].name, EXAMPLE_FIBONACCI_EXTENSION_NAME);
     *prefix = model.extensionNameToPrefix[0].prefix;
     return true;
 }
@@ -56,7 +59,7 @@ bool isFibonacciOperation(const Operation& operation, const Model& model) {
     int32_t operationType = static_cast<int32_t>(operation.type);
     uint16_t prefix;
     NN_RET_CHECK(getFibonacciExtensionPrefix(model, &prefix));
-    NN_RET_CHECK_EQ(operationType, (prefix << kLowBitsType) | TEST_VENDOR_FIBONACCI);
+    NN_RET_CHECK_EQ(operationType, (prefix << kLowBitsType) | EXAMPLE_FIBONACCI);
     return true;
 }
 
@@ -64,13 +67,13 @@ bool validate(const Operation& operation, const Model& model) {
     NN_RET_CHECK(isFibonacciOperation(operation, model));
     NN_RET_CHECK_EQ(operation.inputs.size(), kNumInputs);
     NN_RET_CHECK_EQ(operation.outputs.size(), kNumOutputs);
-    int32_t inputType = static_cast<int32_t>(model.operands[operation.inputs[0]].type);
-    int32_t outputType = static_cast<int32_t>(model.operands[operation.outputs[0]].type);
+    int32_t inputType = static_cast<int32_t>(model.main.operands[operation.inputs[0]].type);
+    int32_t outputType = static_cast<int32_t>(model.main.operands[operation.outputs[0]].type);
     uint16_t prefix;
     NN_RET_CHECK(getFibonacciExtensionPrefix(model, &prefix));
-    NN_RET_CHECK(inputType == ((prefix << kLowBitsType) | TEST_VENDOR_INT64) ||
+    NN_RET_CHECK(inputType == ((prefix << kLowBitsType) | EXAMPLE_INT64) ||
                  inputType == ANEURALNETWORKS_TENSOR_FLOAT32);
-    NN_RET_CHECK(outputType == ((prefix << kLowBitsType) | TEST_VENDOR_TENSOR_QUANT64_ASYMM) ||
+    NN_RET_CHECK(outputType == ((prefix << kLowBitsType) | EXAMPLE_TENSOR_QUANT64_ASYMM) ||
                  outputType == ANEURALNETWORKS_TENSOR_FLOAT32);
     return true;
 }
@@ -124,7 +127,7 @@ bool execute(IOperationExecutionContext* context) {
     } else {
         uint64_t* output = context->getOutputBuffer<uint64_t>(kOutputTensor);
         Shape outputShape = context->getOutputShape(kOutputTensor);
-        auto outputQuant = reinterpret_cast<const TestVendorQuant64AsymmParams*>(
+        auto outputQuant = reinterpret_cast<const ExampleQuant64AsymmParams*>(
                 outputShape.extraParams.extension().data());
         return compute(n, outputQuant->scale, outputQuant->zeroPoint, output);
     }
@@ -142,24 +145,24 @@ const OperationRegistration* FibonacciOperationResolver::findOperation(
     uint16_t prefix = static_cast<int32_t>(operationType) >> kLowBitsType;
     uint16_t typeWithinExtension = static_cast<int32_t>(operationType) & kTypeWithinExtensionMask;
     // Assumes no other extensions in use.
-    return prefix != 0 && typeWithinExtension == TEST_VENDOR_FIBONACCI ? &operationRegistration
-                                                                       : nullptr;
+    return prefix != 0 && typeWithinExtension == EXAMPLE_FIBONACCI ? &operationRegistration
+                                                                   : nullptr;
 }
 
 Return<void> FibonacciDriver::getSupportedExtensions(getSupportedExtensions_cb cb) {
-    cb(ErrorStatus::NONE,
+    cb(V1_0::ErrorStatus::NONE,
        {
                {
-                       .name = TEST_VENDOR_FIBONACCI_EXTENSION_NAME,
+                       .name = EXAMPLE_FIBONACCI_EXTENSION_NAME,
                        .operandTypes =
                                {
                                        {
-                                               .type = TEST_VENDOR_INT64,
+                                               .type = EXAMPLE_INT64,
                                                .isTensor = false,
                                                .byteSize = 8,
                                        },
                                        {
-                                               .type = TEST_VENDOR_TENSOR_QUANT64_ASYMM,
+                                               .type = EXAMPLE_TENSOR_QUANT64_ASYMM,
                                                .isTensor = true,
                                                .byteSize = 8,
                                        },
@@ -169,37 +172,40 @@ Return<void> FibonacciDriver::getSupportedExtensions(getSupportedExtensions_cb c
     return Void();
 }
 
-Return<void> FibonacciDriver::getCapabilities_1_2(getCapabilities_1_2_cb cb) {
+Return<void> FibonacciDriver::getCapabilities_1_3(getCapabilities_1_3_cb cb) {
     android::nn::initVLogMask();
     VLOG(DRIVER) << "getCapabilities()";
     static const PerformanceInfo kPerf = {.execTime = 1.0f, .powerUsage = 1.0f};
-    Capabilities capabilities = {.relaxedFloat32toFloat16PerformanceScalar = kPerf,
-                                 .relaxedFloat32toFloat16PerformanceTensor = kPerf,
-                                 .operandPerformance = nonExtensionOperandPerformance(kPerf)};
-    cb(ErrorStatus::NONE, capabilities);
+    Capabilities capabilities = {
+            .relaxedFloat32toFloat16PerformanceScalar = kPerf,
+            .relaxedFloat32toFloat16PerformanceTensor = kPerf,
+            .operandPerformance = nonExtensionOperandPerformance<HalVersion::V1_3>(kPerf),
+            .ifPerformance = kPerf,
+            .whilePerformance = kPerf};
+    cb(V1_3::ErrorStatus::NONE, capabilities);
     return Void();
 }
 
-Return<void> FibonacciDriver::getSupportedOperations_1_2(const V1_2::Model& model,
-                                                         getSupportedOperations_1_2_cb cb) {
+Return<void> FibonacciDriver::getSupportedOperations_1_3(const V1_3::Model& model,
+                                                         getSupportedOperations_1_3_cb cb) {
     VLOG(DRIVER) << "getSupportedOperations()";
     if (!validateModel(model)) {
-        cb(ErrorStatus::INVALID_ARGUMENT, {});
+        cb(V1_3::ErrorStatus::INVALID_ARGUMENT, {});
         return Void();
     }
-    const size_t count = model.operations.size();
+    const size_t count = model.main.operations.size();
     std::vector<bool> supported(count);
     for (size_t i = 0; i < count; ++i) {
-        const Operation& operation = model.operations[i];
+        const Operation& operation = model.main.operations[i];
         if (fibonacci_op::isFibonacciOperation(operation, model)) {
             if (!fibonacci_op::validate(operation, model)) {
-                cb(ErrorStatus::INVALID_ARGUMENT, {});
+                cb(V1_3::ErrorStatus::INVALID_ARGUMENT, {});
                 return Void();
             }
             supported[i] = true;
         }
     }
-    cb(ErrorStatus::NONE, supported);
+    cb(V1_3::ErrorStatus::NONE, supported);
     return Void();
 }
 

@@ -37,8 +37,8 @@ public class RemoteLayoutLogAdapter implements RemoteLayoutLog {
     }
 
     @Override
-    public void warning(String tag, String message, Serializable data) {
-        mLog.warning(tag, message, null);
+    public void warning(String tag, String message, Object viewCookie, Serializable data) {
+        mLog.warning(tag, message, viewCookie, null);
     }
 
     @Override
@@ -48,12 +48,12 @@ public class RemoteLayoutLogAdapter implements RemoteLayoutLog {
     }
 
     @Override
-    public void error(String tag, String message, Serializable data) {
-        mLog.error(tag, message, null);
+    public void error(String tag, String message, Object viewCookie, Serializable data) {
+        mLog.error(tag, message, viewCookie, null);
     }
 
     @Override
-    public void error(String tag, String message, Throwable throwable, Serializable data) {
-        mLog.error(tag, message, throwable, null);
+    public void error(String tag, String message, Throwable throwable, Object viewCookie, Serializable data) {
+        mLog.error(tag, message, throwable, viewCookie, null);
     }
 }

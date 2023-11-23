@@ -21,7 +21,7 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +33,8 @@ import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.util.Log;
 import android.util.Pair;
+
+import java.util.List;
 
 /**
  * The interface through which an application interacts with the Android backup service to
@@ -803,7 +805,7 @@ public class BackupManager {
      * has a work profile that was restored from another work profile with serial number
      * {@code ancestralSerialNumber}.
      *
-     * @see UserManager#getSerialNumberForUser(UserHandle)
+     * @see android.os.UserManager#getSerialNumberForUser(UserHandle)
      */
     @Nullable
     public UserHandle getUserForAncestralSerialNumber(long ancestralSerialNumber) {
@@ -946,6 +948,29 @@ public class BackupManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Excludes keys from KV restore for a given package. The corresponding data will be excluded
+     * from the data set available the backup agent during restore. However,  final list  of keys
+     * that have been excluded will be passed to the agent to make it aware of the exclusions.
+     *
+     * @param packageName The name of the package for which to exclude keys.
+     * @param keys The list of keys to exclude.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    public void excludeKeysFromRestore(@NonNull String packageName, @NonNull List<String> keys) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                sService.excludeKeysFromRestore(packageName, keys);
+            } catch (RemoteException e) {
+                Log.e(TAG, "excludeKeysFromRestore() couldn't connect");
+            }
+        }
     }
 
     /*

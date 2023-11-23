@@ -25,6 +25,8 @@ namespace android {
 namespace nn {
 namespace fuzzing_test {
 
+using namespace test_helper;
+
 template <typename T>
 inline bool hasValue(const std::vector<T>& vec, const T& val) {
     // Empty vector indicates "no filter", i.e. always true.
@@ -37,7 +39,7 @@ bool OperationSignature::matchFilter(const OperationFilter& filter) {
     }
 
     // Match data types.
-    std::vector<Type> combinedDataTypes;
+    std::vector<TestOperandType> combinedDataTypes;
     for (auto dataType : supportedDataTypes) {
         if (hasValue(filter.dataTypes, dataType)) combinedDataTypes.push_back(dataType);
     }

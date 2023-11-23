@@ -33,6 +33,8 @@ constexpr uint32_t kOutputTensor = 0;
 
 namespace {
 
+using namespace hal;
+
 template <typename InputType, typename OutputType>
 bool compute(const InputType* inputData, const Shape& inputShape, OutputType* outputData) {
     const int numElements = getNumberOfElements(inputShape);
@@ -81,12 +83,18 @@ bool validate(const IOperationValidationContext* context) {
     const OperandType inputType = context->getInputType(kInputTensor);
     const OperandType outputType = context->getOutputType(kOutputTensor);
 
+    const Shape& input = context->getInputShape(kInputTensor);
+    if (hasKnownRank(input)) {
+        NN_RET_CHECK_LE(getNumberOfDimensions(input), 4);
+    }
+
     if (inputType == OperandType::TENSOR_QUANT8_ASYMM &&
         outputType == OperandType::TENSOR_FLOAT32) {
         return validateHalVersion(context, HalVersion::V1_0);
     }
 
     NN_RET_CHECK(inputType == OperandType::TENSOR_QUANT8_ASYMM ||
+                 inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED ||
                  inputType == OperandType::TENSOR_QUANT8_SYMM ||
                  inputType == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL)
             << "Unsupported input operand type for DEQUANTIZE op: " << toString(inputType);
@@ -98,6 +106,7 @@ bool validate(const IOperationValidationContext* context) {
 
 bool prepare(IOperationExecutionContext* context) {
     const Shape& input = context->getInputShape(kInputTensor);
+    NN_RET_CHECK_LE(getNumberOfDimensions(input), 4);
     Shape output = context->getOutputShape(kOutputTensor);
     output.dimensions = input.dimensions;
     return context->setOutputShape(kOutputTensor, output);
@@ -120,6 +129,14 @@ bool execute(IOperationExecutionContext* context) {
             return compute(inputBuffer, inputShape, context->getOutputBuffer<float>(kOutputTensor));
         }
     } else if (inputType == OperandType::TENSOR_QUANT8_SYMM) {
+        const int8_t* inputBuffer = context->getInputBuffer<int8_t>(kInputTensor);
+        if (outputType == OperandType::TENSOR_FLOAT16) {
+            return compute(inputBuffer, inputShape,
+                           context->getOutputBuffer<_Float16>(kOutputTensor));
+        } else if (outputType == OperandType::TENSOR_FLOAT32) {
+            return compute(inputBuffer, inputShape, context->getOutputBuffer<float>(kOutputTensor));
+        }
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
         const int8_t* inputBuffer = context->getInputBuffer<int8_t>(kInputTensor);
         if (outputType == OperandType::TENSOR_FLOAT16) {
             return compute(inputBuffer, inputShape,

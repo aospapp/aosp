@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/optimized/optimized_ops.h>
+
+#include <algorithm>
+#include <limits>
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
-
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-#include "tensorflow/lite/kernels/internal/optimized/optimized_ops.h"
-
 #include "Tracing.h"
 
 namespace android {
@@ -38,6 +44,8 @@ constexpr uint32_t kNumOutputs = 1;
 constexpr uint32_t kOutputTensor = 0;
 
 namespace {
+
+using namespace hal;
 
 inline bool softmaxSlowFloat32(const float* inputData, const Shape& inputShape, const float beta,
                                int32_t axis, float* outputData, const Shape& outputShape) {
@@ -101,9 +109,10 @@ bool softmaxFloat16(const _Float16* inputData, const Shape& inputShape, const fl
     return true;
 }
 
-bool softmaxQuant8Impl(const uint8_t* inputData, const Shape& inputShape, const float beta,
-                       int32_t axis, int32_t inputMultiplier, int32_t inputLeftShift, float diffMin,
-                       uint8_t* outputData, const Shape& outputShape) {
+template <typename T>
+bool softmaxQuant8Impl(const T* inputData, const Shape& inputShape, const float beta, int32_t axis,
+                       int32_t inputMultiplier, int32_t inputLeftShift, float diffMin,
+                       T* outputData, const Shape& outputShape) {
     NNTRACE_TRANS("softmaxQuant8");
     // The representation chosen for the input to the exp() function is Q5.26.
     // We need to leave extra space since values that we skip might be as large as
@@ -121,19 +130,19 @@ bool softmaxQuant8Impl(const uint8_t* inputData, const Shape& inputShape, const 
     const uint32_t innerSize =
             getNumberOfElements(inputShape, axis + 1, getNumberOfDimensions(inputShape));
     for (uint32_t outer = 0; outer < outerSize; ++outer) {
-        const uint8_t* inputBeg = inputData + outer * axisSize * innerSize;
-        const uint8_t* inputEnd = inputBeg + axisSize * innerSize;
-        uint8_t* outputBeg = outputData + outer * axisSize * innerSize;
+        const T* inputBeg = inputData + outer * axisSize * innerSize;
+        const T* inputEnd = inputBeg + axisSize * innerSize;
+        T* outputBeg = outputData + outer * axisSize * innerSize;
         for (uint32_t inner = 0; inner < innerSize; ++inner, ++inputBeg, ++inputEnd, ++outputBeg) {
             // Find max
-            uint8_t maxValue = 0;
-            for (const uint8_t* p = inputBeg; p < inputEnd; p += innerSize) {
+            T maxValue = std::is_same_v<T, int8_t> ? -128 : 0;
+            for (const T* p = inputBeg; p < inputEnd; p += innerSize) {
                 maxValue = std::max(maxValue, *p);
             }
 
             // Compute sum
             FixedPointAccum sum_of_exps = FixedPointAccum::Zero();
-            for (const uint8_t* p = inputBeg; p < inputEnd; p += innerSize) {
+            for (const T* p = inputBeg; p < inputEnd; p += innerSize) {
                 int32_t input_diff = static_cast<int32_t>(*p) - maxValue;
                 if (input_diff >= diffMin) {
                     const int32_t input_diff_rescaled =
@@ -158,8 +167,10 @@ bool softmaxQuant8Impl(const uint8_t* inputData, const Shape& inputShape, const 
                     FixedPoint0::FromRaw(shifted_sum_minus_one));
 
             // Compute result
-            uint8_t* pOut = outputBeg;
-            for (const uint8_t* p = inputBeg; p < inputEnd; p += innerSize, pOut += innerSize) {
+            constexpr int32_t q_min = std::numeric_limits<T>::min();
+            constexpr int32_t q_max = std::numeric_limits<T>::max();
+            T* pOut = outputBeg;
+            for (const T* p = inputBeg; p < inputEnd; p += innerSize, pOut += innerSize) {
                 int32_t input_diff = static_cast<int32_t>(*p) - maxValue;
                 if (input_diff >= diffMin) {
                     const int32_t input_diff_rescaled =
@@ -170,12 +181,14 @@ bool softmaxQuant8Impl(const uint8_t* inputData, const Shape& inputShape, const 
                     FixedPoint0 exp_in_0 = exp_on_negative_values(scaled_diff_f8);
                     int32_t unsat_output = gemmlowp::RoundingDivideByPOT(
                             (shifted_scale * exp_in_0).raw(), num_bits_over_unit + 31 - 8);
+                    if (std::is_same_v<T, int8_t>) {
+                        unsat_output -= 128;
+                    }
 
-                    *pOut = static_cast<uint8_t>(
-                            std::max(std::min(unsat_output, static_cast<int32_t>(255)), 0));
+                    *pOut = static_cast<T>(std::max(std::min(unsat_output, q_max), q_min));
 
                 } else {
-                    *pOut = 0;
+                    *pOut = std::is_same_v<T, int8_t> ? -128 : 0;
                 }
             }
         }
@@ -183,12 +196,16 @@ bool softmaxQuant8Impl(const uint8_t* inputData, const Shape& inputShape, const 
     return true;
 }
 
-bool softmaxQuant8(const uint8_t* inputData, const Shape& inputShape, const float beta,
-                   int32_t axis, uint8_t* outputData, const Shape& outputShape) {
+template <typename T>
+bool softmaxQuant8(const T* inputData, const Shape& inputShape, const float beta, int32_t axis,
+                   T* outputData, const Shape& outputShape) {
     int32_t ndim = getNumberOfDimensions(inputShape);
     NN_CHECK(handleNegativeAxis(inputShape, &axis));
 
-    if (outputShape.offset != 0 || outputShape.scale != 1.f / 256) {
+    if ((inputShape.type == OperandType::TENSOR_QUANT8_ASYMM && outputShape.offset != 0) ||
+        (inputShape.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED &&
+         outputShape.offset != -128) ||
+        outputShape.scale != 1.f / 256) {
         LOG(ERROR) << "incorrect scale / offset for output";
         return false;
     }
@@ -205,20 +222,8 @@ bool softmaxQuant8(const uint8_t* inputData, const Shape& inputShape, const floa
     }
     int32_t diffMin = -CalculateInputRadius(kScaledDiffIntegerBits, inputLeftShift);
 
-    // TFLite optimized implementation only supports computation along the last axis
-    if (axis == ndim - 1) {
-        NNTRACE_COMP("optimized_ops::Softmax::uint8");
-        tflite::SoftmaxParams param = {.beta = beta,
-                                       .input_multiplier = inputMultiplier,
-                                       .input_left_shift = inputLeftShift,
-                                       .diff_min = diffMin};
-        tflite::optimized_ops::Softmax(param, convertShapeToTflshape(inputShape), inputData,
-                                       convertShapeToTflshape(outputShape), outputData);
-        return true;
-    } else {
-        return softmaxQuant8Impl(inputData, inputShape, beta, axis, inputMultiplier, inputLeftShift,
-                                 diffMin, outputData, outputShape);
-    }
+    return softmaxQuant8Impl(inputData, inputShape, beta, axis, inputMultiplier, inputLeftShift,
+                             diffMin, outputData, outputShape);
 }
 
 }  // namespace
@@ -235,15 +240,21 @@ bool validate(const IOperationValidationContext* context) {
     } else if (inputType == OperandType::TENSOR_FLOAT16) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
         inExpectedTypes = {inputType, OperandType::FLOAT16};
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
+        inExpectedTypes = {inputType, OperandType::FLOAT32};
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
+    }
+    const auto inputRank = getNumberOfDimensions(context->getInputShape(kInputTensor));
+    if (inputRank != 0) {
+        NN_RET_CHECK_LE(inputRank, 4);
     }
     if (context->getNumInputs() == kNumInputs) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
         inExpectedTypes.push_back(OperandType::INT32);
     } else {
-        const size_t ndim = context->getInputShape(kInputTensor).dimensions.size();
-        if (ndim != 2 && ndim != 4 && ndim != 0) {
+        if (inputRank != 2 && inputRank != 4 && inputRank != 0) {
             NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
         }
     }
@@ -287,6 +298,12 @@ bool execute(IOperationExecutionContext* context) {
                                  context->getInputShape(kInputTensor),
                                  context->getInputValue<float>(kBetaScalar), axis,
                                  context->getOutputBuffer<uint8_t>(kOutputTensor),
+                                 context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return softmaxQuant8(context->getInputBuffer<int8_t>(kInputTensor),
+                                 context->getInputShape(kInputTensor),
+                                 context->getInputValue<float>(kBetaScalar), axis,
+                                 context->getOutputBuffer<int8_t>(kOutputTensor),
                                  context->getOutputShape(kOutputTensor));
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;

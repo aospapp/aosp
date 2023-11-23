@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+# TEST 1: L2_NORMALIZATION with axis parameter
 i1 = Input("op1", "TENSOR_FLOAT32", "{2, 2, 2, 3}") # input 0
 o1 = Output("op2", "TENSOR_FLOAT32", "{2, 2, 2, 3}") # output 0
 axis = Int32Scalar("axis", -1) # last axis
@@ -44,4 +45,22 @@ example0 = {
 
 # All dimensions, with all possible axis parameter
 Model().Operation("L2_NORMALIZATION", i1, axis).To(o1)
-Example(example0).AddRelaxed().AddAllDimsAndAxis(i1, o1, axis).AddVariations("relaxed", "float16", quant8)
+Example(example0).AddAllDimsAndAxis(i1, o1, axis).AddVariations("relaxed", "float16", quant8)
+
+
+# TEST 2: Corner cases for TENSOR_QUANT8_ASYMM data type.
+i2 = Input("op1", "TENSOR_QUANT8_ASYMM", "{2, 1}, 0.904414f, 246")
+o2 = Output("op2", "TENSOR_QUANT8_ASYMM", "{2, 1}, 0.0078125f, 128")
+axis = Int32Scalar("axis", -1) # last axis
+
+Model("corner_case").Operation("L2_NORMALIZATION", i2, axis).To(o2)
+Example({
+    i2: [245, 247],
+    o2: [0, 255],
+}).AddAllDimsAndAxis(i2, o2, axis)
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "l2_normalization_axis_dim4_axis3_neg",
+                   "l2_normalization_axis_dim4_axis3_neg_all_inputs_as_internal")

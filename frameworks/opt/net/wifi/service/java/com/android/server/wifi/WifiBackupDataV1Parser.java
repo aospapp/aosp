@@ -16,14 +16,16 @@
 
 package com.android.server.wifi;
 
+import android.annotation.Nullable;
+import android.net.InetAddresses;
 import android.net.IpConfiguration;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
 import android.net.LinkAddress;
-import android.net.NetworkUtils;
 import android.net.ProxyInfo;
 import android.net.RouteInfo;
 import android.net.StaticIpConfiguration;
+import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
 import android.util.Log;
 import android.util.Pair;
@@ -44,6 +46,7 @@ import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -60,7 +63,6 @@ import java.util.Set;
  *    <WifiConfiguration>
  *     <string name="ConfigKey">value</string>
  *     <string name="SSID">value</string>
- *     <string name="BSSID" />value</string>
  *     <string name="PreSharedKey" />value</string>
  *     <string-array name="WEPKeys" num="4">
  *      <item value="WifiConfigStoreWep1" />
@@ -90,14 +92,13 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
 
     private static final String TAG = "WifiBackupDataV1Parser";
 
-    private static final int HIGHEST_SUPPORTED_MINOR_VERSION = 1;
+    private static final int HIGHEST_SUPPORTED_MINOR_VERSION = 2;
 
     // List of tags supported for <WifiConfiguration> section in minor version 0
     private static final Set<String> WIFI_CONFIGURATION_MINOR_V0_SUPPORTED_TAGS =
             new HashSet<String>(Arrays.asList(new String[] {
                 WifiConfigurationXmlUtil.XML_TAG_CONFIG_KEY,
                 WifiConfigurationXmlUtil.XML_TAG_SSID,
-                WifiConfigurationXmlUtil.XML_TAG_BSSID,
                 WifiConfigurationXmlUtil.XML_TAG_PRE_SHARED_KEY,
                 WifiConfigurationXmlUtil.XML_TAG_WEP_KEYS,
                 WifiConfigurationXmlUtil.XML_TAG_WEP_TX_KEY_INDEX,
@@ -118,8 +119,15 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                 add(WifiConfigurationXmlUtil.XML_TAG_METERED_OVERRIDE);
             }};
 
-    // List of tags supported for <IpConfiguration> section in minor version 0 & 1
-    private static final Set<String> IP_CONFIGURATION_MINOR_V0_V1_SUPPORTED_TAGS =
+    // List of tags supported for <WifiConfiguration> section in minor version 2
+    private static final Set<String> WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS =
+            new HashSet<String>() {{
+                addAll(WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS);
+                add(WifiConfigurationXmlUtil.XML_TAG_IS_AUTO_JOIN);
+            }};
+
+    // List of tags supported for <IpConfiguration> section in minor version 0 to 2
+    private static final Set<String> IP_CONFIGURATION_MINOR_V0_V1_V2_SUPPORTED_TAGS =
             new HashSet<String>(Arrays.asList(new String[] {
                 IpConfigurationXmlUtil.XML_TAG_IP_ASSIGNMENT,
                 IpConfigurationXmlUtil.XML_TAG_LINK_ADDRESS,
@@ -133,6 +141,7 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                 IpConfigurationXmlUtil.XML_TAG_PROXY_PAC_FILE,
             }));
 
+    @Override
     public List<WifiConfiguration> parseNetworkConfigurationsFromXml(XmlPullParser in,
             int outerTagDepth, int minorVersion) throws XmlPullParserException, IOException {
         // clamp down the minorVersion to the highest one that this parser version supports
@@ -150,11 +159,16 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
             WifiConfiguration configuration =
                     parseNetworkConfigurationFromXml(in, minorVersion, networkListTagDepth);
             if (configuration != null) {
-                Log.v(TAG, "Parsed Configuration: " + configuration.configKey());
+                Log.v(TAG, "Parsed Configuration: " + configuration.getKey());
                 configurations.add(configuration);
             }
         }
         return configurations;
+    }
+
+    @Override
+    public int getHighestSupportedMinorVersion() {
+        return HIGHEST_SUPPORTED_MINOR_VERSION;
     }
 
     /**
@@ -199,7 +213,7 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
         }
         String configKeyParsed = parsedConfig.first;
         WifiConfiguration configuration = parsedConfig.second;
-        String configKeyCalculated = configuration.configKey();
+        String configKeyCalculated = configuration.getKey();
         if (!configKeyParsed.equals(configKeyCalculated)) {
             // configKey is not part of the SDK. So, we can't expect this to be the same
             // across OEM's. Just log a warning & continue.
@@ -300,9 +314,6 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                 case WifiConfigurationXmlUtil.XML_TAG_SSID:
                     configuration.SSID = (String) value;
                     break;
-                case WifiConfigurationXmlUtil.XML_TAG_BSSID:
-                    configuration.BSSID = (String) value;
-                    break;
                 case WifiConfigurationXmlUtil.XML_TAG_PRE_SHARED_KEY:
                     configuration.preSharedKey = (String) value;
                     break;
@@ -316,7 +327,7 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                     configuration.hiddenSSID = (boolean) value;
                     break;
                 case WifiConfigurationXmlUtil.XML_TAG_REQUIRE_PMF:
-                    configuration.requirePMF = (boolean) value;
+                    configuration.requirePmf = (boolean) value;
                     break;
                 case WifiConfigurationXmlUtil.XML_TAG_ALLOWED_KEY_MGMT:
                     byte[] allowedKeyMgmt = (byte[]) value;
@@ -345,6 +356,9 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                 case WifiConfigurationXmlUtil.XML_TAG_METERED_OVERRIDE:
                     configuration.meteredOverride = (int) value;
                     break;
+                case WifiConfigurationXmlUtil.XML_TAG_IS_AUTO_JOIN:
+                    configuration.allowAutojoin = (boolean) value;
+                    break;
                 default:
                     // should never happen, since other tags are filtered out earlier
                     throw new XmlPullParserException(
@@ -369,6 +383,8 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                 return WIFI_CONFIGURATION_MINOR_V0_SUPPORTED_TAGS;
             case 1:
                 return WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS;
+            case 2:
+                return WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS;
             default:
                 Log.e(TAG, "Invalid minorVersion: " + minorVersion);
                 return Collections.<String>emptySet();
@@ -396,6 +412,15 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
             } else {
                 wepKeys[i] = wepKeysInData[i];
             }
+        }
+    }
+
+    private static List<String> parseProxyExclusionListString(
+            @Nullable String exclusionListString) {
+        if (exclusionListString == null) {
+            return Collections.emptyList();
+        } else {
+            return Arrays.asList(exclusionListString.toLowerCase(Locale.ROOT).split(","));
         }
     }
 
@@ -491,34 +516,36 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
         ipConfiguration.setIpAssignment(ipAssignment);
         switch (ipAssignment) {
             case STATIC:
-                StaticIpConfiguration staticIpConfiguration = new StaticIpConfiguration();
+                StaticIpConfiguration.Builder builder = new StaticIpConfiguration.Builder();
                 if (linkAddressString != null && linkPrefixLength != null) {
                     LinkAddress linkAddress = new LinkAddress(
-                            NetworkUtils.numericToInetAddress(linkAddressString), linkPrefixLength);
+                            InetAddresses.parseNumericAddress(linkAddressString), linkPrefixLength);
                     if (linkAddress.getAddress() instanceof Inet4Address) {
-                        staticIpConfiguration.ipAddress = linkAddress;
+                        builder.setIpAddress(linkAddress);
                     } else {
                         Log.w(TAG, "Non-IPv4 address: " + linkAddress);
                     }
                 }
                 if (gatewayAddressString != null) {
-                    LinkAddress dest = null;
-                    InetAddress gateway = NetworkUtils.numericToInetAddress(gatewayAddressString);
-                    RouteInfo route = new RouteInfo(dest, gateway);
-                    if (route.isIPv4Default()) {
-                        staticIpConfiguration.gateway = gateway;
+                    InetAddress gateway = InetAddresses.parseNumericAddress(gatewayAddressString);
+                    RouteInfo route = new RouteInfo(null, gateway, null, RouteInfo.RTN_UNICAST);
+                    if (route.isDefaultRoute()
+                            && route.getDestination().getAddress() instanceof Inet4Address) {
+                        builder.setGateway(gateway);
                     } else {
                         Log.w(TAG, "Non-IPv4 default route: " + route);
                     }
                 }
                 if (dnsServerAddressesString != null) {
+                    List<InetAddress> dnsServerAddresses = new ArrayList<>();
                     for (String dnsServerAddressString : dnsServerAddressesString) {
                         InetAddress dnsServerAddress =
-                                NetworkUtils.numericToInetAddress(dnsServerAddressString);
-                        staticIpConfiguration.dnsServers.add(dnsServerAddress);
+                                InetAddresses.parseNumericAddress(dnsServerAddressString);
+                        dnsServerAddresses.add(dnsServerAddress);
                     }
+                    builder.setDnsServers(dnsServerAddresses);
                 }
-                ipConfiguration.setStaticIpConfiguration(staticIpConfiguration);
+                ipConfiguration.setStaticIpConfiguration(builder.build());
                 break;
             case DHCP:
             case UNASSIGNED:
@@ -549,14 +576,17 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
                             + " IpConfiguration section");
                 }
                 ipConfiguration.setHttpProxy(
-                        new ProxyInfo(proxyHost, proxyPort, proxyExclusionList));
+                        ProxyInfo.buildDirectProxy(
+                                proxyHost, proxyPort,
+                                parseProxyExclusionListString(proxyExclusionList)));
                 break;
             case PAC:
                 if (proxyPacFile == null) {
                     throw new XmlPullParserException("ProxyPac was missing in"
                             + " IpConfiguration section");
                 }
-                ipConfiguration.setHttpProxy(new ProxyInfo(proxyPacFile));
+                ipConfiguration.setHttpProxy(
+                        ProxyInfo.buildPacProxy(Uri.parse(proxyPacFile)));
                 break;
             case NONE:
             case UNASSIGNED:
@@ -581,7 +611,8 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
         switch (minorVersion) {
             case 0:
             case 1:
-                return IP_CONFIGURATION_MINOR_V0_V1_SUPPORTED_TAGS;
+            case 2:
+                return IP_CONFIGURATION_MINOR_V0_V1_V2_SUPPORTED_TAGS;
             default:
                 Log.e(TAG, "Invalid minorVersion: " + minorVersion);
                 return Collections.<String>emptySet();

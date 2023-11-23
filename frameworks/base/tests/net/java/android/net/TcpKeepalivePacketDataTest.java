@@ -16,13 +16,11 @@
 
 package android.net;
 
+import static com.android.testutils.ParcelUtilsKt.assertParcelingIsLossless;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-
-import android.net.SocketKeepalive.InvalidPacketException;
-
-import com.android.internal.util.TestUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -68,10 +66,10 @@ public final class TcpKeepalivePacketDataTest {
             fail("InvalidPacketException: " + e);
         }
 
-        assertEquals(InetAddress.getByAddress(testInfo.srcAddress), resultData.srcAddress);
-        assertEquals(InetAddress.getByAddress(testInfo.dstAddress), resultData.dstAddress);
-        assertEquals(testInfo.srcPort, resultData.srcPort);
-        assertEquals(testInfo.dstPort, resultData.dstPort);
+        assertEquals(InetAddress.getByAddress(testInfo.srcAddress), resultData.getSrcAddress());
+        assertEquals(InetAddress.getByAddress(testInfo.dstAddress), resultData.getDstAddress());
+        assertEquals(testInfo.srcPort, resultData.getSrcPort());
+        assertEquals(testInfo.dstPort, resultData.getDstPort());
         assertEquals(testInfo.seq, resultData.tcpSeq);
         assertEquals(testInfo.ack, resultData.tcpAck);
         assertEquals(testInfo.rcvWnd, resultData.tcpWnd);
@@ -79,7 +77,7 @@ public final class TcpKeepalivePacketDataTest {
         assertEquals(testInfo.tos, resultData.ipTos);
         assertEquals(testInfo.ttl, resultData.ipTtl);
 
-        TestUtils.assertParcelingIsLossless(resultData);
+        assertParcelingIsLossless(resultData);
 
         final byte[] packet = resultData.getPacket();
         // IP version and IHL

@@ -47,7 +47,8 @@ class InterfaceTool {
   virtual bool SetMacAddress(const char* if_name,
                              const std::array<uint8_t, ETH_ALEN>& address);
 
-  // Get the factory MAC address of the |if_name| interface
+  // Get the factory MAC address of the |if_name| interface.
+  // Returns all-zero address on error.
   virtual std::array<uint8_t, ETH_ALEN> GetFactoryMacAddress(const char* if_name);
 };  // class InterfaceTool
 

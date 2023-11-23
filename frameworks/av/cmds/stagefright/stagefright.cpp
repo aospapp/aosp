@@ -31,18 +31,15 @@
 
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
+#include <datasource/DataSourceFactory.h>
 #include <media/DataSource.h>
-#include <media/MediaSource.h>
-#include <media/ICrypto.h>
+#include <media/stagefright/MediaSource.h>
 #include <media/IMediaHTTPService.h>
 #include <media/IMediaPlayerService.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/AUtils.h>
-#include "include/NuCachedSource2.h"
-#include <media/stagefright/AudioPlayer.h>
-#include <media/stagefright/DataSourceFactory.h>
 #include <media/stagefright/JPEGSource.h>
 #include <media/stagefright/InterfaceUtils.h>
 #include <media/stagefright/MediaCodec.h>
@@ -68,6 +65,8 @@
 #include <gui/SurfaceComposerClient.h>
 
 #include <android/hardware/media/omx/1.0/IOmx.h>
+
+#include "AudioPlayer.h"
 
 using namespace android;
 
@@ -305,7 +304,7 @@ static void playSource(sp<MediaSource> &source) {
             seekTimeUs = -1;
 
             if (shouldSeek) {
-                seekTimeUs = (rand() * (float)durationUs) / RAND_MAX;
+                seekTimeUs = (rand() * (float)durationUs) / (float)RAND_MAX;
                 options.setSeekTo(seekTimeUs);
 
                 printf("seeking to %" PRId64 " us (%.2f secs)\n",
@@ -989,7 +988,7 @@ int main(int argc, char **argv) {
                 failed = false;
                 printf("getFrameAtTime(%s) => OK\n", filename);
 
-                VideoFrame *frame = (VideoFrame *)mem->pointer();
+                VideoFrame *frame = (VideoFrame *)mem->unsecurePointer();
 
                 CHECK_EQ(writeJpegFile("/sdcard/out.jpg",
                             frame->getFlattenedData(),
@@ -1086,7 +1085,7 @@ int main(int argc, char **argv) {
         const char *filename = argv[k];
 
         sp<DataSource> dataSource =
-            DataSourceFactory::CreateFromURI(NULL /* httpService */, filename);
+            DataSourceFactory::getInstance()->CreateFromURI(NULL /* httpService */, filename);
 
         if (strncasecmp(filename, "sine:", 5) && dataSource == NULL) {
             fprintf(stderr, "Unable to create data source.\n");

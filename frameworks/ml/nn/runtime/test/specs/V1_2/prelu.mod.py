@@ -58,4 +58,4 @@ Example({
           1,  1,  1,
           0, -1, -2,
           0, -2, -4]
-}).AddInput(a1).AddVariations("relaxed", quant8_gt, quant8_eq1, quant8_eq2, quant8_lt, "float16")
+}).AddVariations("relaxed", quant8_gt, quant8_eq1, quant8_eq2, quant8_lt, "float16")

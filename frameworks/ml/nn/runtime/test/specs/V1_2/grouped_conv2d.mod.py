@@ -62,7 +62,7 @@ example = Example({
          33,  7.5,
          31,  4.5,
          27, -9.5]
-}).AddNchw(i1, o1, layout).AddAllActivations(o1, act).AddVariations("relaxed", quant8, quant8_mult_gt_1, channelQuant8, channelQuant8_mult_gt_1, "float16").AddInput(w1, b1)
+}).AddNchw(i1, o1, layout).AddAllActivations(o1, act).AddVariations("relaxed", quant8, quant8_mult_gt_1, channelQuant8, channelQuant8_mult_gt_1, "float16")
 
 
 # TEST 2: GROUPED_CONV2D_LARGE, pad = same, stride = 1, numGroups = 2, act = none
@@ -98,7 +98,7 @@ example = Example({
          1370, -10,
          543, -907,
          760, -310]
-}).AddNchw(i2, o2, layout).AddVariations("relaxed", quant8, channelQuant8, "float16").AddInput(w2, b2)
+}).AddNchw(i2, o2, layout).AddVariations("relaxed", quant8, channelQuant8, "float16")
 
 
 # TEST 3: GROUPED_CONV2D_CHANNEL, pad = same, stride = 1, numGroups = 3, act = none
@@ -132,4 +132,4 @@ example = Example({
          32,  -6,  73,  50, 134, -45,
          24, -13, 111, 128, 102, -51,
          17, -18, 134, 170,  73, -55]
-}).AddNchw(i3, o3, layout).AddVariations("relaxed", quant8, channelQuant8, "float16").AddInput(w3, b3)
+}).AddNchw(i3, o3, layout).AddVariations("relaxed", quant8, channelQuant8, "float16")

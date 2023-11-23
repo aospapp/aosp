@@ -13,21 +13,29 @@
 // limitations under the License.
 
 ndk_headers {
-    name: "libarect_headers",
+    name: "libarect_headers_for_ndk",
     from: "include/android",
     to: "android",
     srcs: ["include/android/*.h"],
     license: "NOTICE",
 }
 
+cc_library_headers {
+    name: "libarect_headers",
+    export_include_dirs: ["include"],
+}
+
 cc_library_static {
     name: "libarect",
     host_supported: true,
     vendor_available: true,
+    // TODO(b/153609531): remove when no longer needed.
+    native_bridge_supported: true,
     export_include_dirs: ["include"],
     target: {
         windows: {
             enabled: true,
         },
     },
+    min_sdk_version: "29",
 }

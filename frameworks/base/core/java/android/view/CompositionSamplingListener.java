@@ -17,7 +17,6 @@
 package android.view;
 
 import android.graphics.Rect;
-import android.os.IBinder;
 
 import com.android.internal.util.Preconditions;
 
@@ -29,7 +28,7 @@ import java.util.concurrent.Executor;
  */
 public abstract class CompositionSamplingListener {
 
-    private final long mNativeListener;
+    private long mNativeListener;
     private final Executor mExecutor;
 
     public CompositionSamplingListener(Executor executor) {
@@ -37,13 +36,19 @@ public abstract class CompositionSamplingListener {
         mNativeListener = nativeCreate(this);
     }
 
+    public void destroy() {
+        if (mNativeListener == 0) {
+            return;
+        }
+        unregister(this);
+        nativeDestroy(mNativeListener);
+        mNativeListener = 0;
+    }
+
     @Override
     protected void finalize() throws Throwable {
         try {
-            if (mNativeListener != 0) {
-                unregister(this);
-                nativeDestroy(mNativeListener);
-            }
+            destroy();
         } finally {
             super.finalize();
         }
@@ -58,17 +63,24 @@ public abstract class CompositionSamplingListener {
      * Registers a sampling listener.
      */
     public static void register(CompositionSamplingListener listener,
-            int displayId, IBinder stopLayer, Rect samplingArea) {
+            int displayId, SurfaceControl stopLayer, Rect samplingArea) {
+        if (listener.mNativeListener == 0) {
+            return;
+        }
         Preconditions.checkArgument(displayId == Display.DEFAULT_DISPLAY,
                 "default display only for now");
-        nativeRegister(listener.mNativeListener, stopLayer, samplingArea.left, samplingArea.top,
-                samplingArea.right, samplingArea.bottom);
+        long nativeStopLayerObject = stopLayer != null ? stopLayer.mNativeObject : 0;
+        nativeRegister(listener.mNativeListener, nativeStopLayerObject, samplingArea.left,
+                samplingArea.top, samplingArea.right, samplingArea.bottom);
     }
 
     /**
      * Unregisters a sampling listener.
      */
     public static void unregister(CompositionSamplingListener listener) {
+        if (listener.mNativeListener == 0) {
+            return;
+        }
         nativeUnregister(listener.mNativeListener);
     }
 
@@ -84,7 +96,7 @@ public abstract class CompositionSamplingListener {
 
     private static native long nativeCreate(CompositionSamplingListener thiz);
     private static native void nativeDestroy(long ptr);
-    private static native void nativeRegister(long ptr, IBinder stopLayer,
+    private static native void nativeRegister(long ptr, long stopLayerObject,
             int samplingAreaLeft, int top, int right, int bottom);
     private static native void nativeUnregister(long ptr);
 }

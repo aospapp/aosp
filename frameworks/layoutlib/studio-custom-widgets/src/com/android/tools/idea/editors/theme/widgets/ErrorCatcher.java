@@ -61,7 +61,7 @@ public class ErrorCatcher extends ViewGroup {
                     resolveSize(child.getMeasuredHeight(), heightMeasureSpec));
         } catch (Throwable t) {
             Bridge.getLog().warning(LayoutLog.TAG_BROKEN, "Failed to do onMeasure for view " +
-                    child.getClass().getCanonicalName(), t);
+                    child.getClass().getCanonicalName(), null, t);
             setMeasuredDimension(resolveSize(0, widthMeasureSpec),
                     resolveSize(0, heightMeasureSpec));
         }
@@ -73,7 +73,7 @@ public class ErrorCatcher extends ViewGroup {
             return super.drawChild(canvas, child, drawingTime);
         } catch (Throwable t) {
             Bridge.getLog().warning(LayoutLog.TAG_BROKEN, "Failed to draw for view " +
-                    child.getClass().getCanonicalName(), t);
+                    child.getClass().getCanonicalName(), null, t);
         }
 
         return false;
@@ -88,7 +88,7 @@ public class ErrorCatcher extends ViewGroup {
             child.layout(0, 0, child.getMeasuredWidth(), child.getMeasuredHeight());
         } catch (Throwable e) {
             Bridge.getLog().warning(LayoutLog.TAG_BROKEN, "Failed to do onLayout for view " +
-                    child.getClass().getCanonicalName(), e);
+                    child.getClass().getCanonicalName(), null, e);
         }
     }
 }

@@ -26,6 +26,8 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.ksoap2.serialization.PropertyInfo;
@@ -35,7 +37,7 @@ import org.ksoap2.serialization.SoapPrimitive;
  * Unit tests for {@link PpsMoData}.
  */
 @SmallTest
-public class PpsMoDataTest {
+public class PpsMoDataTest extends WifiBaseTest {
     private static final String TEST_PPS_MO_XML = "<MgmtTree>test</MgmtTree>";
     private static final String TEST_TREE_URI = "testTreeURI";
     private static final String TEST_MO_URN = "testMoURN";

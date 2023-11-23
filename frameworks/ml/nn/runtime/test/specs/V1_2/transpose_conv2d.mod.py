@@ -62,7 +62,7 @@ Example({
          14.5, 18, 22.5, 26,  60.5,  70, 40.5, 46, 52.5, 58,
          19.5, 22, 25.5, 28,  59.5,  66, 34.5, 38, 42.5, 46,
          37.5, 40, 43.5, 46, 101.5, 108, 58.5, 62, 66.5, 70]
-}).AddNchw(i1, o1, s1, layout).AddAllActivations(o1, act).AddVariations("relaxed", quant8, quant8_mult_gt_1, channelQuant8, channelQuant8_mult_gt_1, "float16").AddInput(w1, b1)
+}).AddNchw(i1, o1, s1, layout).AddAllActivations(o1, act).AddVariations("relaxed", quant8, quant8_mult_gt_1, channelQuant8, channelQuant8_mult_gt_1, "float16")
 
 
 # TEST 2: TRANSPOSE_CONV2D_LARGE, pad = same, stride = 3, act = relu
@@ -94,7 +94,7 @@ Example({
     o2: [500.,  800.,  3500., 1500.,
          1400., 500.,  3500., 3000.,
          0.,    200.,  500.,  0.]
-}).AddNchw(i2, o2, s2, layout).AddVariations("relaxed", quant8, channelQuant8, "float16").AddInput(w2, b2)
+}).AddNchw(i2, o2, s2, layout).AddVariations("relaxed", quant8, channelQuant8, "float16")
 
 
 # TEST 3: TRANSPOSE_CONV2D_SAME, outputShape = [1, 4, 4, 1], pad = same, stride = 1, act = none
@@ -120,7 +120,7 @@ Example({
          678,  1347, 1689, 1434,
          1494, 2715, 3057, 2442,
          1968, 3352, 3652, 2760]
-}).AddNchw(i3, o3, s3, layout).AddVariations("relaxed", quant8, "float16").AddInput(w3, b3)
+}).AddNchw(i3, o3, s3, layout).AddVariations("relaxed", quant8, "float16")
 
 
 # TEST 4: TRANSPOSE_CONV2D_VALID, outputShape = [1, 6, 6, 1], pad = valid, stride = 1, act = none
@@ -148,7 +148,7 @@ Example({
          597,  1494, 2715, 3057, 2442, 1431,
          856,  1968, 3352, 3652, 2760, 1548,
          689,  1534, 2543, 2729, 2010, 1103]
-}).AddNchw(i4, o4, s4, layout).AddVariations("relaxed", quant8, "float16").AddInput(w4, b4)
+}).AddNchw(i4, o4, s4, layout).AddVariations("relaxed", quant8, "float16")
 
 
 # TEST 5: TRANSPOSE_CONV2D_EXPLICIT, pad = [1, 2, 2, 1], stride = 1, act = none
@@ -172,7 +172,7 @@ Example({
     o5: [678,  1347, 1689,
          1494, 2715, 3057,
          1968, 3352, 3652]
-}).AddNchw(i5, o5, layout).AddVariations("relaxed", quant8, "float16").AddInput(w5, b5)
+}).AddNchw(i5, o5, layout).AddVariations("relaxed", quant8, "float16")
 
 
 # TEST 6: zero-sized input, implicit padding
@@ -210,12 +210,11 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, s, layout).AddVariations("relaxed", quant8, "float16")
 
 
@@ -253,12 +252,11 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
 
 
@@ -281,4 +279,4 @@ quant8 = DataTypeConverter().Identify({
 Example({
     i8: [1,  2,  3,  4],
     o8: [2, 0, 4, 0, 0, 0, 0, 0, 6, 0, 8, 0, 0, 0, 0, 0]
-}).AddNchw(i8, o8, s8, layout).AddVariations("relaxed", quant8, "float16").AddInput(w8, b8)
+}).AddNchw(i8, o8, s8, layout).AddVariations("relaxed", quant8, "float16")

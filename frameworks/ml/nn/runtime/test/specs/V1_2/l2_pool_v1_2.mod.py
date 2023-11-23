@@ -25,7 +25,7 @@ Model().Operation("L2_POOL_2D", i1, 0, 0, 0, 0, 1, 1, 1, 1, 0, layout).To(o1)
 example = Example({
     i1: [1.0, 2.0, 3.0, 4.0],
     o1: [1.0, 2.0, 3.0, 4.0]
-}).AddNchw(i1, o1, layout).AddRelaxed().AddVariations("float16")
+}).AddNchw(i1, o1, layout).AddVariations("relaxed", "float16")
 
 
 # TEST 2: L2_POOL_2D_NCHW_2, pad = same, stride = 2, filter = 2, act = none
@@ -37,7 +37,7 @@ Model().Operation("L2_POOL_2D", i2, 1, 2, 2, 2, 2, 0, layout).To(o2)
 example = Example({
     i2: [0, 6, 2, 4, 3, 2, 10, 7],
     o2: [3.5, 6.5]
-}).AddNchw(i2, o2, layout).AddRelaxed().AddVariations("float16")
+}).AddNchw(i2, o2, layout).AddVariations("relaxed", "float16")
 
 
 # TEST 3: L2_POOL_2D_NCHW_LARGE, pad = 0, stride = 1, filter = 2, act = none
@@ -49,7 +49,7 @@ Model("large").Operation("L2_POOL_2D", i3, 0, 0, 0, 0, 1, 1, 2, 2, 0, layout).To
 example = Example({
     i3: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
     o3: [6.442049503326416, 7.3143692016601562, 8.2158384323120117]
-}).AddNchw(i3, o3, layout).AddRelaxed().AddVariations("float16")
+}).AddNchw(i3, o3, layout).AddVariations("relaxed", "float16")
 
 
 # TEST 4: zero-sized input, explicit padding
@@ -72,12 +72,11 @@ model = model.Operation("ROI_ALIGN", i1, tmp1, tmp2, 2, 2, 2.0, 2.0, 4, 4, layou
 o3 = Output("out", "TENSOR_FLOAT32", "{0, 1, 1, 1}") # out
 model = model.Operation("L2_POOL_2D", zero_sized, 0, 0, 0, 0, 1, 1, 2, 2, 0, layout).To(o3)
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", "float16")
 
 
@@ -101,10 +100,19 @@ model = model.Operation("ROI_ALIGN", i1, tmp1, tmp2, 2, 2, 2.0, 2.0, 4, 4, layou
 o3 = Output("out", "TENSOR_FLOAT32", "{0, 2, 2, 1}") # out
 model = model.Operation("L2_POOL_2D", zero_sized, 1, 1, 1, 2, 2, 0, layout).To(o3)
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "l2_pool_v1_2_large_nhwc",
+                   "l2_pool_v1_2_large_nhwc_all_inputs_as_internal",
+                   "l2_pool_v1_2_nhwc",
+                   "l2_pool_v1_2_nhwc_2",
+                   "l2_pool_v1_2_nhwc_all_inputs_as_internal",
+                   "l2_pool_v1_2_nhwc_all_inputs_as_internal_2")

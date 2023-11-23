@@ -21,7 +21,7 @@
 #include <binder/IMemory.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/ICrypto.h>
+#include <mediadrm/ICrypto.h>
 #include <utils/NativeHandle.h>
 
 #include "include/SecureBuffer.h"
@@ -32,7 +32,11 @@ namespace android {
 // SharedMemoryBuffer
 
 SharedMemoryBuffer::SharedMemoryBuffer(const sp<AMessage> &format, const sp<IMemory> &mem)
-    : MediaCodecBuffer(format, new ABuffer(mem->pointer(), mem->size())),
+    // TODO: Using unsecurePointer() has some associated security pitfalls
+    //       (see declaration for details).
+    //       Either document why it is safe in this case or address the
+    //       issue (e.g. by copying).
+    : MediaCodecBuffer(format, new ABuffer(mem->unsecurePointer(), mem->size())),
       mMemory(mem) {
 }
 

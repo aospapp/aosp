@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "IonWatcher"
+
+#include <stdio.h>
+#include <unistd.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <stdio.h>
 #include <string>
-#include <unistd.h>
 
 #include <android/log.h>
 #define ATRACE_TAG ATRACE_TAG_NNAPI
-#include "utils/Trace.h"
+#include <utils/Trace.h>
 
 int parseMemInfo(const char* name) {
     std::ifstream meminfoStream("/proc/meminfo");
@@ -52,16 +54,16 @@ int main(void) {
     }
     int size = 0;
     while (true) {
-      const int newSize = parseMemInfo("ION_heap");
-      if (newSize < 0) {
-          return newSize;
-      }
-      if (newSize != size) {
-        size = newSize;
-        std::cout << size << "\n";
-        ATRACE_INT("ION_heap", size);
-        __android_log_print(ANDROID_LOG_INFO, "ion", "ION_heap %d", size);
-      }
-      usleep(10);
+        const int newSize = parseMemInfo("ION_heap");
+        if (newSize < 0) {
+            return newSize;
+        }
+        if (newSize != size) {
+            size = newSize;
+            std::cout << size << "\n";
+            ATRACE_INT("ION_heap", size);
+            __android_log_print(ANDROID_LOG_INFO, "ion", "ION_heap %d", size);
+        }
+        usleep(10);
     }
 }

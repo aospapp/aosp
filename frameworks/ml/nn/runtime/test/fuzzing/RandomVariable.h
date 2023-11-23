@@ -103,7 +103,7 @@ struct RandomVariableBase {
     // Network structural information.
     std::shared_ptr<RandomVariableBase> parent1 = nullptr;
     std::shared_ptr<RandomVariableBase> parent2 = nullptr;
-    std::vector<std::shared_ptr<RandomVariableBase>> children;
+    std::vector<std::weak_ptr<RandomVariableBase>> children;
 
     // The last time that this RandomVariableBase is modified.
     int timestamp;
@@ -218,7 +218,7 @@ class DisjointNetwork {
 
     // A map from the subnet index to the set of nodes within the subnet. The nodes are maintained
     // in a valid evaluation order, that is, a valid topological sort.
-    std::unordered_map<int, EvaluationOrder> mEvalOrderMap;
+    std::map<int, EvaluationOrder> mEvalOrderMap;
 
     // The next index for a new disjoint subnet component.
     int mNextIndex = 0;

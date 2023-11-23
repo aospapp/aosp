@@ -32,9 +32,10 @@ enum ApBand {
     AP_BAND_UNKNOWN = 0;
     AP_BAND_2GHZ = 1;
     AP_BAND_5GHZ = 2;
+    AP_BAND_6GHZ = 3;
 }
 
-// Refer to definition in ServiceState.java.
+// Refer to definition in TelephonyManager.java.
 enum RadioTech {
   RADIO_TECHNOLOGY_UNKNOWN = 0;
   RADIO_TECHNOLOGY_GPRS = 1;
@@ -49,8 +50,8 @@ enum RadioTech {
   RADIO_TECHNOLOGY_HSUPA = 10;
   RADIO_TECHNOLOGY_HSPA = 11;
   RADIO_TECHNOLOGY_EVDO_B = 12;
-  RADIO_TECHNOLOGY_EHRPD = 13;
-  RADIO_TECHNOLOGY_LTE = 14;
+  RADIO_TECHNOLOGY_LTE = 13;
+  RADIO_TECHNOLOGY_EHRPD = 14;
   RADIO_TECHNOLOGY_HSPAP = 15;
   RADIO_TECHNOLOGY_GSM = 16;
   RADIO_TECHNOLOGY_TD_SCDMA = 17;

@@ -19,12 +19,21 @@ package android.os;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
+import android.system.StructPollfd;
+import android.util.Pair;
 import android.webkit.WebViewZygote;
 
 import dalvik.system.VMRuntime;
+
+import libcore.io.IoUtils;
+
+import java.io.FileDescriptor;
+import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Tools for managing OS processes.
@@ -65,10 +74,9 @@ public class Process {
     public static final int LOG_UID = 1007;
 
     /**
-     * Defines the UID/GID for the WIFI supplicant process.
-     * @hide
+     * Defines the UID/GID for the WIFI native processes like wificond, supplicant, hostapd,
+     * vendor HAL, etc.
      */
-    @UnsupportedAppUsage
     public static final int WIFI_UID = 1010;
 
     /**
@@ -86,6 +94,12 @@ public class Process {
     public static final int DRM_UID = 1019;
 
     /**
+     * Defines the GID for the group that allows write access to the internal media storage.
+     * @hide
+     */
+    public static final int SDCARD_RW_GID = 1015;
+
+    /**
      * Defines the UID/GID for the group that controls VPN services.
      * @hide
      */
@@ -97,6 +111,12 @@ public class Process {
      * @hide
      */
     public static final int KEYSTORE_UID = 1017;
+
+    /**
+     * Defines the UID/GID for credstore.
+     * @hide
+     */
+    public static final int CREDSTORE_UID = 1076;
 
     /**
      * Defines the UID/GID for the NFC service process.
@@ -165,6 +185,12 @@ public class Process {
     public static final int OTA_UPDATE_UID = 1061;
 
     /**
+     * Defines the UID used for statsd
+     * @hide
+     */
+    public static final int STATSD_UID = 1066;
+
+    /**
      * Defines the UID used for incidentd.
      * @hide
      */
@@ -181,6 +207,33 @@ public class Process {
      * @hide
      */
     public static final int NETWORK_STACK_UID = 1073;
+
+    /**
+     * Defines the UID/GID for fs-verity certificate ownership in keystore.
+     * @hide
+     */
+    public static final int FSVERITY_CERT_UID = 1075;
+
+    /**
+     * GID that gives write access to app-private data directories on external
+     * storage (used on devices without sdcardfs only).
+     * @hide
+     */
+    public static final int EXT_DATA_RW_GID = 1078;
+
+    /**
+     * GID that gives write access to app-private OBB directories on external
+     * storage (used on devices without sdcardfs only).
+     * @hide
+     */
+    public static final int EXT_OBB_RW_GID = 1079;
+
+    /**
+     * GID that corresponds to the INTERNET permission.
+     * Must match the value of AID_INET.
+     * @hide
+     */
+    public static final int INET_GID = 3003;
 
     /** {@hide} */
     public static final int NOBODY_UID = 9999;
@@ -223,6 +276,7 @@ public class Process {
      * First uid used for fully isolated sandboxed processes (with no permissions of their own)
      * @hide
      */
+    @UnsupportedAppUsage
     @TestApi
     public static final int FIRST_ISOLATED_UID = 99000;
 
@@ -230,6 +284,7 @@ public class Process {
      * Last uid used for fully isolated sandboxed processes (with no permissions of their own)
      * @hide
      */
+    @UnsupportedAppUsage
     @TestApi
     public static final int LAST_ISOLATED_UID = 99999;
 
@@ -414,10 +469,9 @@ public class Process {
      * Background thread group - All threads in
      * this group are scheduled with a reduced share of the CPU.
      * Value is same as constant SP_BACKGROUND of enum SchedPolicy.
-     * FIXME rename to THREAD_GROUP_BACKGROUND.
      * @hide
      */
-    public static final int THREAD_GROUP_BG_NONINTERACTIVE = 0;
+    public static final int THREAD_GROUP_BACKGROUND = 0;
 
     /**
      * Foreground thread group - All threads in
@@ -472,6 +526,49 @@ public class Process {
     private static long sStartElapsedRealtime;
     private static long sStartUptimeMillis;
 
+    private static final int PIDFD_UNKNOWN = 0;
+    private static final int PIDFD_SUPPORTED = 1;
+    private static final int PIDFD_UNSUPPORTED = 2;
+
+    /**
+     * Whether or not the underlying OS supports pidfd
+     */
+    private static int sPidFdSupported = PIDFD_UNKNOWN;
+
+    /**
+     * Value used to indicate that there is no special information about an application launch.  App
+     * launches with this policy will occur through the primary or secondary Zygote with no special
+     * treatment.
+     *
+     * @hide
+     */
+    public static final int ZYGOTE_POLICY_FLAG_EMPTY = 0;
+
+    /**
+     * Flag used to indicate that an application launch is user-visible and latency sensitive.  Any
+     * launch with this policy will use a Unspecialized App Process Pool if the target Zygote
+     * supports it.
+     *
+     * @hide
+     */
+    public static final int ZYGOTE_POLICY_FLAG_LATENCY_SENSITIVE = 1 << 0;
+
+    /**
+     * Flag used to indicate that the launch is one in a series of app launches that will be
+     * performed in quick succession.  For future use.
+     *
+     * @hide
+     */
+    public static final int ZYGOTE_POLICY_FLAG_BATCH_LAUNCH = 1 << 1;
+
+    /**
+     * Flag used to indicate that the current launch event is for a system process.  All system
+     * processes are equally important, so none of them should be prioritized over the others.
+     *
+     * @hide
+     */
+    public static final int ZYGOTE_POLICY_FLAG_SYSTEM_PROCESS = 1 << 2;
+
     /**
      * State associated with the zygote process.
      * @hide
@@ -511,11 +608,20 @@ public class Process {
      * @param appDataDir null-ok the data directory of the app.
      * @param invokeWith null-ok the command to invoke with.
      * @param packageName null-ok the name of the package this process belongs to.
-     *
+     * @param zygotePolicyFlags Flags used to determine how to launch the application
+     * @param isTopApp whether the process starts for high priority application.
+     * @param disabledCompatChanges null-ok list of disabled compat changes for the process being
+     *                             started.
+     * @param pkgDataInfoMap Map from related package names to private data directory
+     *                       volume UUID and inode number.
+     * @param whitelistedDataInfoMap Map from whitelisted package names to private data directory
+     *                       volume UUID and inode number.
+     * @param bindMountAppsData whether zygote needs to mount CE and DE data.
+     * @param bindMountAppStorageDirs whether zygote needs to mount Android/obb and Android/data.
      * @param zygoteArgs Additional arguments to supply to the zygote process.
      * @return An object that describes the result of the attempt to start the process.
      * @throws RuntimeException on fatal start failure
-     * 
+     *
      * {@hide}
      */
     public static ProcessStartResult start(@NonNull final String processClass,
@@ -530,11 +636,22 @@ public class Process {
                                            @Nullable String appDataDir,
                                            @Nullable String invokeWith,
                                            @Nullable String packageName,
+                                           int zygotePolicyFlags,
+                                           boolean isTopApp,
+                                           @Nullable long[] disabledCompatChanges,
+                                           @Nullable Map<String, Pair<String, Long>>
+                                                   pkgDataInfoMap,
+                                           @Nullable Map<String, Pair<String, Long>>
+                                                   whitelistedDataInfoMap,
+                                           boolean bindMountAppsData,
+                                           boolean bindMountAppStorageDirs,
                                            @Nullable String[] zygoteArgs) {
         return ZYGOTE_PROCESS.start(processClass, niceName, uid, gid, gids,
                     runtimeFlags, mountExternal, targetSdkVersion, seInfo,
                     abi, instructionSet, appDataDir, invokeWith, packageName,
-                    /*useUsapPool=*/ true, zygoteArgs);
+                    zygotePolicyFlags, isTopApp, disabledCompatChanges,
+                    pkgDataInfoMap, whitelistedDataInfoMap, bindMountAppsData,
+                    bindMountAppStorageDirs, zygoteArgs);
     }
 
     /** @hide */
@@ -550,11 +667,16 @@ public class Process {
                                                   @Nullable String appDataDir,
                                                   @Nullable String invokeWith,
                                                   @Nullable String packageName,
+                                                  @Nullable long[] disabledCompatChanges,
                                                   @Nullable String[] zygoteArgs) {
+        // Webview zygote can't access app private data files, so doesn't need to know its data
+        // info.
         return WebViewZygote.getProcess().start(processClass, niceName, uid, gid, gids,
                     runtimeFlags, mountExternal, targetSdkVersion, seInfo,
                     abi, instructionSet, appDataDir, invokeWith, packageName,
-                    /*useUsapPool=*/ false, zygoteArgs);
+                    /*zygotePolicyFlags=*/ ZYGOTE_POLICY_FLAG_EMPTY, /*isTopApp=*/ false,
+                disabledCompatChanges, /* pkgDataInfoMap */ null,
+                /* whitelistedDataInfoMap */ null, false, false, zygoteArgs);
     }
 
     /**
@@ -729,11 +851,12 @@ public class Process {
 
     /**
      * Set the priority of a thread, based on Linux priorities.
-     * 
-     * @param tid The identifier of the thread/process to change.
+     *
+     * @param tid The identifier of the thread/process to change. It should be
+     * the native thread id but not the managed id of {@link java.lang.Thread}.
      * @param priority A Linux priority level, from -20 for highest scheduling
      * priority to 19 for lowest scheduling priority.
-     * 
+     *
      * @throws IllegalArgumentException Throws IllegalArgumentException if
      * <var>tid</var> does not exist.
      * @throws SecurityException Throws SecurityException if your process does
@@ -801,7 +924,7 @@ public class Process {
      *
      * group == THREAD_GROUP_DEFAULT means to move all non-background priority
      * threads to the foreground scheduling group, but to leave background
-     * priority threads alone.  group == THREAD_GROUP_BG_NONINTERACTIVE moves all
+     * priority threads alone.  group == THREAD_GROUP_BACKGROUND moves all
      * threads, regardless of priority, to the background scheduling group.
      * group == THREAD_GROUP_FOREGROUND is not allowed.
      *
@@ -810,6 +933,30 @@ public class Process {
     @UnsupportedAppUsage
     public static final native void setProcessGroup(int pid, int group)
             throws IllegalArgumentException, SecurityException;
+
+    /**
+     * Freeze or unfreeze the specified process.
+     *
+     * @param pid Identifier of the process to freeze or unfreeze.
+     * @param uid Identifier of the user the process is running under.
+     * @param frozen Specify whether to free (true) or unfreeze (false).
+     *
+     * @hide
+     */
+    public static final native void setProcessFrozen(int pid, int uid, boolean frozen);
+
+    /**
+     * Enable or disable the freezer. When enable == false all frozen processes are unfrozen,
+     * but aren't removed from the freezer. Processes can still be added or removed
+     * by using setProcessFrozen, but they won't actually be frozen until the freezer is enabled
+     * again. If enable == true the freezer is enabled again, and all processes
+     * in the freezer (including the ones added while the freezer was disabled) are frozen.
+     *
+     * @param enable Specify whether to enable (true) or disable (false) the freezer.
+     *
+     * @hide
+     */
+    public static final native void enableFreezer(boolean enable);
 
     /**
      * Return the scheduling group of requested process.
@@ -997,6 +1144,7 @@ public class Process {
      * your own log, or the Android Illuminati will find you some night and
      * beat you up.
      */
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public static final native void sendSignalQuiet(int pid, int signal);
     
     /** @hide */
@@ -1159,4 +1307,90 @@ public class Process {
         }
 
     }
+
+    /**
+     * Wait for the death of the given process.
+     *
+     * @param pid The process ID to be waited on
+     * @param timeout The maximum time to wait in milliseconds, or -1 to wait forever
+     * @hide
+     */
+    public static void waitForProcessDeath(int pid, int timeout)
+            throws InterruptedException, TimeoutException {
+        FileDescriptor pidfd = null;
+        if (sPidFdSupported == PIDFD_UNKNOWN) {
+            int fd = -1;
+            try {
+                fd = nativePidFdOpen(pid, 0);
+                sPidFdSupported = PIDFD_SUPPORTED;
+            } catch (ErrnoException e) {
+                sPidFdSupported = e.errno != OsConstants.ENOSYS
+                    ? PIDFD_SUPPORTED : PIDFD_UNSUPPORTED;
+            } finally {
+                if (fd >= 0) {
+                    pidfd = new FileDescriptor();
+                    pidfd.setInt$(fd);
+                }
+            }
+        }
+        boolean fallback = sPidFdSupported == PIDFD_UNSUPPORTED;
+        if (!fallback) {
+            try {
+                if (pidfd == null) {
+                    int fd = nativePidFdOpen(pid, 0);
+                    if (fd >= 0) {
+                        pidfd = new FileDescriptor();
+                        pidfd.setInt$(fd);
+                    } else {
+                        fallback = true;
+                    }
+                }
+                if (pidfd != null) {
+                    StructPollfd[] fds = new StructPollfd[] {
+                        new StructPollfd()
+                    };
+                    fds[0].fd = pidfd;
+                    fds[0].events = (short) OsConstants.POLLIN;
+                    fds[0].revents = 0;
+                    fds[0].userData = null;
+                    int res = Os.poll(fds, timeout);
+                    if (res > 0) {
+                        return;
+                    } else if (res == 0) {
+                        throw new TimeoutException();
+                    } else {
+                        // We should get an ErrnoException now
+                    }
+                }
+            } catch (ErrnoException e) {
+                if (e.errno == OsConstants.EINTR) {
+                    throw new InterruptedException();
+                }
+                fallback = true;
+            } finally {
+                if (pidfd != null) {
+                    IoUtils.closeQuietly(pidfd);
+                }
+            }
+        }
+        if (fallback) {
+            boolean infinity = timeout < 0;
+            long now = System.currentTimeMillis();
+            final long end = now + timeout;
+            while (infinity || now < end) {
+                try {
+                    Os.kill(pid, 0);
+                } catch (ErrnoException e) {
+                    if (e.errno == OsConstants.ESRCH) {
+                        return;
+                    }
+                }
+                Thread.sleep(1);
+                now = System.currentTimeMillis();
+            }
+        }
+        throw new TimeoutException();
+    }
+
+    private static native int nativePidFdOpen(int pid, int flags) throws ErrnoException;
 }

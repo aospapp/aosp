@@ -22,8 +22,9 @@ import static com.android.internal.util.Preconditions.checkCollectionNotEmpty;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
-import android.content.ContentInterface;
+import android.annotation.TestApi;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -47,6 +48,7 @@ import android.os.ParcelFileDescriptor.OnCloseListener;
 import android.os.Parcelable;
 import android.os.ParcelableException;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.util.Log;
 
 import com.android.internal.util.Preconditions;
@@ -248,14 +250,14 @@ public final class DocumentsContract {
      * Get string array identifies the type or types of metadata returned
      * using DocumentsContract#getDocumentMetadata.
      *
-     * @see #getDocumentMetadata(ContentInterface, Uri)
+     * @see #getDocumentMetadata(ContentResolver, Uri)
      */
     public static final String METADATA_TYPES = "android:documentMetadataTypes";
 
     /**
      * Get Exif information using DocumentsContract#getDocumentMetadata.
      *
-     * @see #getDocumentMetadata(ContentInterface, Uri)
+     * @see #getDocumentMetadata(ContentResolver, Uri)
      */
     public static final String METADATA_EXIF = "android:documentExif";
 
@@ -263,7 +265,7 @@ public final class DocumentsContract {
      * Get total count of all documents currently stored under the given
      * directory tree. Only valid for {@link Document#MIME_TYPE_DIR} documents.
      *
-     * @see #getDocumentMetadata(ContentInterface, Uri)
+     * @see #getDocumentMetadata(ContentResolver, Uri)
      */
     public static final String METADATA_TREE_COUNT = "android:metadataTreeCount";
 
@@ -271,7 +273,7 @@ public final class DocumentsContract {
      * Get total size of all documents currently stored under the given
      * directory tree. Only valid for {@link Document#MIME_TYPE_DIR} documents.
      *
-     * @see #getDocumentMetadata(ContentInterface, Uri)
+     * @see #getDocumentMetadata(ContentResolver, Uri)
      */
     public static final String METADATA_TREE_SIZE = "android:metadataTreeSize";
 
@@ -363,15 +365,22 @@ public final class DocumentsContract {
          * <p>
          * Type: INTEGER (int)
          *
-         * @see #FLAG_SUPPORTS_WRITE
-         * @see #FLAG_SUPPORTS_DELETE
-         * @see #FLAG_SUPPORTS_THUMBNAIL
+         * @see #FLAG_DIR_BLOCKS_OPEN_DOCUMENT_TREE
          * @see #FLAG_DIR_PREFERS_GRID
          * @see #FLAG_DIR_PREFERS_LAST_MODIFIED
-         * @see #FLAG_VIRTUAL_DOCUMENT
+         * @see #FLAG_DIR_SUPPORTS_CREATE
+         * @see #FLAG_PARTIAL
          * @see #FLAG_SUPPORTS_COPY
+         * @see #FLAG_SUPPORTS_DELETE
+         * @see #FLAG_SUPPORTS_METADATA
          * @see #FLAG_SUPPORTS_MOVE
          * @see #FLAG_SUPPORTS_REMOVE
+         * @see #FLAG_SUPPORTS_RENAME
+         * @see #FLAG_SUPPORTS_SETTINGS
+         * @see #FLAG_SUPPORTS_THUMBNAIL
+         * @see #FLAG_SUPPORTS_WRITE
+         * @see #FLAG_VIRTUAL_DOCUMENT
+         * @see #FLAG_WEB_LINKABLE
          */
         public static final String COLUMN_FLAGS = "flags";
 
@@ -395,7 +404,7 @@ public final class DocumentsContract {
          * Flag indicating that a document can be represented as a thumbnail.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#getDocumentThumbnail(ContentInterface, Uri,
+         * @see DocumentsContract#getDocumentThumbnail(ContentResolver, Uri,
          *      Point, CancellationSignal)
          * @see DocumentsProvider#openDocumentThumbnail(String, Point,
          *      android.os.CancellationSignal)
@@ -421,7 +430,7 @@ public final class DocumentsContract {
          * Flag indicating that a document is deletable.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#deleteDocument(ContentInterface, Uri)
+         * @see DocumentsContract#deleteDocument(ContentResolver, Uri)
          * @see DocumentsProvider#deleteDocument(String)
          */
         public static final int FLAG_SUPPORTS_DELETE = 1 << 2;
@@ -459,7 +468,7 @@ public final class DocumentsContract {
          * Flag indicating that a document can be renamed.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#renameDocument(ContentInterface, Uri, String)
+         * @see DocumentsContract#renameDocument(ContentResolver, Uri, String)
          * @see DocumentsProvider#renameDocument(String, String)
          */
         public static final int FLAG_SUPPORTS_RENAME = 1 << 6;
@@ -469,7 +478,7 @@ public final class DocumentsContract {
          * within the same document provider.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#copyDocument(ContentInterface, Uri, Uri)
+         * @see DocumentsContract#copyDocument(ContentResolver, Uri, Uri)
          * @see DocumentsProvider#copyDocument(String, String)
          */
         public static final int FLAG_SUPPORTS_COPY = 1 << 7;
@@ -479,7 +488,7 @@ public final class DocumentsContract {
          * within the same document provider.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#moveDocument(ContentInterface, Uri, Uri, Uri)
+         * @see DocumentsContract#moveDocument(ContentResolver, Uri, Uri, Uri)
          * @see DocumentsProvider#moveDocument(String, String, String)
          */
         public static final int FLAG_SUPPORTS_MOVE = 1 << 8;
@@ -503,7 +512,7 @@ public final class DocumentsContract {
          * Flag indicating that a document can be removed from a parent.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#removeDocument(ContentInterface, Uri, Uri)
+         * @see DocumentsContract#removeDocument(ContentResolver, Uri, Uri)
          * @see DocumentsProvider#removeDocument(String, String)
          */
         public static final int FLAG_SUPPORTS_REMOVE = 1 << 10;
@@ -539,9 +548,28 @@ public final class DocumentsContract {
          * using DocumentsContract#getDocumentMetadata
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#getDocumentMetadata(ContentInterface, Uri)
+         * @see DocumentsContract#getDocumentMetadata(ContentResolver, Uri)
          */
         public static final int FLAG_SUPPORTS_METADATA = 1 << 14;
+
+        /**
+         * Flag indicating that a document is a directory that wants to block itself
+         * from being selected when the user launches an {@link Intent#ACTION_OPEN_DOCUMENT_TREE}
+         * intent. Individual files can still be selected when launched via other intents
+         * like {@link Intent#ACTION_OPEN_DOCUMENT} and {@link Intent#ACTION_GET_CONTENT}.
+         * Only valid when {@link #COLUMN_MIME_TYPE} is {@link #MIME_TYPE_DIR}.
+         * <p>
+         * Note that this flag <em>only</em> applies to the single directory to which it is
+         * applied. It does <em>not</em> block the user from selecting either a parent or
+         * child directory during an {@link Intent#ACTION_OPEN_DOCUMENT_TREE} request.
+         * In particular, the only way to guarantee that a specific directory can never
+         * be granted via an {@link Intent#ACTION_OPEN_DOCUMENT_TREE} request is to ensure
+         * that both it and <em>all of its parent directories</em> have set this flag.
+         *
+         * @see Intent#ACTION_OPEN_DOCUMENT_TREE
+         * @see #COLUMN_FLAGS
+         */
+        public static final int FLAG_DIR_BLOCKS_OPEN_DOCUMENT_TREE = 1 << 15;
     }
 
     /**
@@ -721,7 +749,7 @@ public final class DocumentsContract {
          * Flag indicating that this root can be ejected.
          *
          * @see #COLUMN_FLAGS
-         * @see DocumentsContract#ejectRoot(ContentInterface, Uri)
+         * @see DocumentsContract#ejectRoot(ContentResolver, Uri)
          * @see DocumentsProvider#ejectRoot(String)
          */
         public static final int FLAG_SUPPORTS_EJECT = 1 << 5;
@@ -917,6 +945,20 @@ public final class DocumentsContract {
      */
     public static Uri buildDocumentUri(String authority, String documentId) {
         return getBaseDocumentUriBuilder(authority).appendPath(documentId).build();
+    }
+
+    /**
+     * Builds URI as described in {@link #buildDocumentUri(String, String)}, but such that it will
+     * be associated with the given user.
+     *
+     * @hide
+     */
+    @SystemApi
+    @NonNull
+    public static Uri buildDocumentUriAsUser(
+            @NonNull String authority, @NonNull String documentId, @NonNull UserHandle user) {
+        return ContentProvider.maybeAddUserId(
+                buildDocumentUri(authority, documentId), user.getIdentifier());
     }
 
     /** {@hide} */
@@ -1261,6 +1303,7 @@ public final class DocumentsContract {
      * {@hide}
      */
     @SystemApi
+    @TestApi
     public static @NonNull Uri setManageMode(@NonNull Uri uri) {
         Preconditions.checkNotNull(uri, "uri can not be null");
         return uri.buildUpon().appendQueryParameter(PARAM_MANAGE, "true").build();
@@ -1272,6 +1315,7 @@ public final class DocumentsContract {
      * {@hide}
      */
     @SystemApi
+    @TestApi
     public static boolean isManageMode(@NonNull Uri uri) {
         Preconditions.checkNotNull(uri, "uri can not be null");
         return uri.getBooleanQueryParameter(PARAM_MANAGE, false);

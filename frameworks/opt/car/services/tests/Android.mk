@@ -5,8 +5,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
-    $(call all-java-files-under, ../src/com/android/internal/car) \
-    $(call all-Iaidl-files-under, ../src/com/android/internal/car)
+    $(call all-java-files-under, ../src) \
+    $(call all-Iaidl-files-under, ../src)
 
 LOCAL_PACKAGE_NAME := CarServicesTest
 LOCAL_PRIVATE_PLATFORM_APIS := true
@@ -26,11 +26,19 @@ LOCAL_JAVA_LIBRARIES += \
     services
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    androidx.test.rules \
+    android.car.internal.event-log-tags \
+    android.car.test.utils \
     android.car.userlib \
-    junit \
-    mockito-target-minus-junit4 \
+    android.car.watchdoglib \
+    androidx.test.ext.junit \
+    androidx.test.rules \
+    mockito-target-extended-minus-junit4 \
     services \
     truth-prebuilt
+
+# mockito-target-extended dependencies
+LOCAL_JNI_SHARED_LIBRARIES := \
+    libdexmakerjvmtiagent \
+    libstaticjvmtiagent \
 
 include $(BUILD_PACKAGE)

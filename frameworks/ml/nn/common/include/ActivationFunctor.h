@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_ACTIVATION_FUNCTOR_H
-#define ANDROID_ML_NN_ACTIVATION_FUNCTOR_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_ACTIVATION_FUNCTOR_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_ACTIVATION_FUNCTOR_H
 
-#include "android/log.h"
+#include <android/log.h>
 
 #include <algorithm>
 #include <cmath>
@@ -33,31 +33,30 @@ enum ActivationFn {
 };
 
 class ActivationFunctor {
- public:
-  explicit ActivationFunctor(ActivationFn act) : act_(act) {}
+   public:
+    explicit ActivationFunctor(ActivationFn act) : act_(act) {}
 
-  float operator()(float a) const {
-    switch (act_) {
-      case kActivationNone:
-        return a;
-      case kActivationRelu:
-        return a < 0.f ? 0.f : a;
-      case kActivationRelu6:
-        return std::max(0.f, std::min(a, 6.f));
-      case kActivationTanh:
-        return std::tanh(a);
-      case kActivationSigmoid:
-        return 1.0f / (1.0f + std::exp(-a));
-      default:
-        __android_log_print(ANDROID_LOG_ERROR, "NN API",
-                            "Invalid enum value for activation function: 0x%0X",
-                            act_);
-        abort();
+    float operator()(float a) const {
+        switch (act_) {
+            case kActivationNone:
+                return a;
+            case kActivationRelu:
+                return a < 0.f ? 0.f : a;
+            case kActivationRelu6:
+                return std::max(0.f, std::min(a, 6.f));
+            case kActivationTanh:
+                return std::tanh(a);
+            case kActivationSigmoid:
+                return 1.0f / (1.0f + std::exp(-a));
+            default:
+                __android_log_print(ANDROID_LOG_ERROR, "NN API",
+                                    "Invalid enum value for activation function: 0x%0X", act_);
+                abort();
+        }
     }
-  }
 
- private:
-  ActivationFn act_;
+   private:
+    ActivationFn act_;
 };
 
-#endif  // ANDROID_ML_NN_ACTIVATION_FUNCTOR_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_ACTIVATION_FUNCTOR_H

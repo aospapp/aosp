@@ -5,7 +5,7 @@ LOCAL_MODULE := CppKernelVariables
 
 LOCAL_SRC_FILES := \
 	KernelVariables.cpp \
-	simple.rs
+	simple.rscript
 
 include frameworks/rs/tests/lldb/cpp/common.mk
 include $(BUILD_EXECUTABLE)

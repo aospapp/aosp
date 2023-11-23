@@ -50,7 +50,7 @@ import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link com.android.server.wifi.WakeupOnboarding} */
 @SmallTest
-public class WakeupOnboardingTest {
+public class WakeupOnboardingTest extends WifiBaseTest {
 
     @Mock private Context mContext;
     @Mock private WifiConfigManager mWifiConfigManager;
@@ -78,8 +78,8 @@ public class WakeupOnboardingTest {
                 .thenReturn(mNotificationManager);
 
         mLooper = new TestLooper();
-        mWakeupOnboarding = new WakeupOnboarding(mContext, mWifiConfigManager, mLooper.getLooper(),
-                mFrameworkFacade, mWakeupNotificationFactory);
+        mWakeupOnboarding = new WakeupOnboarding(mContext, mWifiConfigManager,
+                new Handler(mLooper.getLooper()), mFrameworkFacade, mWakeupNotificationFactory);
     }
 
     /**

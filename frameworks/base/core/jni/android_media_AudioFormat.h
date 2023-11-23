@@ -38,6 +38,7 @@
 #define ENCODING_AC4            17
 #define ENCODING_E_AC3_JOC      18
 #define ENCODING_DOLBY_MAT      19
+#define ENCODING_OPUS           20
 
 #define ENCODING_INVALID    0
 #define ENCODING_DEFAULT    1
@@ -46,6 +47,7 @@
 
 #define CHANNEL_INVALID 0
 #define CHANNEL_OUT_DEFAULT 1
+#define CHANNEL_IN_DEFAULT 1
 
 static inline audio_format_t audioFormatToNative(int audioFormat)
 {
@@ -88,6 +90,8 @@ static inline audio_format_t audioFormatToNative(int audioFormat)
         return AUDIO_FORMAT_DEFAULT;
     case ENCODING_DOLBY_MAT:
         return AUDIO_FORMAT_MAT;
+    case ENCODING_OPUS:
+        return AUDIO_FORMAT_OPUS;
     default:
         return AUDIO_FORMAT_INVALID;
     }
@@ -142,6 +146,8 @@ static inline int audioFormatFromNative(audio_format_t nativeFormat)
     case AUDIO_FORMAT_MAT_2_0:
     case AUDIO_FORMAT_MAT_2_1:
         return ENCODING_DOLBY_MAT;
+    case AUDIO_FORMAT_OPUS:
+        return ENCODING_OPUS;
     case AUDIO_FORMAT_DEFAULT:
         return ENCODING_DEFAULT;
     default:
@@ -191,12 +197,22 @@ static inline int outChannelMaskFromNative(audio_channel_mask_t nativeMask)
 
 static inline audio_channel_mask_t inChannelMaskToNative(int channelMask)
 {
-    return (audio_channel_mask_t)channelMask;
+    switch (channelMask) {
+        case CHANNEL_IN_DEFAULT:
+            return AUDIO_CHANNEL_NONE;
+        default:
+            return (audio_channel_mask_t)channelMask;
+    }
 }
 
 static inline int inChannelMaskFromNative(audio_channel_mask_t nativeMask)
 {
-    return (int)nativeMask;
+    switch (nativeMask) {
+        case AUDIO_CHANNEL_NONE:
+            return CHANNEL_IN_DEFAULT;
+        default:
+            return (int)nativeMask;
+    }
 }
 
 #endif // ANDROID_MEDIA_AUDIOFORMAT_H

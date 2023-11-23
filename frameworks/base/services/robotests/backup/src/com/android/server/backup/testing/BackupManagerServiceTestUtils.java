@@ -37,7 +37,7 @@ import android.os.Process;
 import android.util.Log;
 
 import com.android.server.backup.BackupAgentTimeoutParameters;
-import com.android.server.backup.Trampoline;
+import com.android.server.backup.BackupManagerService;
 import com.android.server.backup.TransportManager;
 import com.android.server.backup.UserBackupManagerService;
 
@@ -89,7 +89,7 @@ public class BackupManagerServiceTestUtils {
                 UserBackupManagerService.createAndInitializeService(
                         userId,
                         context,
-                        new Trampoline(context),
+                        new BackupManagerService(context),
                         backupThread,
                         baseStateDir,
                         dataDir,
@@ -113,7 +113,7 @@ public class BackupManagerServiceTestUtils {
             TransportManager transportManager,
             PackageManager packageManager,
             Handler backupHandler,
-            PowerManager.WakeLock wakeLock,
+            UserBackupManagerService.BackupWakeLock wakeLock,
             BackupAgentTimeoutParameters agentTimeoutParameters) {
 
         when(backupManagerService.getContext()).thenReturn(application);
@@ -161,10 +161,12 @@ public class BackupManagerServiceTestUtils {
                 });
     }
 
-    public static PowerManager.WakeLock createBackupWakeLock(Application application) {
+    public static UserBackupManagerService.BackupWakeLock createBackupWakeLock(
+            Application application) {
         PowerManager powerManager =
                 (PowerManager) application.getSystemService(Context.POWER_SERVICE);
-        return powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "*backup*");
+        return new UserBackupManagerService.BackupWakeLock(
+                powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "*backup*"), 0);
     }
 
     /**

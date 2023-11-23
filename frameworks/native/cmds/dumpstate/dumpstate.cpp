@@ -22,6 +22,8 @@
 #include <inttypes.h>
 #include <libgen.h>
 #include <limits.h>
+#include <math.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,13 +34,22 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <string.h>
+#include <sys/capability.h>
+#include <sys/inotify.h>
+#include <sys/klog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <functional>
 #include <future>
 #include <memory>
+#include <numeric>
 #include <regex>
 #include <set>
 #include <string>
@@ -53,26 +64,34 @@
 #include <android-base/unique_fd.h>
 #include <android/content/pm/IPackageManagerNative.h>
 #include <android/hardware/dumpstate/1.0/IDumpstateDevice.h>
+#include <android/hardware/dumpstate/1.1/IDumpstateDevice.h>
+#include <android/hardware/dumpstate/1.1/types.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/os/IIncidentCompanion.h>
 #include <binder/IServiceManager.h>
 #include <cutils/native_handle.h>
 #include <cutils/properties.h>
+#include <cutils/sockets.h>
 #include <debuggerd/client.h>
 #include <dumpsys.h>
 #include <dumputils/dump_utils.h>
+#include <hardware_legacy/power.h>
 #include <hidl/ServiceManagement.h>
+#include <log/log.h>
 #include <openssl/sha.h>
 #include <private/android_filesystem_config.h>
 #include <private/android_logger.h>
 #include <serviceutils/PriorityDumper.h>
 #include <utils/StrongPointer.h>
 #include "DumpstateInternal.h"
-#include "DumpstateSectionReporter.h"
 #include "DumpstateService.h"
 #include "dumpstate.h"
 
-using ::android::hardware::dumpstate::V1_0::IDumpstateDevice;
+using IDumpstateDevice_1_0 = ::android::hardware::dumpstate::V1_0::IDumpstateDevice;
+using IDumpstateDevice_1_1 = ::android::hardware::dumpstate::V1_1::IDumpstateDevice;
+using ::android::hardware::dumpstate::V1_1::DumpstateMode;
+using ::android::hardware::dumpstate::V1_1::DumpstateStatus;
+using ::android::hardware::dumpstate::V1_1::toString;
 using ::std::literals::chrono_literals::operator""ms;
 using ::std::literals::chrono_literals::operator""s;
 
@@ -93,9 +112,28 @@ using android::base::StringPrintf;
 using android::os::IDumpstateListener;
 using android::os::dumpstate::CommandOptions;
 using android::os::dumpstate::DumpFileToFd;
-using android::os::dumpstate::DumpstateSectionReporter;
-using android::os::dumpstate::GetPidByName;
 using android::os::dumpstate::PropertiesHelper;
+
+// Keep in sync with
+// frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+static const int TRACE_DUMP_TIMEOUT_MS = 10000; // 10 seconds
+
+/* Most simple commands have 10 as timeout, so 5 is a good estimate */
+static const int32_t WEIGHT_FILE = 5;
+
+// TODO: temporary variables and functions used during C++ refactoring
+static Dumpstate& ds = Dumpstate::GetInstance();
+static int RunCommand(const std::string& title, const std::vector<std::string>& full_command,
+                      const CommandOptions& options = CommandOptions::DEFAULT,
+                      bool verbose_duration = false) {
+    return ds.RunCommand(title, full_command, options, verbose_duration);
+}
+
+// Reasonable value for max stats.
+static const int STATS_MAX_N_RUNS = 1000;
+static const long STATS_MAX_AVERAGE = 100000;
+
+CommandOptions Dumpstate::DEFAULT_DUMPSYS = CommandOptions::WithTimeout(30).Build();
 
 typedef Dumpstate::ConsentCallback::ConsentResult UserConsentResult;
 
@@ -103,6 +141,11 @@ typedef Dumpstate::ConsentCallback::ConsentResult UserConsentResult;
 static char cmdline_buf[16384] = "(unknown)";
 static const char *dump_traces_path = nullptr;
 static const uint64_t USER_CONSENT_TIMEOUT_MS = 30 * 1000;
+// Because telephony reports are significantly faster to collect (< 10 seconds vs. > 2 minutes),
+// it's often the case that they time out far too quickly for consent with such a hefty dialog for
+// the user to read. For telephony reports only, we increase the default timeout to 2 minutes to
+// roughly match full reports' durations.
+static const uint64_t TELEPHONY_REPORT_USER_CONSENT_TIMEOUT_MS = 2 * 60 * 1000;
 
 // TODO: variables and functions below should be part of dumpstate object
 
@@ -117,11 +160,16 @@ void add_mountinfo();
 #define RECOVERY_DATA_DIR "/data/misc/recovery"
 #define UPDATE_ENGINE_LOG_DIR "/data/misc/update_engine_log"
 #define LOGPERSIST_DATA_DIR "/data/misc/logd"
+#define PREREBOOT_DATA_DIR "/data/misc/prereboot"
 #define PROFILE_DATA_DIR_CUR "/data/misc/profiles/cur"
 #define PROFILE_DATA_DIR_REF "/data/misc/profiles/ref"
 #define XFRM_STAT_PROC_FILE "/proc/net/xfrm_stat"
 #define WLUTIL "/vendor/xbin/wlutil"
 #define WMTRACE_DATA_DIR "/data/misc/wmtrace"
+#define OTA_METADATA_DIR "/metadata/ota"
+#define SNAPSHOTCTL_LOG_DIR "/data/misc/snapshotctl_log"
+#define LINKERCONFIG_DIR "/linkerconfig"
+#define PACKAGE_DEX_USE_LIST "/data/system/package-dex-usage.list"
 
 // TODO(narayan): Since this information has to be kept in sync
 // with tombstoned, we should just put it in a common header.
@@ -133,7 +181,6 @@ static const std::string ANR_DIR = "/data/anr/";
 static const std::string ANR_FILE_PREFIX = "anr_";
 
 // TODO: temporary variables and functions used during C++ refactoring
-static Dumpstate& ds = Dumpstate::GetInstance();
 
 #define RETURN_IF_USER_DENIED_CONSENT()                                                        \
     if (ds.IsUserConsentDenied()) {                                                            \
@@ -148,6 +195,8 @@ static Dumpstate& ds = Dumpstate::GetInstance();
     func_ptr(__VA_ARGS__);                                  \
     RETURN_IF_USER_DENIED_CONSENT();
 
+static const char* WAKE_LOCK_NAME = "dumpstate_wakelock";
+
 namespace android {
 namespace os {
 namespace {
@@ -160,6 +209,10 @@ static int Open(std::string path, int flags, mode_t mode = 0) {
     return fd;
 }
 
+static int OpenForWrite(std::string path) {
+    return Open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+}
 
 static int OpenForRead(std::string path) {
     return Open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
@@ -191,20 +244,14 @@ static bool CopyFileToFd(const std::string& input_file, int out_fd) {
 }
 
 static bool UnlinkAndLogOnError(const std::string& file) {
+    if (file.empty()) {
+        return false;
+    }
     if (unlink(file.c_str())) {
         MYLOGE("Failed to unlink file (%s): %s\n", file.c_str(), strerror(errno));
         return false;
     }
     return true;
-}
-
-static bool IsFileEmpty(const std::string& file_path) {
-    std::ifstream file(file_path, std::ios::binary | std::ios::ate);
-    if(file.bad()) {
-        MYLOGE("Cannot open file: %s\n", file_path.c_str());
-        return true;
-    }
-    return file.tellg() <= 0;
 }
 
 int64_t GetModuleMetadataVersion() {
@@ -220,7 +267,7 @@ int64_t GetModuleMetadataVersion() {
         MYLOGE("Failed to retrieve module metadata package name: %s", status.toString8().c_str());
         return 0L;
     }
-    MYLOGD("Module metadata package name: %s", package_name.c_str());
+    MYLOGD("Module metadata package name: %s\n", package_name.c_str());
     int64_t version_code;
     status = package_service->getVersionCodeForPackage(android::String16(package_name.c_str()),
                                                        &version_code);
@@ -231,14 +278,31 @@ int64_t GetModuleMetadataVersion() {
     return version_code;
 }
 
+static bool PathExists(const std::string& path) {
+  struct stat sb;
+  return stat(path.c_str(), &sb) == 0;
+}
+
+static bool CopyFileToFile(const std::string& input_file, const std::string& output_file) {
+    if (input_file == output_file) {
+        MYLOGD("Skipping copying bugreport file since the destination is the same (%s)\n",
+               output_file.c_str());
+        return false;
+    }
+    else if (PathExists(output_file)) {
+        MYLOGD("Cannot overwrite an existing file (%s)\n", output_file.c_str());
+        return false;
+    }
+
+    MYLOGD("Going to copy bugreport file (%s) to %s\n", input_file.c_str(), output_file.c_str());
+    android::base::unique_fd out_fd(OpenForWrite(output_file));
+    return CopyFileToFd(input_file, out_fd.get());
+}
+
 }  // namespace
 }  // namespace os
 }  // namespace android
 
-static int RunCommand(const std::string& title, const std::vector<std::string>& fullCommand,
-                      const CommandOptions& options = CommandOptions::DEFAULT) {
-    return ds.RunCommand(title, fullCommand, options);
-}
 static void RunDumpsys(const std::string& title, const std::vector<std::string>& dumpsysArgs,
                        const CommandOptions& options = Dumpstate::DEFAULT_DUMPSYS,
                        long dumpsysTimeoutMs = 0) {
@@ -259,24 +323,20 @@ static const std::string kDumpstateBoardFiles[] = {
 };
 static const int NUM_OF_DUMPS = arraysize(kDumpstateBoardFiles);
 
-static constexpr char PROPERTY_EXTRA_OPTIONS[] = "dumpstate.options";
 static constexpr char PROPERTY_LAST_ID[] = "dumpstate.last_id";
 static constexpr char PROPERTY_VERSION[] = "dumpstate.version";
-static constexpr char PROPERTY_EXTRA_TITLE[] = "dumpstate.options.title";
-static constexpr char PROPERTY_EXTRA_DESCRIPTION[] = "dumpstate.options.description";
 
 static const CommandOptions AS_ROOT_20 = CommandOptions::WithTimeout(20).AsRoot().Build();
 
 /*
  * Returns a vector of dump fds under |dir_path| with a given |file_prefix|.
- * The returned vector is sorted by the mtimes of the dumps. If |limit_by_mtime|
- * is set, the vector only contains files that were written in the last 30 minutes.
- * If |limit_by_count| is set, the vector only contains the ten latest files.
+ * The returned vector is sorted by the mtimes of the dumps with descending
+ * order. If |limit_by_mtime| is set, the vector only contains files that
+ * were written in the last 30 minutes.
  */
 static std::vector<DumpData> GetDumpFds(const std::string& dir_path,
                                         const std::string& file_prefix,
-                                        bool limit_by_mtime,
-                                        bool limit_by_count = true) {
+                                        bool limit_by_mtime) {
     const time_t thirty_minutes_ago = ds.now_ - 60 * 30;
 
     std::unique_ptr<DIR, decltype(&closedir)> dump_dir(opendir(dir_path.c_str()), closedir);
@@ -319,14 +379,9 @@ static std::vector<DumpData> GetDumpFds(const std::string& dir_path,
 
         dump_data.emplace_back(DumpData{abs_path, std::move(fd), st.st_mtime});
     }
-
-    // Sort in descending modification time so that we only keep the newest
-    // reports if |limit_by_count| is true.
-    std::sort(dump_data.begin(), dump_data.end(),
-              [](const DumpData& d1, const DumpData& d2) { return d1.mtime > d2.mtime; });
-
-    if (limit_by_count && dump_data.size() > 10) {
-        dump_data.erase(dump_data.begin() + 10, dump_data.end());
+    if (!dump_data.empty()) {
+        std::sort(dump_data.begin(), dump_data.end(),
+            [](const auto& a, const auto& b) { return a.mtime > b.mtime; });
     }
 
     return dump_data;
@@ -419,108 +474,6 @@ static void dump_dev_files(const char *title, const char *driverpath, const char
     }
 
     closedir(d);
-}
-
-
-
-// dump anrd's trace and add to the zip file.
-// 1. check if anrd is running on this device.
-// 2. send a SIGUSR1 to its pid which will dump anrd's trace.
-// 3. wait until the trace generation completes and add to the zip file.
-static bool dump_anrd_trace() {
-    unsigned int pid;
-    char buf[50], path[PATH_MAX];
-    struct dirent *trace;
-    struct stat st;
-    DIR *trace_dir;
-    int retry = 5;
-    long max_ctime = 0, old_mtime;
-    long long cur_size = 0;
-    const char *trace_path = "/data/misc/anrd/";
-
-    if (!ds.IsZipping()) {
-        MYLOGE("Not dumping anrd trace because it's not a zipped bugreport\n");
-        return false;
-    }
-
-    // find anrd's pid if it is running.
-    pid = GetPidByName("/system/bin/anrd");
-
-    if (pid > 0) {
-        if (stat(trace_path, &st) == 0) {
-            old_mtime = st.st_mtime;
-        } else {
-            MYLOGE("Failed to find: %s\n", trace_path);
-            return false;
-        }
-
-        // send SIGUSR1 to the anrd to generate a trace.
-        sprintf(buf, "%u", pid);
-        if (RunCommand("ANRD_DUMP", {"kill", "-SIGUSR1", buf},
-                       CommandOptions::WithTimeout(1).Build())) {
-            MYLOGE("anrd signal timed out. Please manually collect trace\n");
-            return false;
-        }
-
-        while (retry-- > 0 && old_mtime == st.st_mtime) {
-            sleep(1);
-            stat(trace_path, &st);
-        }
-
-        if (retry < 0 && old_mtime == st.st_mtime) {
-            MYLOGE("Failed to stat %s or trace creation timeout\n", trace_path);
-            return false;
-        }
-
-        // identify the trace file by its creation time.
-        if (!(trace_dir = opendir(trace_path))) {
-            MYLOGE("Can't open trace file under %s\n", trace_path);
-        }
-        while ((trace = readdir(trace_dir))) {
-            if (strcmp(trace->d_name, ".") == 0
-                    || strcmp(trace->d_name, "..") == 0) {
-                continue;
-            }
-            sprintf(path, "%s%s", trace_path, trace->d_name);
-            if (stat(path, &st) == 0) {
-                if (st.st_ctime > max_ctime) {
-                    max_ctime = st.st_ctime;
-                    sprintf(buf, "%s", trace->d_name);
-                }
-            }
-        }
-        closedir(trace_dir);
-
-        // Wait until the dump completes by checking the size of the trace.
-        if (max_ctime > 0) {
-            sprintf(path, "%s%s", trace_path, buf);
-            while(true) {
-                sleep(1);
-                if (stat(path, &st) == 0) {
-                    if (st.st_size == cur_size) {
-                        break;
-                    } else if (st.st_size > cur_size) {
-                        cur_size = st.st_size;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    MYLOGE("Cant stat() %s anymore\n", path);
-                    return false;
-                }
-            }
-            // Add to the zip file.
-            if (!ds.AddZipEntry("anrd_trace.txt", path)) {
-                MYLOGE("Unable to add anrd_trace file %s to zip file\n", path);
-            } else {
-                android::os::UnlinkAndLogOnError(path);
-                return true;
-            }
-        } else {
-            MYLOGE("Can't stats any trace file under %s\n", trace_path);
-        }
-    }
-    return false;
 }
 
 static bool skip_not_stat(const char *path) {
@@ -727,6 +680,24 @@ android::binder::Status Dumpstate::ConsentCallback::onReportApproved() {
     std::lock_guard<std::mutex> lock(lock_);
     result_ = APPROVED;
     MYLOGD("User approved consent to share bugreport\n");
+
+    // Maybe copy screenshot so calling app can display the screenshot to the user as soon as
+    // consent is granted.
+    if (ds.options_->is_screenshot_copied) {
+        return android::binder::Status::ok();
+    }
+
+    if (!ds.options_->do_screenshot || ds.options_->screenshot_fd.get() == -1 ||
+        !ds.do_early_screenshot_) {
+        return android::binder::Status::ok();
+    }
+
+    bool copy_succeeded = android::os::CopyFileToFd(ds.screenshot_path_,
+                                                    ds.options_->screenshot_fd.get());
+    ds.options_->is_screenshot_copied = copy_succeeded;
+    if (copy_succeeded) {
+        android::os::UnlinkAndLogOnError(ds.screenshot_path_);
+    }
     return android::binder::Status::ok();
 }
 
@@ -743,7 +714,7 @@ UserConsentResult Dumpstate::ConsentCallback::getResult() {
 }
 
 uint64_t Dumpstate::ConsentCallback::getElapsedTimeMs() const {
-    return Nanotime() - start_time_;
+    return (Nanotime() - start_time_) / NANOS_PER_MILLI;
 }
 
 void Dumpstate::PrintHeader() const {
@@ -780,8 +751,8 @@ void Dumpstate::PrintHeader() const {
     RunCommandToFd(STDOUT_FILENO, "", {"uptime", "-p"},
                    CommandOptions::WithTimeout(1).Always().Build());
     printf("Bugreport format version: %s\n", version_.c_str());
-    printf("Dumpstate info: id=%d pid=%d dry_run=%d args=%s extra_options=%s\n", id_, pid_,
-           PropertiesHelper::IsDryRun(), options_->args.c_str(), options_->extra_options.c_str());
+    printf("Dumpstate info: id=%d pid=%d dry_run=%d args=%s bugreport_mode=%s\n", id_, pid_,
+           PropertiesHelper::IsDryRun(), options_->args.c_str(), options_->bugreport_mode.c_str());
     printf("\n");
 }
 
@@ -960,6 +931,25 @@ static void DoKernelLogcat() {
         CommandOptions::WithTimeoutInMs(timeout_ms).Build());
 }
 
+static void DoSystemLogcat(time_t since) {
+    char since_str[80];
+    strftime(since_str, sizeof(since_str), "%Y-%m-%d %H:%M:%S.000", localtime(&since));
+
+    unsigned long timeout_ms = logcat_timeout({"main", "system", "crash"});
+    RunCommand("SYSTEM LOG",
+               {"logcat", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v", "-T",
+                since_str},
+               CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+}
+
+static void DoRadioLogcat() {
+    unsigned long timeout_ms = logcat_timeout({"radio"});
+    RunCommand(
+        "RADIO LOG",
+        {"logcat", "-b", "radio", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+        CommandOptions::WithTimeoutInMs(timeout_ms).Build(), true /* verbose_duration */);
+}
+
 static void DoLogcat() {
     unsigned long timeout_ms;
     // DumpFile("EVENT LOG TAGS", "/etc/event-log-tags");
@@ -972,23 +962,69 @@ static void DoLogcat() {
     RunCommand(
         "EVENT LOG",
         {"logcat", "-b", "events", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
-        CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+        CommandOptions::WithTimeoutInMs(timeout_ms).Build(), true /* verbose_duration */);
     timeout_ms = logcat_timeout({"stats"});
     RunCommand(
         "STATS LOG",
         {"logcat", "-b", "stats", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
-        CommandOptions::WithTimeoutInMs(timeout_ms).Build());
-    timeout_ms = logcat_timeout({"radio"});
-    RunCommand(
-        "RADIO LOG",
-        {"logcat", "-b", "radio", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
-        CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+        CommandOptions::WithTimeoutInMs(timeout_ms).Build(), true /* verbose_duration */);
+    DoRadioLogcat();
 
     RunCommand("LOG STATISTICS", {"logcat", "-b", "all", "-S"});
 
     /* kernels must set CONFIG_PSTORE_PMSG, slice up pstore with device tree */
     RunCommand("LAST LOGCAT", {"logcat", "-L", "-b", "all", "-v", "threadtime", "-v", "printable",
                                "-v", "uid", "-d", "*:v"});
+}
+
+static void DumpIncidentReport() {
+    if (!ds.IsZipping()) {
+        MYLOGD("Not dumping incident report because it's not a zipped bugreport\n");
+        return;
+    }
+    DurationReporter duration_reporter("INCIDENT REPORT");
+    const std::string path = ds.bugreport_internal_dir_ + "/tmp_incident_report";
+    auto fd = android::base::unique_fd(TEMP_FAILURE_RETRY(open(path.c_str(),
+                O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)));
+    if (fd < 0) {
+        MYLOGE("Could not open %s to dump incident report.\n", path.c_str());
+        return;
+    }
+    RunCommandToFd(fd, "", {"incident", "-u"}, CommandOptions::WithTimeout(120).Build());
+    bool empty = 0 == lseek(fd, 0, SEEK_END);
+    if (!empty) {
+        // Use a different name from "incident.proto"
+        // /proto/incident.proto is reserved for incident service dump
+        // i.e. metadata for debugging.
+        ds.AddZipEntry(kProtoPath + "incident_report" + kProtoExt, path);
+    }
+    unlink(path.c_str());
+}
+
+static void DumpVisibleWindowViews() {
+    if (!ds.IsZipping()) {
+        MYLOGD("Not dumping visible views because it's not a zipped bugreport\n");
+        return;
+    }
+    DurationReporter duration_reporter("VISIBLE WINDOW VIEWS");
+    const std::string path = ds.bugreport_internal_dir_ + "/tmp_visible_window_views";
+    auto fd = android::base::unique_fd(TEMP_FAILURE_RETRY(open(path.c_str(),
+                O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)));
+    if (fd < 0) {
+        MYLOGE("Could not open %s to dump visible views.\n", path.c_str());
+        return;
+    }
+    RunCommandToFd(fd, "", {"cmd", "window", "dump-visible-window-views"},
+                   CommandOptions::WithTimeout(120).Build());
+    bool empty = 0 == lseek(fd, 0, SEEK_END);
+    if (!empty) {
+        ds.AddZipEntry("visible_windows.zip", path);
+    } else {
+        MYLOGW("Failed to dump visible windows\n");
+    }
+    unlink(path.c_str());
 }
 
 static void DumpIpTablesAsRoot() {
@@ -1000,6 +1036,15 @@ static void DumpIpTablesAsRoot() {
     RunCommand("IP6TABLES MANGLE", {"ip6tables", "-t", "mangle", "-L", "-nvx"});
     RunCommand("IPTABLES RAW", {"iptables", "-t", "raw", "-L", "-nvx"});
     RunCommand("IP6TABLES RAW", {"ip6tables", "-t", "raw", "-L", "-nvx"});
+}
+
+static void DumpDynamicPartitionInfo() {
+    if (!::android::base::GetBoolProperty("ro.boot.dynamic_partitions", false)) {
+        return;
+    }
+
+    RunCommand("LPDUMP", {"lpdump", "--all"});
+    RunCommand("DEVICE-MAPPER", {"gsid", "dump-device-mapper"});
 }
 
 static void AddAnrTraceDir(const bool add_to_zip, const std::string& anr_traces_dir) {
@@ -1121,20 +1166,17 @@ static Dumpstate::RunStatus RunDumpsysTextByPriority(const std::string& title, i
         RETURN_IF_USER_DENIED_CONSENT();
         std::string path(title);
         path.append(" - ").append(String8(service).c_str());
-        DumpstateSectionReporter section_reporter(path, ds.listener_, ds.report_section_);
         size_t bytes_written = 0;
-        status_t status = dumpsys.startDumpThread(service, args);
+        status_t status = dumpsys.startDumpThread(Dumpsys::Type::DUMP, service, args);
         if (status == OK) {
             dumpsys.writeDumpHeader(STDOUT_FILENO, service, priority);
             std::chrono::duration<double> elapsed_seconds;
             status = dumpsys.writeDump(STDOUT_FILENO, service, service_timeout,
                                        /* as_proto = */ false, elapsed_seconds, bytes_written);
-            section_reporter.setSize(bytes_written);
             dumpsys.writeDumpFooter(STDOUT_FILENO, service, elapsed_seconds);
             bool dump_complete = (status == OK);
             dumpsys.stopDumpThread(dump_complete);
         }
-        section_reporter.setStatus(status);
 
         auto elapsed_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - start);
@@ -1197,8 +1239,7 @@ static Dumpstate::RunStatus RunDumpsysProto(const std::string& title, int priori
             path.append("_HIGH");
         }
         path.append(kProtoExt);
-        DumpstateSectionReporter section_reporter(path, ds.listener_, ds.report_section_);
-        status_t status = dumpsys.startDumpThread(service, args);
+        status_t status = dumpsys.startDumpThread(Dumpsys::Type::DUMP, service, args);
         if (status == OK) {
             status = ds.AddZipEntryFromFd(path, dumpsys.getDumpFd(), service_timeout);
             bool dumpTerminated = (status == OK);
@@ -1206,8 +1247,6 @@ static Dumpstate::RunStatus RunDumpsysProto(const std::string& title, int priori
         }
         ZipWriter::FileEntry file_entry;
         ds.zip_writer_->GetLastEntry(&file_entry);
-        section_reporter.setSize(file_entry.compressed_size);
-        section_reporter.setStatus(status);
 
         auto elapsed_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - start);
@@ -1314,6 +1353,85 @@ static void DumpHals() {
     }
 }
 
+static void DumpExternalFragmentationInfo() {
+    struct stat st;
+    if (stat("/proc/buddyinfo", &st) != 0) {
+        MYLOGE("Unable to dump external fragmentation info\n");
+        return;
+    }
+
+    printf("------ EXTERNAL FRAGMENTATION INFO ------\n");
+    std::ifstream ifs("/proc/buddyinfo");
+    auto unusable_index_regex = std::regex{"Node\\s+([0-9]+),\\s+zone\\s+(\\S+)\\s+(.*)"};
+    for (std::string line; std::getline(ifs, line);) {
+        std::smatch match_results;
+        if (std::regex_match(line, match_results, unusable_index_regex)) {
+            std::stringstream free_pages(std::string{match_results[3]});
+            std::vector<int> free_pages_per_order(std::istream_iterator<int>{free_pages},
+                                                  std::istream_iterator<int>());
+
+            int total_free_pages = 0;
+            for (size_t i = 0; i < free_pages_per_order.size(); i++) {
+                total_free_pages += (free_pages_per_order[i] * std::pow(2, i));
+            }
+
+            printf("Node %s, zone %8s", match_results[1].str().c_str(),
+                   match_results[2].str().c_str());
+
+            int usable_free_pages = total_free_pages;
+            for (size_t i = 0; i < free_pages_per_order.size(); i++) {
+                auto unusable_index = (total_free_pages - usable_free_pages) /
+                        static_cast<double>(total_free_pages);
+                printf(" %5.3f", unusable_index);
+                usable_free_pages -= (free_pages_per_order[i] * std::pow(2, i));
+            }
+
+            printf("\n");
+        }
+    }
+    printf("\n");
+}
+
+static void DumpstateLimitedOnly() {
+    // Trimmed-down version of dumpstate to only include a whitelisted
+    // set of logs (system log, event log, and system server / system app
+    // crashes, and networking logs). See b/136273873 and b/138459828
+    // for context.
+    DurationReporter duration_reporter("DUMPSTATE");
+    unsigned long timeout_ms;
+    // calculate timeout
+    timeout_ms = logcat_timeout({"main", "system", "crash"});
+    RunCommand("SYSTEM LOG",
+               {"logcat", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+               CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+    timeout_ms = logcat_timeout({"events"});
+    RunCommand(
+        "EVENT LOG",
+        {"logcat", "-b", "events", "-v", "threadtime", "-v", "printable", "-v", "uid", "-d", "*:v"},
+        CommandOptions::WithTimeoutInMs(timeout_ms).Build());
+
+    printf("========================================================\n");
+    printf("== Networking Service\n");
+    printf("========================================================\n");
+
+    RunDumpsys("DUMPSYS NETWORK_SERVICE_LIMITED", {"wifi", "-a"},
+               CommandOptions::WithTimeout(90).Build(), SEC_TO_MSEC(10));
+
+    printf("========================================================\n");
+    printf("== Dropbox crashes\n");
+    printf("========================================================\n");
+
+    RunDumpsys("DROPBOX SYSTEM SERVER CRASHES", {"dropbox", "-p", "system_server_crash"});
+    RunDumpsys("DROPBOX SYSTEM APP CRASHES", {"dropbox", "-p", "system_app_crash"});
+
+    printf("========================================================\n");
+    printf("== Final progress (pid %d): %d/%d (estimated %d)\n", ds.pid_, ds.progress_->Get(),
+           ds.progress_->GetMax(), ds.progress_->GetInitialMax());
+    printf("========================================================\n");
+    printf("== dumpstate: done (id %d)\n", ds.id_);
+    printf("========================================================\n");
+}
+
 // Dumps various things. Returns early with status USER_CONSENT_DENIED if user denies consent
 // via the consent they are shown. Ignores other errors that occur while running various
 // commands. The consent checking is currently done around long running tasks, which happen to
@@ -1327,12 +1445,13 @@ static Dumpstate::RunStatus dumpstate() {
     dump_dev_files("TRUSTY VERSION", "/sys/bus/platform/drivers/trusty", "trusty_version");
     RunCommand("UPTIME", {"uptime"});
     DumpBlockStatFiles();
-    dump_emmc_ecsd("/d/mmc0/mmc0:0001/ext_csd");
     DumpFile("MEMORY INFO", "/proc/meminfo");
     RunCommand("CPU INFO", {"top", "-b", "-n", "1", "-H", "-s", "6", "-o",
                             "pid,tid,user,pr,ni,%cpu,s,virt,res,pcy,cmd,name"});
 
     RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK(RunCommand, "PROCRANK", {"procrank"}, AS_ROOT_20);
+
+    RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK(DumpVisibleWindowViews);
 
     DumpFile("VIRTUAL MEMORY STATS", "/proc/vmstat");
     DumpFile("VMALLOC INFO", "/proc/vmallocinfo");
@@ -1340,11 +1459,10 @@ static Dumpstate::RunStatus dumpstate() {
     DumpFile("ZONEINFO", "/proc/zoneinfo");
     DumpFile("PAGETYPEINFO", "/proc/pagetypeinfo");
     DumpFile("BUDDYINFO", "/proc/buddyinfo");
-    DumpFile("FRAGMENTATION INFO", "/d/extfrag/unusable_index");
+    DumpExternalFragmentationInfo();
 
     DumpFile("KERNEL WAKE SOURCES", "/d/wakeup_sources");
     DumpFile("KERNEL CPUFREQ", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
-    DumpFile("KERNEL SYNC", "/d/sync");
 
     RunCommand("PROCESSES AND THREADS",
                {"ps", "-A", "-T", "-Z", "-O", "pri,nice,rtprio,sched,pcy,time"});
@@ -1380,12 +1498,10 @@ static Dumpstate::RunStatus dumpstate() {
     /* Dump Bluetooth HCI logs */
     ds.AddDir("/data/misc/bluetooth/logs", true);
 
-    if (!ds.do_early_screenshot_) {
+    if (ds.options_->do_screenshot && !ds.do_early_screenshot_) {
         MYLOGI("taking late screenshot\n");
         ds.TakeScreenshot();
     }
-
-    DoLogcat();
 
     AddAnrTraceFiles();
 
@@ -1419,20 +1535,22 @@ static Dumpstate::RunStatus dumpstate() {
 
     RunCommand("FILESYSTEMS & FREE SPACE", {"df"});
 
-    RunCommand("LAST RADIO LOG", {"parse_radio_log", "/proc/last_radio_log"});
-
     /* Binder state is expensive to look at as it uses a lot of memory. */
-    DumpFile("BINDER FAILED TRANSACTION LOG", "/sys/kernel/debug/binder/failed_transaction_log");
-    DumpFile("BINDER TRANSACTION LOG", "/sys/kernel/debug/binder/transaction_log");
-    DumpFile("BINDER TRANSACTIONS", "/sys/kernel/debug/binder/transactions");
-    DumpFile("BINDER STATS", "/sys/kernel/debug/binder/stats");
-    DumpFile("BINDER STATE", "/sys/kernel/debug/binder/state");
+    std::string binder_logs_dir = access("/dev/binderfs/binder_logs", R_OK) ?
+            "/sys/kernel/debug/binder" : "/dev/binderfs/binder_logs";
 
-    RunDumpsys("WINSCOPE TRACE", {"window", "trace"});
+    DumpFile("BINDER FAILED TRANSACTION LOG", binder_logs_dir + "/failed_transaction_log");
+    DumpFile("BINDER TRANSACTION LOG", binder_logs_dir + "/transaction_log");
+    DumpFile("BINDER TRANSACTIONS", binder_logs_dir + "/transactions");
+    DumpFile("BINDER STATS", binder_logs_dir + "/stats");
+    DumpFile("BINDER STATE", binder_logs_dir + "/state");
+
     /* Add window and surface trace files. */
     if (!PropertiesHelper::IsUserBuild()) {
         ds.AddDir(WMTRACE_DATA_DIR, false);
     }
+
+    ds.AddDir(SNAPSHOTCTL_LOG_DIR, false);
 
     RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK(ds.DumpstateBoard);
 
@@ -1527,6 +1645,12 @@ static Dumpstate::RunStatus dumpstate() {
     printf("========================================================\n");
     // This differs from the usual dumpsys stats, which is the stats report data.
     RunDumpsys("STATSDSTATS", {"stats", "--metadata"});
+
+    // Add linker configuration directory
+    ds.AddDir(LINKERCONFIG_DIR, true);
+
+    RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK(DumpIncidentReport);
+
     return Dumpstate::RunStatus::OK;
 }
 
@@ -1538,13 +1662,12 @@ static Dumpstate::RunStatus dumpstate() {
  * Returns RunStatus::USER_DENIED_CONSENT if user explicitly denied consent to sharing the bugreport
  * with the caller.
  */
-static Dumpstate::RunStatus DumpstateDefault() {
-    // Try to dump anrd trace if the daemon is running.
-    dump_anrd_trace();
-
-    // Invoking the following dumpsys calls before DumpTraces() to try and
-    // keep the system stats as close to its initial state as possible.
-    RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK(RunDumpsysCritical);
+Dumpstate::RunStatus Dumpstate::DumpstateDefaultAfterCritical() {
+    // Capture first logcat early on; useful to take a snapshot before dumpstate logs take over the
+    // buffer.
+    DoLogcat();
+    // Capture timestamp after first logcat to use in next logcat
+    time_t logcat_ts = time(nullptr);
 
     /* collect stack traces from Dalvik and native processes (needs root) */
     RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK(ds.DumpTraces, &dump_traces_path);
@@ -1560,9 +1683,13 @@ static Dumpstate::RunStatus DumpstateDefault() {
     if (!PropertiesHelper::IsUserBuild()) {
         ds.AddDir(PROFILE_DATA_DIR_CUR, true);
         ds.AddDir(PROFILE_DATA_DIR_REF, true);
+        ds.AddZipEntry(ZIP_ROOT_DIR + PACKAGE_DEX_USE_LIST, PACKAGE_DEX_USE_LIST);
     }
+    ds.AddDir(PREREBOOT_DATA_DIR, false);
     add_mountinfo();
     DumpIpTablesAsRoot();
+    DumpDynamicPartitionInfo();
+    ds.AddDir(OTA_METADATA_DIR, true);
 
     // Capture any IPSec policies in play. No keys are exposed here.
     RunCommand("IP XFRM POLICY", {"ip", "xfrm", "policy"}, CommandOptions::WithTimeout(10).Build());
@@ -1582,41 +1709,78 @@ static Dumpstate::RunStatus DumpstateDefault() {
         RunCommand("Dmabuf dump", {"/product/bin/dmabuf_dump"});
     }
 
+    DumpFile("PSI cpu", "/proc/pressure/cpu");
+    DumpFile("PSI memory", "/proc/pressure/memory");
+    DumpFile("PSI io", "/proc/pressure/io");
+
     if (!DropRootUser()) {
         return Dumpstate::RunStatus::ERROR;
     }
 
     RETURN_IF_USER_DENIED_CONSENT();
-    return dumpstate();
+    Dumpstate::RunStatus status = dumpstate();
+    // Capture logcat since the last time we did it.
+    DoSystemLogcat(logcat_ts);
+    return status;
 }
 
-// This method collects common dumpsys for telephony and wifi
-static void DumpstateRadioCommon() {
+// This method collects common dumpsys for telephony and wifi. Typically, wifi
+// reports are fine to include all information, but telephony reports on user
+// builds need to strip some content (see DumpstateTelephonyOnly).
+static void DumpstateRadioCommon(bool include_sensitive_info = true) {
     DumpIpTablesAsRoot();
+
+    ds.AddDir(LOGPERSIST_DATA_DIR, false);
 
     if (!DropRootUser()) {
         return;
     }
 
-    do_dmesg();
-    DoLogcat();
+    // We need to be picky about some stuff for telephony reports on user builds.
+    if (!include_sensitive_info) {
+        // Only dump the radio log buffer (other buffers and dumps contain too much unrelated info).
+        DoRadioLogcat();
+    } else {
+        // Contains various system properties and process startup info.
+        do_dmesg();
+        // Logs other than the radio buffer may contain package/component names and potential PII.
+        DoLogcat();
+        // Too broad for connectivity problems.
+        DoKmsg();
+        // Contains unrelated hardware info (camera, NFC, biometrics, ...).
+        DumpHals();
+    }
+
     DumpPacketStats();
-    DoKmsg();
     DumpIpAddrAndRules();
     dump_route_tables();
-
     RunDumpsys("NETWORK DIAGNOSTICS", {"connectivity", "--diag"},
                CommandOptions::WithTimeout(10).Build());
 }
 
-// This method collects dumpsys for telephony debugging only
-static void DumpstateTelephonyOnly() {
+// We use "telephony" here for legacy reasons, though this now really means "connectivity" (cellular
+// + wifi + networking). This method collects dumpsys for connectivity debugging only. General rules
+// for what can be included on user builds: all reported information MUST directly relate to
+// connectivity debugging or customer support and MUST NOT contain unrelated personally identifiable
+// information. This information MUST NOT identify user-installed packages (UIDs are OK, package
+// names are not), and MUST NOT contain logs of user application traffic.
+// TODO(b/148168577) rename this and other related fields/methods to "connectivity" instead.
+static void DumpstateTelephonyOnly(const std::string& calling_package) {
     DurationReporter duration_reporter("DUMPSTATE");
+
     const CommandOptions DUMPSYS_COMPONENTS_OPTIONS = CommandOptions::WithTimeout(60).Build();
 
-    DumpstateRadioCommon();
+    const bool include_sensitive_info = !PropertiesHelper::IsUserBuild();
 
-    RunCommand("SYSTEM PROPERTIES", {"getprop"});
+    DumpstateRadioCommon(include_sensitive_info);
+
+    if (include_sensitive_info) {
+        // Contains too much unrelated PII, and given the unstructured nature of sysprops, we can't
+        // really cherrypick all of the connectivity-related ones. Apps generally have no business
+        // reading these anyway, and there should be APIs to supply the info in a more app-friendly
+        // way.
+        RunCommand("SYSTEM PROPERTIES", {"getprop"});
+    }
 
     printf("========================================================\n");
     printf("== Android Framework Services\n");
@@ -1624,15 +1788,37 @@ static void DumpstateTelephonyOnly() {
 
     RunDumpsys("DUMPSYS", {"connectivity"}, CommandOptions::WithTimeout(90).Build(),
                SEC_TO_MSEC(10));
-    RunDumpsys("DUMPSYS", {"connmetrics"}, CommandOptions::WithTimeout(90).Build(),
+    if (include_sensitive_info) {
+        // Carrier apps' services will be dumped below in dumpsys activity service all-non-platform.
+        RunDumpsys("DUMPSYS", {"carrier_config"}, CommandOptions::WithTimeout(90).Build(),
+                   SEC_TO_MSEC(10));
+    } else {
+        // If the caller is a carrier app and has a carrier service, dump it here since we aren't
+        // running dumpsys activity service all-non-platform below. Due to the increased output, we
+        // give a higher timeout as well.
+        RunDumpsys("DUMPSYS", {"carrier_config", "--requesting-package", calling_package},
+                   CommandOptions::WithTimeout(90).Build(), SEC_TO_MSEC(30));
+    }
+    RunDumpsys("DUMPSYS", {"wifi"}, CommandOptions::WithTimeout(90).Build(), SEC_TO_MSEC(10));
+    RunDumpsys("DUMPSYS", {"netpolicy"}, CommandOptions::WithTimeout(90).Build(), SEC_TO_MSEC(10));
+    RunDumpsys("DUMPSYS", {"network_management"}, CommandOptions::WithTimeout(90).Build(),
                SEC_TO_MSEC(10));
-    RunDumpsys("DUMPSYS", {"netd"}, CommandOptions::WithTimeout(90).Build(), SEC_TO_MSEC(10));
-    RunDumpsys("DUMPSYS", {"carrier_config"}, CommandOptions::WithTimeout(90).Build(),
+    RunDumpsys("DUMPSYS", {"telephony.registry"}, CommandOptions::WithTimeout(90).Build(),
                SEC_TO_MSEC(10));
-    RunDumpsys("DUMPSYS", {"wifi"}, CommandOptions::WithTimeout(90).Build(),
-               SEC_TO_MSEC(10));
-    RunDumpsys("BATTERYSTATS", {"batterystats"}, CommandOptions::WithTimeout(90).Build(),
-               SEC_TO_MSEC(10));
+    if (include_sensitive_info) {
+        // Contains raw IP addresses, omit from reports on user builds.
+        RunDumpsys("DUMPSYS", {"netd"}, CommandOptions::WithTimeout(90).Build(), SEC_TO_MSEC(10));
+        // Contains raw destination IP/MAC addresses, omit from reports on user builds.
+        RunDumpsys("DUMPSYS", {"connmetrics"}, CommandOptions::WithTimeout(90).Build(),
+                   SEC_TO_MSEC(10));
+        // Contains package/component names, omit from reports on user builds.
+        RunDumpsys("BATTERYSTATS", {"batterystats"}, CommandOptions::WithTimeout(90).Build(),
+                   SEC_TO_MSEC(10));
+        // Contains package names, but should be relatively simple to remove them (also contains
+        // UIDs already), omit from reports on user builds.
+        RunDumpsys("BATTERYSTATS", {"deviceidle"}, CommandOptions::WithTimeout(90).Build(),
+                   SEC_TO_MSEC(10));
+    }
 
     printf("========================================================\n");
     printf("== Running Application Services\n");
@@ -1640,18 +1826,24 @@ static void DumpstateTelephonyOnly() {
 
     RunDumpsys("TELEPHONY SERVICES", {"activity", "service", "TelephonyDebugService"});
 
-    printf("========================================================\n");
-    printf("== Running Application Services (non-platform)\n");
-    printf("========================================================\n");
+    if (include_sensitive_info) {
+        printf("========================================================\n");
+        printf("== Running Application Services (non-platform)\n");
+        printf("========================================================\n");
 
-    RunDumpsys("APP SERVICES NON-PLATFORM", {"activity", "service", "all-non-platform"},
-            DUMPSYS_COMPONENTS_OPTIONS);
+        // Contains package/component names and potential PII, omit from reports on user builds.
+        // To get dumps of the active CarrierService(s) on user builds, we supply an argument to the
+        // carrier_config dumpsys instead.
+        RunDumpsys("APP SERVICES NON-PLATFORM", {"activity", "service", "all-non-platform"},
+                   DUMPSYS_COMPONENTS_OPTIONS);
 
-    printf("========================================================\n");
-    printf("== Checkins\n");
-    printf("========================================================\n");
+        printf("========================================================\n");
+        printf("== Checkins\n");
+        printf("========================================================\n");
 
-    RunDumpsys("CHECKIN BATTERYSTATS", {"batterystats", "-c"});
+        // Contains package/component names, omit from reports on user builds.
+        RunDumpsys("CHECKIN BATTERYSTATS", {"batterystats", "-c"});
+    }
 
     printf("========================================================\n");
     printf("== dumpstate: done (id %d)\n", ds.id_);
@@ -1672,8 +1864,6 @@ static void DumpstateWifiOnly() {
                SEC_TO_MSEC(10));
     RunDumpsys("DUMPSYS", {"wifi"}, CommandOptions::WithTimeout(90).Build(),
                SEC_TO_MSEC(10));
-
-    DumpHals();
 
     printf("========================================================\n");
     printf("== dumpstate: done (id %d)\n", ds.id_);
@@ -1810,8 +2000,8 @@ void Dumpstate::DumpstateBoard() {
             std::bind([](std::string path) { android::os::UnlinkAndLogOnError(path); }, paths[i])));
     }
 
-    sp<IDumpstateDevice> dumpstate_device(IDumpstateDevice::getService());
-    if (dumpstate_device == nullptr) {
+    sp<IDumpstateDevice_1_0> dumpstate_device_1_0(IDumpstateDevice_1_0::getService());
+    if (dumpstate_device_1_0 == nullptr) {
         MYLOGE("No IDumpstateDevice implementation\n");
         return;
     }
@@ -1842,29 +2032,54 @@ void Dumpstate::DumpstateBoard() {
         handle.get()->data[i] = fd.release();
     }
 
-    // Given that bugreport is required to diagnose failures, it's better to
-    // set an arbitrary amount of timeout for IDumpstateDevice than to block the
-    // rest of bugreport. In the timeout case, we will kill dumpstate board HAL
-    // and grab whatever dumped
-    std::packaged_task<bool()>
-            dumpstate_task([paths, dumpstate_device, &handle]() -> bool {
-            android::hardware::Return<void> status = dumpstate_device->dumpstateBoard(handle.get());
+    // Given that bugreport is required to diagnose failures, it's better to set an arbitrary amount
+    // of timeout for IDumpstateDevice than to block the rest of bugreport. In the timeout case, we
+    // will kill the HAL and grab whatever it dumped in time.
+    constexpr size_t timeout_sec = 30;
+    // Prefer version 1.1 if available. New devices launching with R are no longer allowed to
+    // implement just 1.0.
+    const char* descriptor_to_kill;
+    using DumpstateBoardTask = std::packaged_task<bool()>;
+    DumpstateBoardTask dumpstate_board_task;
+    sp<IDumpstateDevice_1_1> dumpstate_device_1_1(
+        IDumpstateDevice_1_1::castFrom(dumpstate_device_1_0));
+    if (dumpstate_device_1_1 != nullptr) {
+        MYLOGI("Using IDumpstateDevice v1.1");
+        descriptor_to_kill = IDumpstateDevice_1_1::descriptor;
+        dumpstate_board_task = DumpstateBoardTask([this, dumpstate_device_1_1, &handle]() -> bool {
+            ::android::hardware::Return<DumpstateStatus> status =
+                dumpstate_device_1_1->dumpstateBoard_1_1(handle.get(), options_->dumpstate_hal_mode,
+                                                         SEC_TO_MSEC(timeout_sec));
+            if (!status.isOk()) {
+                MYLOGE("dumpstateBoard failed: %s\n", status.description().c_str());
+                return false;
+            } else if (status != DumpstateStatus::OK) {
+                MYLOGE("dumpstateBoard failed with DumpstateStatus::%s\n", toString(status).c_str());
+                return false;
+            }
+            return true;
+        });
+    } else {
+        MYLOGI("Using IDumpstateDevice v1.0");
+        descriptor_to_kill = IDumpstateDevice_1_0::descriptor;
+        dumpstate_board_task = DumpstateBoardTask([dumpstate_device_1_0, &handle]() -> bool {
+            ::android::hardware::Return<void> status =
+                dumpstate_device_1_0->dumpstateBoard(handle.get());
             if (!status.isOk()) {
                 MYLOGE("dumpstateBoard failed: %s\n", status.description().c_str());
                 return false;
             }
             return true;
         });
+    }
+    auto result = dumpstate_board_task.get_future();
+    std::thread(std::move(dumpstate_board_task)).detach();
 
-    auto result = dumpstate_task.get_future();
-    std::thread(std::move(dumpstate_task)).detach();
-
-    constexpr size_t timeout_sec = 30;
     if (result.wait_for(std::chrono::seconds(timeout_sec)) != std::future_status::ready) {
         MYLOGE("dumpstateBoard timed out after %zus, killing dumpstate vendor HAL\n", timeout_sec);
-        if (!android::base::SetProperty("ctl.interface_restart",
-                                        android::base::StringPrintf("%s/default",
-                                                                    IDumpstateDevice::descriptor))) {
+        if (!android::base::SetProperty(
+                "ctl.interface_restart",
+                android::base::StringPrintf("%s/default", descriptor_to_kill))) {
             MYLOGE("Couldn't restart dumpstate HAL\n");
         }
     }
@@ -1896,31 +2111,28 @@ void Dumpstate::DumpstateBoard() {
             continue;
         }
         AddZipEntry(kDumpstateBoardFiles[i], paths[i]);
+        printf("*** See %s entry ***\n", kDumpstateBoardFiles[i].c_str());
     }
-
-    printf("*** See dumpstate-board.txt entry ***\n");
 }
 
 static void ShowUsage() {
     fprintf(stderr,
-            "usage: dumpstate [-h] [-b soundfile] [-e soundfile] [-o file] [-d] [-p] "
-            "[-z]] [-s] [-S] [-q] [-B] [-P] [-R] [-V version]\n"
+            "usage: dumpstate [-h] [-b soundfile] [-e soundfile] [-o directory] [-d] [-p] "
+            "[-z] [-s] [-S] [-q] [-P] [-R] [-L] [-V version]\n"
             "  -h: display this help message\n"
             "  -b: play sound file instead of vibrate, at beginning of job\n"
             "  -e: play sound file instead of vibrate, at end of job\n"
-            "  -o: write to file (instead of stdout)\n"
-            "  -d: append date to filename (requires -o)\n"
-            "  -p: capture screenshot to filename.png (requires -o)\n"
-            "  -z: generate zipped file (requires -o)\n"
+            "  -o: write to custom directory (only in limited mode)\n"
+            "  -d: append date to filename\n"
+            "  -p: capture screenshot to filename.png\n"
+            "  -z: generate zipped file\n"
             "  -s: write output to control socket (for init)\n"
-            "  -S: write file location to control socket (for init; requires -o and -z)\n"
+            "  -S: write file location to control socket (for init; requires -z)\n"
             "  -q: disable vibrate\n"
-            "  -B: send broadcast when finished (requires -o)\n"
-            "  -P: send broadcast when started and update system properties on "
-            "progress (requires -o and -B)\n"
-            "  -R: take bugreport in remote mode (requires -o, -z, -d and -B, "
-            "shouldn't be used with -P)\n"
+            "  -P: send broadcast when started and do progress updates\n"
+            "  -R: take bugreport in remote mode (requires -z and -d, shouldn't be used with -P)\n"
             "  -w: start binder service and make it wait for a call to startBugreport\n"
+            "  -L: output limited information that is safe for submission in feedback reports\n"
             "  -v: prints the dumpstate header and exit\n");
 }
 
@@ -1976,41 +2188,6 @@ bool Dumpstate::FinishZipFile() {
     return true;
 }
 
-static std::string SHA256_file_hash(const std::string& filepath) {
-    android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(filepath.c_str(), O_RDONLY | O_NONBLOCK
-            | O_CLOEXEC | O_NOFOLLOW)));
-    if (fd == -1) {
-        MYLOGE("open(%s): %s\n", filepath.c_str(), strerror(errno));
-        return nullptr;
-    }
-
-    SHA256_CTX ctx;
-    SHA256_Init(&ctx);
-
-    std::vector<uint8_t> buffer(65536);
-    while (1) {
-        ssize_t bytes_read = TEMP_FAILURE_RETRY(read(fd.get(), buffer.data(), buffer.size()));
-        if (bytes_read == 0) {
-            break;
-        } else if (bytes_read == -1) {
-            MYLOGE("read(%s): %s\n", filepath.c_str(), strerror(errno));
-            return nullptr;
-        }
-
-        SHA256_Update(&ctx, buffer.data(), bytes_read);
-    }
-
-    uint8_t hash[SHA256_DIGEST_LENGTH];
-    SHA256_Final(hash, &ctx);
-
-    char hash_buffer[SHA256_DIGEST_LENGTH * 2 + 1];
-    for(size_t i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        sprintf(hash_buffer + (i * 2), "%02x", hash[i]);
-    }
-    hash_buffer[sizeof(hash_buffer) - 1] = 0;
-    return std::string(hash_buffer);
-}
-
 static void SendBroadcast(const std::string& action, const std::vector<std::string>& args) {
     // clang-format off
     std::vector<std::string> am = {"/system/bin/cmd", "activity", "broadcast", "--user", "0",
@@ -2030,7 +2207,7 @@ static void SendBroadcast(const std::string& action, const std::vector<std::stri
 
 static void Vibrate(int duration_ms) {
     // clang-format off
-    RunCommand("", {"cmd", "vibrator", "vibrate", std::to_string(duration_ms), "dumpstate"},
+    RunCommand("", {"cmd", "vibrator", "vibrate", "-f", std::to_string(duration_ms), "dumpstate"},
                CommandOptions::WithTimeout(10)
                    .Log("Vibrate: '%s'\n")
                    .Always()
@@ -2069,27 +2246,27 @@ static void PrepareToWriteToFile() {
         ds.base_name_ += "-wifi";
     }
 
-    if (ds.options_->do_fb) {
-        ds.screenshot_path_ = ds.GetPath(".png");
+    if (ds.options_->do_screenshot) {
+        ds.screenshot_path_ = ds.GetPath(ds.CalledByApi() ? "-png.tmp" : ".png");
     }
     ds.tmp_path_ = ds.GetPath(".tmp");
     ds.log_path_ = ds.GetPath("-dumpstate_log-" + std::to_string(ds.pid_) + ".txt");
 
-    std::string destination = ds.options_->bugreport_fd.get() != -1
+    std::string destination = ds.CalledByApi()
                                   ? StringPrintf("[fd:%d]", ds.options_->bugreport_fd.get())
                                   : ds.bugreport_internal_dir_.c_str();
     MYLOGD(
-        "Bugreport dir: %s\n"
-        "Base name: %s\n"
-        "Suffix: %s\n"
-        "Log path: %s\n"
-        "Temporary path: %s\n"
-        "Screenshot path: %s\n",
+        "Bugreport dir: [%s] "
+        "Base name: [%s] "
+        "Suffix: [%s] "
+        "Log path: [%s] "
+        "Temporary path: [%s] "
+        "Screenshot path: [%s]\n",
         destination.c_str(), ds.base_name_.c_str(), ds.name_.c_str(), ds.log_path_.c_str(),
         ds.tmp_path_.c_str(), ds.screenshot_path_.c_str());
 
     if (ds.options_->do_zip_file) {
-        ds.path_ = ds.GetPath(".zip");
+        ds.path_ = ds.GetPath(ds.CalledByApi() ? "-zip.tmp" : ".zip");
         MYLOGD("Creating initial .zip file (%s)\n", ds.path_.c_str());
         create_parent_dirs(ds.path_.c_str());
         ds.zip_file.reset(fopen(ds.path_.c_str(), "wb"));
@@ -2103,37 +2280,10 @@ static void PrepareToWriteToFile() {
 }
 
 /*
- * Finalizes writing to the file by renaming or zipping the tmp file to the final location,
+ * Finalizes writing to the file by zipping the tmp file to the final location,
  * printing zipped file status, etc.
  */
 static void FinalizeFile() {
-    /* check if user changed the suffix using system properties */
-    std::string name =
-        android::base::GetProperty(android::base::StringPrintf("dumpstate.%d.name", ds.pid_), "");
-    bool change_suffix = false;
-    if (!name.empty()) {
-        /* must whitelist which characters are allowed, otherwise it could cross directories */
-        std::regex valid_regex("^[-_a-zA-Z0-9]+$");
-        if (std::regex_match(name.c_str(), valid_regex)) {
-            change_suffix = true;
-        } else {
-            MYLOGE("invalid suffix provided by user: %s\n", name.c_str());
-        }
-    }
-    if (change_suffix) {
-        MYLOGI("changing suffix from %s to %s\n", ds.name_.c_str(), name.c_str());
-        ds.name_ = name;
-        if (!ds.screenshot_path_.empty()) {
-            std::string new_screenshot_path = ds.GetPath(".png");
-            if (rename(ds.screenshot_path_.c_str(), new_screenshot_path.c_str())) {
-                MYLOGE("rename(%s, %s): %s\n", ds.screenshot_path_.c_str(),
-                       new_screenshot_path.c_str(), strerror(errno));
-            } else {
-                ds.screenshot_path_ = new_screenshot_path;
-            }
-        }
-    }
-
     bool do_text_file = true;
     if (ds.options_->do_zip_file) {
         if (!ds.FinishZipFile()) {
@@ -2141,27 +2291,15 @@ static void FinalizeFile() {
             do_text_file = true;
         } else {
             do_text_file = false;
-            // If the user has changed the suffix, we need to change the zip file name.
-            std::string new_path = ds.GetPath(".zip");
-            if (ds.path_ != new_path) {
-                MYLOGD("Renaming zip file from %s to %s\n", ds.path_.c_str(), new_path.c_str());
-                if (rename(ds.path_.c_str(), new_path.c_str())) {
-                    MYLOGE("rename(%s, %s): %s\n", ds.path_.c_str(), new_path.c_str(),
-                           strerror(errno));
-                } else {
-                    ds.path_ = new_path;
-                }
-            }
         }
     }
-    if (do_text_file) {
-        ds.path_ = ds.GetPath(".txt");
-        MYLOGD("Generating .txt bugreport at %s from %s\n", ds.path_.c_str(), ds.tmp_path_.c_str());
-        if (rename(ds.tmp_path_.c_str(), ds.path_.c_str())) {
-            MYLOGE("rename(%s, %s): %s\n", ds.tmp_path_.c_str(), ds.path_.c_str(), strerror(errno));
-            ds.path_.clear();
-        }
+
+    std::string final_path = ds.path_;
+    if (ds.options_->OutputToCustomFile()) {
+        final_path = ds.GetPath(ds.options_->out_dir, ".zip");
+        android::os::CopyFileToFile(ds.path_, final_path);
     }
+
     if (ds.options_->use_control_socket) {
         if (do_text_file) {
             dprintf(ds.control_socket_fd_,
@@ -2169,54 +2307,11 @@ static void FinalizeFile() {
                     "for more details\n",
                     ds.log_path_.c_str());
         } else {
-            dprintf(ds.control_socket_fd_, "OK:%s\n", ds.path_.c_str());
+            dprintf(ds.control_socket_fd_, "OK:%s\n", final_path.c_str());
         }
     }
 }
 
-/* Broadcasts that we are done with the bugreport */
-static void SendBugreportFinishedBroadcast() {
-    // TODO(b/111441001): use callback instead of broadcast.
-    if (!ds.path_.empty()) {
-        MYLOGI("Final bugreport path: %s\n", ds.path_.c_str());
-        // clang-format off
-
-        std::vector<std::string> am_args = {
-             "--receiver-permission", "android.permission.DUMP",
-             "--ei", "android.intent.extra.ID", std::to_string(ds.id_),
-             "--ei", "android.intent.extra.PID", std::to_string(ds.pid_),
-             "--ei", "android.intent.extra.MAX", std::to_string(ds.progress_->GetMax()),
-             "--es", "android.intent.extra.BUGREPORT", ds.path_,
-             "--es", "android.intent.extra.DUMPSTATE_LOG", ds.log_path_
-        };
-        // clang-format on
-        if (ds.options_->do_fb && !android::os::IsFileEmpty(ds.screenshot_path_)) {
-            am_args.push_back("--es");
-            am_args.push_back("android.intent.extra.SCREENSHOT");
-            am_args.push_back(ds.screenshot_path_);
-        }
-        if (!ds.options_->notification_title.empty()) {
-            am_args.push_back("--es");
-            am_args.push_back("android.intent.extra.TITLE");
-            am_args.push_back(ds.options_->notification_title);
-            if (!ds.options_->notification_description.empty()) {
-                am_args.push_back("--es");
-                am_args.push_back("android.intent.extra.DESCRIPTION");
-                am_args.push_back(ds.options_->notification_description);
-            }
-        }
-        if (ds.options_->is_remote_mode) {
-            am_args.push_back("--es");
-            am_args.push_back("android.intent.extra.REMOTE_BUGREPORT_HASH");
-            am_args.push_back(SHA256_file_hash(ds.path_));
-            SendBroadcast("com.android.internal.intent.action.REMOTE_BUGREPORT_FINISHED", am_args);
-        } else {
-            SendBroadcast("com.android.internal.intent.action.BUGREPORT_FINISHED", am_args);
-        }
-    } else {
-        MYLOGE("Skipping finished broadcast because bugreport could not be generated\n");
-    }
-}
 
 static inline const char* ModeToString(Dumpstate::BugreportMode mode) {
     switch (mode) {
@@ -2237,124 +2332,71 @@ static inline const char* ModeToString(Dumpstate::BugreportMode mode) {
     }
 }
 
-static void SetOptionsFromMode(Dumpstate::BugreportMode mode, Dumpstate::DumpOptions* options) {
-    options->extra_options = ModeToString(mode);
+static void SetOptionsFromMode(Dumpstate::BugreportMode mode, Dumpstate::DumpOptions* options,
+                               bool is_screenshot_requested) {
+    // Modify com.android.shell.BugreportProgressService#isDefaultScreenshotRequired as well for
+    // default system screenshots.
+    options->bugreport_mode = ModeToString(mode);
     switch (mode) {
         case Dumpstate::BugreportMode::BUGREPORT_FULL:
-            options->do_broadcast = true;
-            options->do_fb = true;
+            options->do_screenshot = is_screenshot_requested;
+            options->dumpstate_hal_mode = DumpstateMode::FULL;
             break;
         case Dumpstate::BugreportMode::BUGREPORT_INTERACTIVE:
             // Currently, the dumpstate binder is only used by Shell to update progress.
             options->do_start_service = true;
             options->do_progress_updates = true;
-            options->do_fb = false;
-            options->do_broadcast = true;
+            options->do_screenshot = is_screenshot_requested;
+            options->dumpstate_hal_mode = DumpstateMode::INTERACTIVE;
             break;
         case Dumpstate::BugreportMode::BUGREPORT_REMOTE:
             options->do_vibrate = false;
             options->is_remote_mode = true;
-            options->do_fb = false;
-            options->do_broadcast = true;
+            options->do_screenshot = false;
+            options->dumpstate_hal_mode = DumpstateMode::REMOTE;
             break;
         case Dumpstate::BugreportMode::BUGREPORT_WEAR:
             options->do_start_service = true;
             options->do_progress_updates = true;
             options->do_zip_file = true;
-            options->do_fb = true;
-            options->do_broadcast = true;
+            options->do_screenshot = is_screenshot_requested;
+            options->dumpstate_hal_mode = DumpstateMode::WEAR;
             break;
+        // TODO(b/148168577) rename TELEPHONY everywhere to CONNECTIVITY.
         case Dumpstate::BugreportMode::BUGREPORT_TELEPHONY:
             options->telephony_only = true;
-            options->do_fb = false;
-            options->do_broadcast = true;
+            options->do_progress_updates = true;
+            options->do_screenshot = false;
+            options->dumpstate_hal_mode = DumpstateMode::CONNECTIVITY;
             break;
         case Dumpstate::BugreportMode::BUGREPORT_WIFI:
             options->wifi_only = true;
             options->do_zip_file = true;
-            options->do_fb = false;
-            options->do_broadcast = true;
+            options->do_screenshot = false;
+            options->dumpstate_hal_mode = DumpstateMode::WIFI;
             break;
         case Dumpstate::BugreportMode::BUGREPORT_DEFAULT:
             break;
     }
 }
 
-static Dumpstate::BugreportMode getBugreportModeFromProperty() {
-    // If the system property is not set, it's assumed to be a default bugreport.
-    Dumpstate::BugreportMode mode = Dumpstate::BugreportMode::BUGREPORT_DEFAULT;
-
-    std::string extra_options = android::base::GetProperty(PROPERTY_EXTRA_OPTIONS, "");
-    if (!extra_options.empty()) {
-        // Framework uses a system property to override some command-line args.
-        // Currently, it contains the type of the requested bugreport.
-        if (extra_options == "bugreportplus") {
-            mode = Dumpstate::BugreportMode::BUGREPORT_INTERACTIVE;
-        } else if (extra_options == "bugreportfull") {
-            mode = Dumpstate::BugreportMode::BUGREPORT_FULL;
-        } else if (extra_options == "bugreportremote") {
-            mode = Dumpstate::BugreportMode::BUGREPORT_REMOTE;
-        } else if (extra_options == "bugreportwear") {
-            mode = Dumpstate::BugreportMode::BUGREPORT_WEAR;
-        } else if (extra_options == "bugreporttelephony") {
-            mode = Dumpstate::BugreportMode::BUGREPORT_TELEPHONY;
-        } else if (extra_options == "bugreportwifi") {
-            mode = Dumpstate::BugreportMode::BUGREPORT_WIFI;
-        } else {
-            MYLOGE("Unknown extra option: %s\n", extra_options.c_str());
-        }
-        // Reset the property
-        android::base::SetProperty(PROPERTY_EXTRA_OPTIONS, "");
-    }
-    return mode;
-}
-
-// TODO: Move away from system properties when we have options passed via binder calls.
-/* Sets runtime options from the system properties and then clears those properties. */
-static void SetOptionsFromProperties(Dumpstate::DumpOptions* options) {
-    Dumpstate::BugreportMode mode = getBugreportModeFromProperty();
-    SetOptionsFromMode(mode, options);
-
-    options->notification_title = android::base::GetProperty(PROPERTY_EXTRA_TITLE, "");
-    if (!options->notification_title.empty()) {
-        // Reset the property
-        android::base::SetProperty(PROPERTY_EXTRA_TITLE, "");
-
-        options->notification_description =
-            android::base::GetProperty(PROPERTY_EXTRA_DESCRIPTION, "");
-        if (!options->notification_description.empty()) {
-            // Reset the property
-            android::base::SetProperty(PROPERTY_EXTRA_DESCRIPTION, "");
-        }
-        MYLOGD("notification (title:  %s, description: %s)\n", options->notification_title.c_str(),
-               options->notification_description.c_str());
-    }
-}
-
 static void LogDumpOptions(const Dumpstate::DumpOptions& options) {
-    MYLOGI("do_zip_file: %d\n", options.do_zip_file);
-    MYLOGI("do_add_date: %d\n", options.do_add_date);
-    MYLOGI("do_vibrate: %d\n", options.do_vibrate);
-    MYLOGI("use_socket: %d\n", options.use_socket);
-    MYLOGI("use_control_socket: %d\n", options.use_control_socket);
-    MYLOGI("do_fb: %d\n", options.do_fb);
-    MYLOGI("do_broadcast: %d\n", options.do_broadcast);
-    MYLOGI("is_remote_mode: %d\n", options.is_remote_mode);
-    MYLOGI("show_header_only: %d\n", options.show_header_only);
-    MYLOGI("do_start_service: %d\n", options.do_start_service);
-    MYLOGI("telephony_only: %d\n", options.telephony_only);
-    MYLOGI("wifi_only: %d\n", options.wifi_only);
-    MYLOGI("do_progress_updates: %d\n", options.do_progress_updates);
-    MYLOGI("fd: %d\n", options.bugreport_fd.get());
-    MYLOGI("extra_options: %s\n", options.extra_options.c_str());
-    MYLOGI("args: %s\n", options.args.c_str());
-    MYLOGI("notification_title: %s\n", options.notification_title.c_str());
-    MYLOGI("notification_description: %s\n", options.notification_description.c_str());
+    MYLOGI(
+        "do_zip_file: %d do_vibrate: %d use_socket: %d use_control_socket: %d do_screenshot: %d "
+        "is_remote_mode: %d show_header_only: %d do_start_service: %d telephony_only: %d "
+        "wifi_only: %d do_progress_updates: %d fd: %d bugreport_mode: %s dumpstate_hal_mode: %s "
+        "limited_only: %d args: %s\n",
+        options.do_zip_file, options.do_vibrate, options.use_socket, options.use_control_socket,
+        options.do_screenshot, options.is_remote_mode, options.show_header_only,
+        options.do_start_service, options.telephony_only, options.wifi_only,
+        options.do_progress_updates, options.bugreport_fd.get(), options.bugreport_mode.c_str(),
+        toString(options.dumpstate_hal_mode).c_str(), options.limited_only, options.args.c_str());
 }
 
 void Dumpstate::DumpOptions::Initialize(BugreportMode bugreport_mode,
                                         const android::base::unique_fd& bugreport_fd_in,
-                                        const android::base::unique_fd& screenshot_fd_in) {
+                                        const android::base::unique_fd& screenshot_fd_in,
+                                        bool is_screenshot_requested) {
     // In the new API world, date is always added; output is always a zip file.
     // TODO(111441001): remove these options once they are obsolete.
     do_add_date = true;
@@ -2364,29 +2406,26 @@ void Dumpstate::DumpOptions::Initialize(BugreportMode bugreport_mode,
     bugreport_fd.reset(dup(bugreport_fd_in.get()));
     screenshot_fd.reset(dup(screenshot_fd_in.get()));
 
-    extra_options = ModeToString(bugreport_mode);
-    SetOptionsFromMode(bugreport_mode, this);
+    SetOptionsFromMode(bugreport_mode, this, is_screenshot_requested);
 }
 
 Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) {
     RunStatus status = RunStatus::OK;
     int c;
-    while ((c = getopt(argc, argv, "dho:svqzpPBRSV:w")) != -1) {
+    while ((c = getopt(argc, argv, "dho:svqzpLPBRSV:w")) != -1) {
         switch (c) {
             // clang-format off
             case 'd': do_add_date = true;            break;
             case 'z': do_zip_file = true;            break;
-            // o=use_outfile not supported anymore.
-            // TODO(b/111441001): Remove when all callers have migrated.
-            case 'o': break;
+            case 'o': out_dir = optarg;              break;
             case 's': use_socket = true;             break;
             case 'S': use_control_socket = true;     break;
             case 'v': show_header_only = true;       break;
             case 'q': do_vibrate = false;            break;
-            case 'p': do_fb = true;                  break;
+            case 'p': do_screenshot = true;          break;
             case 'P': do_progress_updates = true;    break;
             case 'R': is_remote_mode = true;         break;
-            case 'B': do_broadcast = true;           break;
+            case 'L': limited_only = true;           break;
             case 'V':                                break;  // compatibility no-op
             case 'w':
                 // This was already processed
@@ -2402,7 +2441,6 @@ Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) 
         }
     }
 
-    // TODO: use helper function to convert argv into a string
     for (int i = 0; i < argc; i++) {
         args += argv[i];
         if (i < argc - 1) {
@@ -2413,7 +2451,6 @@ Dumpstate::RunStatus Dumpstate::DumpOptions::Initialize(int argc, char* argv[]) 
     // Reset next index used by getopt so this can be called multiple times, for eg, in tests.
     optind = 1;
 
-    SetOptionsFromProperties(this);
     return status;
 }
 
@@ -2422,7 +2459,7 @@ bool Dumpstate::DumpOptions::ValidateOptions() const {
         return false;
     }
 
-    if ((do_zip_file || do_add_date || do_progress_updates || do_broadcast) && !OutputToFile()) {
+    if ((do_zip_file || do_add_date || do_progress_updates) && !OutputToFile()) {
         return false;
     }
 
@@ -2430,11 +2467,7 @@ bool Dumpstate::DumpOptions::ValidateOptions() const {
         return false;
     }
 
-    if (do_progress_updates && !do_broadcast) {
-        return false;
-    }
-
-    if (is_remote_mode && (do_progress_updates || !do_broadcast || !do_zip_file || !do_add_date)) {
+    if (is_remote_mode && (do_progress_updates || !do_zip_file || !do_add_date)) {
         return false;
     }
     return true;
@@ -2442,6 +2475,13 @@ bool Dumpstate::DumpOptions::ValidateOptions() const {
 
 void Dumpstate::SetOptions(std::unique_ptr<DumpOptions> options) {
     options_ = std::move(options);
+}
+
+void Dumpstate::Initialize() {
+    /* gets the sequential id */
+    uint32_t last_id = android::base::GetIntProperty(PROPERTY_LAST_ID, 0);
+    id_ = ++last_id;
+    android::base::SetProperty(PROPERTY_LAST_ID, std::to_string(last_id));
 }
 
 Dumpstate::RunStatus Dumpstate::Run(int32_t calling_uid, const std::string& calling_package) {
@@ -2470,6 +2510,17 @@ Dumpstate::RunStatus Dumpstate::Run(int32_t calling_uid, const std::string& call
     return status;
 }
 
+void Dumpstate::Cancel() {
+    CleanupTmpFiles();
+    android::os::UnlinkAndLogOnError(log_path_);
+    for (int i = 0; i < NUM_OF_DUMPS; i++) {
+        android::os::UnlinkAndLogOnError(ds.bugreport_internal_dir_ + "/" +
+                                         kDumpstateBoardFiles[i]);
+    }
+    tombstone_data_.clear();
+    anr_data_.clear();
+}
+
 /*
  * Dumps relevant information to a bugreport based on the given options.
  *
@@ -2488,8 +2539,8 @@ Dumpstate::RunStatus Dumpstate::Run(int32_t calling_uid, const std::string& call
  * If zipping, a bunch of other files and dumps also get added to the zip archive. The log file also
  * gets added to the archive.
  *
- * Bugreports are first generated in a local directory and later copied to the caller's fd if
- * supplied.
+ * Bugreports are first generated in a local directory and later copied to the caller's fd
+ * or directory if supplied.
  */
 Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
                                             const std::string& calling_package) {
@@ -2530,11 +2581,8 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         return RunStatus::OK;
     }
 
-    if (options_->bugreport_fd.get() != -1) {
-        // If the output needs to be copied over to the caller's fd, get user consent.
-        android::String16 package(calling_package.c_str());
-        CheckUserConsent(calling_uid, package);
-    }
+    MYLOGD("dumpstate calling_uid = %d ; calling package = %s \n",
+            calling_uid, calling_package.c_str());
 
     // Redirect output if needed
     bool is_redirecting = options_->OutputToFile();
@@ -2546,12 +2594,12 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
             : "";
     progress_.reset(new Progress(stats_path));
 
-    /* gets the sequential id */
-    uint32_t last_id = android::base::GetIntProperty(PROPERTY_LAST_ID, 0);
-    id_ = ++last_id;
-    android::base::SetProperty(PROPERTY_LAST_ID, std::to_string(last_id));
-
-    MYLOGI("begin\n");
+    if (acquire_wake_lock(PARTIAL_WAKE_LOCK, WAKE_LOCK_NAME) < 0) {
+        MYLOGE("Failed to acquire wake lock: %s\n", strerror(errno));
+    } else {
+        // Wake lock will be released automatically on process death
+        MYLOGD("Wake lock acquired.\n");
+    }
 
     register_sig_handler();
 
@@ -2568,10 +2616,8 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         MYLOGI("Running on dry-run mode (to disable it, call 'setprop dumpstate.dry_run false')\n");
     }
 
-    MYLOGI("dumpstate info: id=%d, args='%s', extra_options= %s)\n", id_, options_->args.c_str(),
-           options_->extra_options.c_str());
-
-    MYLOGI("bugreport format version: %s\n", version_.c_str());
+    MYLOGI("dumpstate info: id=%d, args='%s', bugreport_mode= %s bugreport format version: %s\n",
+           id_, options_->args.c_str(), options_->bugreport_mode.c_str(), version_.c_str());
 
     do_early_screenshot_ = options_->do_progress_updates;
 
@@ -2596,18 +2642,13 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         PrepareToWriteToFile();
 
         if (options_->do_progress_updates) {
-            if (options_->do_broadcast) {
-                // clang-format off
-                std::vector<std::string> am_args = {
-                     "--receiver-permission", "android.permission.DUMP",
-                     "--es", "android.intent.extra.NAME", name_,
-                     "--ei", "android.intent.extra.ID", std::to_string(id_),
-                     "--ei", "android.intent.extra.PID", std::to_string(pid_),
-                     "--ei", "android.intent.extra.MAX", std::to_string(progress_->GetMax()),
-                };
-                // clang-format on
-                SendBroadcast("com.android.internal.intent.action.BUGREPORT_STARTED", am_args);
-            }
+            // clang-format off
+            std::vector<std::string> am_args = {
+                 "--receiver-permission", "android.permission.DUMP",
+            };
+            // clang-format on
+            // Send STARTED broadcast for apps that listen to bugreport generation events
+            SendBroadcast("com.android.internal.intent.action.BUGREPORT_STARTED", am_args);
             if (options_->use_control_socket) {
                 dprintf(control_socket_fd_, "BEGIN:%s\n", path_.c_str());
             }
@@ -2623,16 +2664,6 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
 
     if (options_->do_vibrate) {
         Vibrate(150);
-    }
-
-    if (options_->do_fb && do_early_screenshot_) {
-        if (screenshot_path_.empty()) {
-            // should not have happened
-            MYLOGE("INTERNAL ERROR: skipping early screenshot because path was not set\n");
-        } else {
-            MYLOGI("taking early screenshot\n");
-            TakeScreenshot();
-        }
     }
 
     if (options_->do_zip_file && zip_file != nullptr) {
@@ -2679,16 +2710,36 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     // duration is logged into MYLOG instead.
     PrintHeader();
 
+    // TODO(b/158737089) reduce code repetition in if branches
     if (options_->telephony_only) {
-        DumpstateTelephonyOnly();
+        MaybeTakeEarlyScreenshot();
+        onUiIntensiveBugreportDumpsFinished(calling_uid, calling_package);
+        MaybeCheckUserConsent(calling_uid, calling_package);
+        DumpstateTelephonyOnly(calling_package);
         DumpstateBoard();
     } else if (options_->wifi_only) {
+        MaybeTakeEarlyScreenshot();
+        onUiIntensiveBugreportDumpsFinished(calling_uid, calling_package);
+        MaybeCheckUserConsent(calling_uid, calling_package);
         DumpstateWifiOnly();
+    } else if (options_->limited_only) {
+        MaybeTakeEarlyScreenshot();
+        onUiIntensiveBugreportDumpsFinished(calling_uid, calling_package);
+        MaybeCheckUserConsent(calling_uid, calling_package);
+        DumpstateLimitedOnly();
     } else {
+        // Invoke critical dumpsys first to preserve system state, before doing anything else.
+        RunDumpsysCritical();
+
+        // Take screenshot and get consent only after critical dumpsys has finished.
+        MaybeTakeEarlyScreenshot();
+        onUiIntensiveBugreportDumpsFinished(calling_uid, calling_package);
+        MaybeCheckUserConsent(calling_uid, calling_package);
+
         // Dump state for the default case. This also drops root.
-        RunStatus s = DumpstateDefault();
+        RunStatus s = DumpstateDefaultAfterCritical();
         if (s != RunStatus::OK) {
-            if (s == RunStatus::USER_CONSENT_TIMED_OUT) {
+            if (s == RunStatus::USER_CONSENT_DENIED) {
                 HandleUserConsentDenied();
             }
             return s;
@@ -2700,15 +2751,15 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         TEMP_FAILURE_RETRY(dup2(dup_stdout_fd, fileno(stdout)));
     }
 
-    // Rename, and/or zip the (now complete) .tmp file within the internal directory.
+    // Zip the (now complete) .tmp file within the internal directory.
     if (options_->OutputToFile()) {
         FinalizeFile();
     }
 
-    // Share the final file with the caller if the user has consented.
+    // Share the final file with the caller if the user has consented or Shell is the caller.
     Dumpstate::RunStatus status = Dumpstate::RunStatus::OK;
-    if (options_->bugreport_fd.get() != -1) {
-        status = CopyBugreportIfUserConsented();
+    if (CalledByApi()) {
+        status = CopyBugreportIfUserConsented(calling_uid);
         if (status != Dumpstate::RunStatus::OK &&
             status != Dumpstate::RunStatus::USER_CONSENT_TIMED_OUT) {
             // Do an early return if there were errors. We make an exception for consent
@@ -2716,13 +2767,6 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
             // bugreport is not shared but made available for manual retrieval.
             MYLOGI("User denied consent. Returning\n");
             return status;
-        }
-        if (options_->do_fb && options_->screenshot_fd.get() != -1) {
-            bool copy_succeeded = android::os::CopyFileToFd(screenshot_path_,
-                                                            options_->screenshot_fd.get());
-            if (copy_succeeded) {
-                android::os::UnlinkAndLogOnError(screenshot_path_);
-            }
         }
         if (status == Dumpstate::RunStatus::USER_CONSENT_TIMED_OUT) {
             MYLOGI(
@@ -2748,12 +2792,6 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
         }
     }
 
-    /* tell activity manager we're done */
-    if (options_->do_broadcast) {
-        SendBugreportFinishedBroadcast();
-        // Note that listener_ is notified in Run();
-    }
-
     MYLOGD("Final progress: %d/%d (estimated %d)\n", progress_->Get(), progress_->GetMax(),
            progress_->GetInitialMax());
     progress_->Save();
@@ -2777,14 +2815,41 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
                : RunStatus::OK;
 }
 
-void Dumpstate::CheckUserConsent(int32_t calling_uid, const android::String16& calling_package) {
+void Dumpstate::MaybeTakeEarlyScreenshot() {
+    if (!options_->do_screenshot || !do_early_screenshot_) {
+        return;
+    }
+
+    TakeScreenshot();
+}
+
+void Dumpstate::onUiIntensiveBugreportDumpsFinished(int32_t calling_uid,
+                                                    const std::string& calling_package) {
+    if (calling_uid == AID_SHELL || !CalledByApi()) {
+        return;
+    }
+    if (listener_ != nullptr) {
+        // Let listener know ui intensive bugreport dumps are finished, then it can do event
+        // handling if required.
+        android::String16 package(calling_package.c_str());
+        listener_->onUiIntensiveBugreportDumpsFinished(package);
+    }
+}
+
+void Dumpstate::MaybeCheckUserConsent(int32_t calling_uid, const std::string& calling_package) {
+    if (calling_uid == AID_SHELL || !CalledByApi()) {
+        // No need to get consent for shell triggered dumpstates, or not through
+        // bugreporting API (i.e. no fd to copy back).
+        return;
+    }
     consent_callback_ = new ConsentCallback();
     const String16 incidentcompanion("incidentcompanion");
     sp<android::IBinder> ics(defaultServiceManager()->getService(incidentcompanion));
+    android::String16 package(calling_package.c_str());
     if (ics != nullptr) {
         MYLOGD("Checking user consent via incidentcompanion service\n");
         android::interface_cast<android::os::IIncidentCompanion>(ics)->authorizeReport(
-            calling_uid, calling_package, String16(), String16(),
+            calling_uid, package, String16(), String16(),
             0x1 /* FLAG_CONFIRMATION_DIALOG */, consent_callback_.get());
     } else {
         MYLOGD("Unable to check user consent; incidentcompanion service unavailable\n");
@@ -2796,7 +2861,11 @@ bool Dumpstate::IsUserConsentDenied() const {
            ds.consent_callback_->getResult() == UserConsentResult::DENIED;
 }
 
-void Dumpstate::CleanupFiles() {
+bool Dumpstate::CalledByApi() const {
+    return ds.options_->bugreport_fd.get() != -1 ? true : false;
+}
+
+void Dumpstate::CleanupTmpFiles() {
     android::os::UnlinkAndLogOnError(tmp_path_);
     android::os::UnlinkAndLogOnError(screenshot_path_);
     android::os::UnlinkAndLogOnError(path_);
@@ -2804,19 +2873,29 @@ void Dumpstate::CleanupFiles() {
 
 Dumpstate::RunStatus Dumpstate::HandleUserConsentDenied() {
     MYLOGD("User denied consent; deleting files and returning\n");
-    CleanupFiles();
+    CleanupTmpFiles();
     return USER_CONSENT_DENIED;
 }
 
-Dumpstate::RunStatus Dumpstate::CopyBugreportIfUserConsented() {
+Dumpstate::RunStatus Dumpstate::CopyBugreportIfUserConsented(int32_t calling_uid) {
     // If the caller has asked to copy the bugreport over to their directory, we need explicit
-    // user consent.
-    UserConsentResult consent_result = consent_callback_->getResult();
+    // user consent (unless the caller is Shell).
+    UserConsentResult consent_result;
+    if (calling_uid == AID_SHELL) {
+        consent_result = UserConsentResult::APPROVED;
+    } else {
+        consent_result = consent_callback_->getResult();
+    }
     if (consent_result == UserConsentResult::UNAVAILABLE) {
         // User has not responded yet.
         uint64_t elapsed_ms = consent_callback_->getElapsedTimeMs();
-        if (elapsed_ms < USER_CONSENT_TIMEOUT_MS) {
-            uint delay_seconds = (USER_CONSENT_TIMEOUT_MS - elapsed_ms) / 1000;
+        // Telephony is a fast report type, particularly on user builds where information may be
+        // more aggressively limited. To give the user time to read the consent dialog, increase the
+        // timeout.
+        uint64_t timeout_ms = options_->telephony_only ? TELEPHONY_REPORT_USER_CONSENT_TIMEOUT_MS
+                                                       : USER_CONSENT_TIMEOUT_MS;
+        if (elapsed_ms < timeout_ms) {
+            uint delay_seconds = (timeout_ms - elapsed_ms) / 1000;
             MYLOGD("Did not receive user consent yet; going to wait for %d seconds", delay_seconds);
             sleep(delay_seconds);
         }
@@ -2831,6 +2910,16 @@ Dumpstate::RunStatus Dumpstate::CopyBugreportIfUserConsented() {
         bool copy_succeeded = android::os::CopyFileToFd(path_, options_->bugreport_fd.get());
         if (copy_succeeded) {
             android::os::UnlinkAndLogOnError(path_);
+            if (options_->do_screenshot &&
+                options_->screenshot_fd.get() != -1 &&
+                !options_->is_screenshot_copied) {
+                copy_succeeded = android::os::CopyFileToFd(screenshot_path_,
+                                                           options_->screenshot_fd.get());
+                options_->is_screenshot_copied = copy_succeeded;
+                if (copy_succeeded) {
+                    android::os::UnlinkAndLogOnError(screenshot_path_);
+                }
+            }
         }
         return copy_succeeded ? Dumpstate::RunStatus::OK : Dumpstate::RunStatus::ERROR;
     } else if (consent_result == UserConsentResult::UNAVAILABLE) {
@@ -2855,8 +2944,9 @@ Dumpstate::RunStatus Dumpstate::ParseCommandlineAndRun(int argc, char* argv[]) {
         assert(options_->bugreport_fd.get() == -1);
 
         // calling_uid and calling_package are for user consent to share the bugreport with
-        // an app; they are irrelvant here because bugreport is only written to a local
-        // directory, and not shared.
+        // an app; they are irrelevant here because bugreport is triggered via command line.
+        // Update Last ID before calling Run().
+        Initialize();
         status = Run(-1 /* calling_uid */, "" /* calling_package */);
     }
     return status;
@@ -2883,4 +2973,835 @@ int run_main(int argc, char* argv[]) {
         case Dumpstate::RunStatus::USER_CONSENT_TIMED_OUT:
             exit(2);
     }
+}
+
+// TODO(111441001): Default DumpOptions to sensible values.
+Dumpstate::Dumpstate(const std::string& version)
+    : pid_(getpid()),
+      options_(new Dumpstate::DumpOptions()),
+      last_reported_percent_progress_(0),
+      version_(version),
+      now_(time(nullptr)) {
+}
+
+Dumpstate& Dumpstate::GetInstance() {
+    static Dumpstate singleton_(android::base::GetProperty("dumpstate.version", VERSION_CURRENT));
+    return singleton_;
+}
+
+DurationReporter::DurationReporter(const std::string& title, bool logcat_only, bool verbose)
+    : title_(title), logcat_only_(logcat_only), verbose_(verbose) {
+    if (!title_.empty()) {
+        started_ = Nanotime();
+    }
+}
+
+DurationReporter::~DurationReporter() {
+    if (!title_.empty()) {
+        float elapsed = (float)(Nanotime() - started_) / NANOS_PER_SEC;
+        if (elapsed >= .5f || verbose_) {
+            MYLOGD("Duration of '%s': %.2fs\n", title_.c_str(), elapsed);
+        }
+        if (!logcat_only_) {
+            // Use "Yoda grammar" to make it easier to grep|sort sections.
+            printf("------ %.3fs was the duration of '%s' ------\n", elapsed, title_.c_str());
+        }
+    }
+}
+
+const int32_t Progress::kDefaultMax = 5000;
+
+Progress::Progress(const std::string& path) : Progress(Progress::kDefaultMax, 1.1, path) {
+}
+
+Progress::Progress(int32_t initial_max, int32_t progress, float growth_factor)
+    : Progress(initial_max, growth_factor, "") {
+    progress_ = progress;
+}
+
+Progress::Progress(int32_t initial_max, float growth_factor, const std::string& path)
+    : initial_max_(initial_max),
+      progress_(0),
+      max_(initial_max),
+      growth_factor_(growth_factor),
+      n_runs_(0),
+      average_max_(0),
+      path_(path) {
+    if (!path_.empty()) {
+        Load();
+    }
+}
+
+void Progress::Load() {
+    MYLOGD("Loading stats from %s\n", path_.c_str());
+    std::string content;
+    if (!android::base::ReadFileToString(path_, &content)) {
+        MYLOGI("Could not read stats from %s; using max of %d\n", path_.c_str(), max_);
+        return;
+    }
+    if (content.empty()) {
+        MYLOGE("No stats (empty file) on %s; using max of %d\n", path_.c_str(), max_);
+        return;
+    }
+    std::vector<std::string> lines = android::base::Split(content, "\n");
+
+    if (lines.size() < 1) {
+        MYLOGE("Invalid stats on file %s: not enough lines (%d). Using max of %d\n", path_.c_str(),
+               (int)lines.size(), max_);
+        return;
+    }
+    char* ptr;
+    n_runs_ = strtol(lines[0].c_str(), &ptr, 10);
+    average_max_ = strtol(ptr, nullptr, 10);
+    if (n_runs_ <= 0 || average_max_ <= 0 || n_runs_ > STATS_MAX_N_RUNS ||
+        average_max_ > STATS_MAX_AVERAGE) {
+        MYLOGE("Invalid stats line on file %s: %s\n", path_.c_str(), lines[0].c_str());
+        initial_max_ = Progress::kDefaultMax;
+    } else {
+        initial_max_ = average_max_;
+    }
+    max_ = initial_max_;
+
+    MYLOGI("Average max progress: %d in %d runs; estimated max: %d\n", average_max_, n_runs_, max_);
+}
+
+void Progress::Save() {
+    int32_t total = n_runs_ * average_max_ + progress_;
+    int32_t runs = n_runs_ + 1;
+    int32_t average = floor(((float)total) / runs);
+    MYLOGI("Saving stats (total=%d, runs=%d, average=%d) on %s\n", total, runs, average,
+           path_.c_str());
+    if (path_.empty()) {
+        return;
+    }
+
+    std::string content = android::base::StringPrintf("%d %d\n", runs, average);
+    if (!android::base::WriteStringToFile(content, path_)) {
+        MYLOGE("Could not save stats on %s\n", path_.c_str());
+    }
+}
+
+int32_t Progress::Get() const {
+    return progress_;
+}
+
+bool Progress::Inc(int32_t delta_sec) {
+    bool changed = false;
+    if (delta_sec >= 0) {
+        progress_ += delta_sec;
+        if (progress_ > max_) {
+            int32_t old_max = max_;
+            max_ = floor((float)progress_ * growth_factor_);
+            MYLOGD("Adjusting max progress from %d to %d\n", old_max, max_);
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+int32_t Progress::GetMax() const {
+    return max_;
+}
+
+int32_t Progress::GetInitialMax() const {
+    return initial_max_;
+}
+
+void Progress::Dump(int fd, const std::string& prefix) const {
+    const char* pr = prefix.c_str();
+    dprintf(fd, "%sprogress: %d\n", pr, progress_);
+    dprintf(fd, "%smax: %d\n", pr, max_);
+    dprintf(fd, "%sinitial_max: %d\n", pr, initial_max_);
+    dprintf(fd, "%sgrowth_factor: %0.2f\n", pr, growth_factor_);
+    dprintf(fd, "%spath: %s\n", pr, path_.c_str());
+    dprintf(fd, "%sn_runs: %d\n", pr, n_runs_);
+    dprintf(fd, "%saverage_max: %d\n", pr, average_max_);
+}
+
+bool Dumpstate::IsZipping() const {
+    return zip_writer_ != nullptr;
+}
+
+std::string Dumpstate::GetPath(const std::string& suffix) const {
+    return GetPath(bugreport_internal_dir_, suffix);
+}
+
+std::string Dumpstate::GetPath(const std::string& directory, const std::string& suffix) const {
+    return android::base::StringPrintf("%s/%s-%s%s", directory.c_str(), base_name_.c_str(),
+                                       name_.c_str(), suffix.c_str());
+}
+
+void Dumpstate::SetProgress(std::unique_ptr<Progress> progress) {
+    progress_ = std::move(progress);
+}
+
+void for_each_userid(void (*func)(int), const char *header) {
+    std::string title = header == nullptr ? "for_each_userid" : android::base::StringPrintf(
+                                                                    "for_each_userid(%s)", header);
+    DurationReporter duration_reporter(title);
+    if (PropertiesHelper::IsDryRun()) return;
+
+    DIR *d;
+    struct dirent *de;
+
+    if (header) printf("\n------ %s ------\n", header);
+    func(0);
+
+    if (!(d = opendir("/data/system/users"))) {
+        printf("Failed to open /data/system/users (%s)\n", strerror(errno));
+        return;
+    }
+
+    while ((de = readdir(d))) {
+        int userid;
+        if (de->d_type != DT_DIR || !(userid = atoi(de->d_name))) {
+            continue;
+        }
+        func(userid);
+    }
+
+    closedir(d);
+}
+
+static void __for_each_pid(void (*helper)(int, const char *, void *), const char *header, void *arg) {
+    DIR *d;
+    struct dirent *de;
+
+    if (!(d = opendir("/proc"))) {
+        printf("Failed to open /proc (%s)\n", strerror(errno));
+        return;
+    }
+
+    if (header) printf("\n------ %s ------\n", header);
+    while ((de = readdir(d))) {
+        if (ds.IsUserConsentDenied()) {
+            MYLOGE(
+                "Returning early because user denied consent to share bugreport with calling app.");
+            closedir(d);
+            return;
+        }
+        int pid;
+        int fd;
+        char cmdpath[255];
+        char cmdline[255];
+
+        if (!(pid = atoi(de->d_name))) {
+            continue;
+        }
+
+        memset(cmdline, 0, sizeof(cmdline));
+
+        snprintf(cmdpath, sizeof(cmdpath), "/proc/%d/cmdline", pid);
+        if ((fd = TEMP_FAILURE_RETRY(open(cmdpath, O_RDONLY | O_CLOEXEC))) >= 0) {
+            TEMP_FAILURE_RETRY(read(fd, cmdline, sizeof(cmdline) - 2));
+            close(fd);
+            if (cmdline[0]) {
+                helper(pid, cmdline, arg);
+                continue;
+            }
+        }
+
+        // if no cmdline, a kernel thread has comm
+        snprintf(cmdpath, sizeof(cmdpath), "/proc/%d/comm", pid);
+        if ((fd = TEMP_FAILURE_RETRY(open(cmdpath, O_RDONLY | O_CLOEXEC))) >= 0) {
+            TEMP_FAILURE_RETRY(read(fd, cmdline + 1, sizeof(cmdline) - 4));
+            close(fd);
+            if (cmdline[1]) {
+                cmdline[0] = '[';
+                size_t len = strcspn(cmdline, "\f\b\r\n");
+                cmdline[len] = ']';
+                cmdline[len+1] = '\0';
+            }
+        }
+        if (!cmdline[0]) {
+            strcpy(cmdline, "N/A");
+        }
+        helper(pid, cmdline, arg);
+    }
+
+    closedir(d);
+}
+
+static void for_each_pid_helper(int pid, const char *cmdline, void *arg) {
+    for_each_pid_func *func = (for_each_pid_func*) arg;
+    func(pid, cmdline);
+}
+
+void for_each_pid(for_each_pid_func func, const char *header) {
+    std::string title = header == nullptr ? "for_each_pid"
+                                          : android::base::StringPrintf("for_each_pid(%s)", header);
+    DurationReporter duration_reporter(title);
+    if (PropertiesHelper::IsDryRun()) return;
+
+    __for_each_pid(for_each_pid_helper, header, (void *) func);
+}
+
+static void for_each_tid_helper(int pid, const char *cmdline, void *arg) {
+    DIR *d;
+    struct dirent *de;
+    char taskpath[255];
+    for_each_tid_func *func = (for_each_tid_func *) arg;
+
+    snprintf(taskpath, sizeof(taskpath), "/proc/%d/task", pid);
+
+    if (!(d = opendir(taskpath))) {
+        printf("Failed to open %s (%s)\n", taskpath, strerror(errno));
+        return;
+    }
+
+    func(pid, pid, cmdline);
+
+    while ((de = readdir(d))) {
+        if (ds.IsUserConsentDenied()) {
+            MYLOGE(
+                "Returning early because user denied consent to share bugreport with calling app.");
+            closedir(d);
+            return;
+        }
+        int tid;
+        int fd;
+        char commpath[255];
+        char comm[255];
+
+        if (!(tid = atoi(de->d_name))) {
+            continue;
+        }
+
+        if (tid == pid)
+            continue;
+
+        snprintf(commpath, sizeof(commpath), "/proc/%d/comm", tid);
+        memset(comm, 0, sizeof(comm));
+        if ((fd = TEMP_FAILURE_RETRY(open(commpath, O_RDONLY | O_CLOEXEC))) < 0) {
+            strcpy(comm, "N/A");
+        } else {
+            char *c;
+            TEMP_FAILURE_RETRY(read(fd, comm, sizeof(comm) - 2));
+            close(fd);
+
+            c = strrchr(comm, '\n');
+            if (c) {
+                *c = '\0';
+            }
+        }
+        func(pid, tid, comm);
+    }
+
+    closedir(d);
+}
+
+void for_each_tid(for_each_tid_func func, const char *header) {
+    std::string title = header == nullptr ? "for_each_tid"
+                                          : android::base::StringPrintf("for_each_tid(%s)", header);
+    DurationReporter duration_reporter(title);
+
+    if (PropertiesHelper::IsDryRun()) return;
+
+    __for_each_pid(for_each_tid_helper, header, (void *) func);
+}
+
+void show_wchan(int pid, int tid, const char *name) {
+    if (PropertiesHelper::IsDryRun()) return;
+
+    char path[255];
+    char buffer[255];
+    int fd, ret, save_errno;
+    char name_buffer[255];
+
+    memset(buffer, 0, sizeof(buffer));
+
+    snprintf(path, sizeof(path), "/proc/%d/wchan", tid);
+    if ((fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY | O_CLOEXEC))) < 0) {
+        printf("Failed to open '%s' (%s)\n", path, strerror(errno));
+        return;
+    }
+
+    ret = TEMP_FAILURE_RETRY(read(fd, buffer, sizeof(buffer)));
+    save_errno = errno;
+    close(fd);
+
+    if (ret < 0) {
+        printf("Failed to read '%s' (%s)\n", path, strerror(save_errno));
+        return;
+    }
+
+    snprintf(name_buffer, sizeof(name_buffer), "%*s%s",
+             pid == tid ? 0 : 3, "", name);
+
+    printf("%-7d %-32s %s\n", tid, name_buffer, buffer);
+
+    return;
+}
+
+// print time in centiseconds
+static void snprcent(char *buffer, size_t len, size_t spc,
+                     unsigned long long time) {
+    static long hz; // cache discovered hz
+
+    if (hz <= 0) {
+        hz = sysconf(_SC_CLK_TCK);
+        if (hz <= 0) {
+            hz = 1000;
+        }
+    }
+
+    // convert to centiseconds
+    time = (time * 100 + (hz / 2)) / hz;
+
+    char str[16];
+
+    snprintf(str, sizeof(str), " %llu.%02u",
+             time / 100, (unsigned)(time % 100));
+    size_t offset = strlen(buffer);
+    snprintf(buffer + offset, (len > offset) ? len - offset : 0,
+             "%*s", (spc > offset) ? (int)(spc - offset) : 0, str);
+}
+
+// print permille as a percent
+static void snprdec(char *buffer, size_t len, size_t spc, unsigned permille) {
+    char str[16];
+
+    snprintf(str, sizeof(str), " %u.%u%%", permille / 10, permille % 10);
+    size_t offset = strlen(buffer);
+    snprintf(buffer + offset, (len > offset) ? len - offset : 0,
+             "%*s", (spc > offset) ? (int)(spc - offset) : 0, str);
+}
+
+void show_showtime(int pid, const char *name) {
+    if (PropertiesHelper::IsDryRun()) return;
+
+    char path[255];
+    char buffer[1023];
+    int fd, ret, save_errno;
+
+    memset(buffer, 0, sizeof(buffer));
+
+    snprintf(path, sizeof(path), "/proc/%d/stat", pid);
+    if ((fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY | O_CLOEXEC))) < 0) {
+        printf("Failed to open '%s' (%s)\n", path, strerror(errno));
+        return;
+    }
+
+    ret = TEMP_FAILURE_RETRY(read(fd, buffer, sizeof(buffer)));
+    save_errno = errno;
+    close(fd);
+
+    if (ret < 0) {
+        printf("Failed to read '%s' (%s)\n", path, strerror(save_errno));
+        return;
+    }
+
+    // field 14 is utime
+    // field 15 is stime
+    // field 42 is iotime
+    unsigned long long utime = 0, stime = 0, iotime = 0;
+    if (sscanf(buffer,
+               "%*u %*s %*s %*d %*d %*d %*d %*d %*d %*d %*d "
+               "%*d %*d %llu %llu %*d %*d %*d %*d %*d %*d "
+               "%*d %*d %*d %*d %*d %*d %*d %*d %*d %*d "
+               "%*d %*d %*d %*d %*d %*d %*d %*d %*d %llu ",
+               &utime, &stime, &iotime) != 3) {
+        return;
+    }
+
+    unsigned long long total = utime + stime;
+    if (!total) {
+        return;
+    }
+
+    unsigned permille = (iotime * 1000 + (total / 2)) / total;
+    if (permille > 1000) {
+        permille = 1000;
+    }
+
+    // try to beautify and stabilize columns at <80 characters
+    snprintf(buffer, sizeof(buffer), "%-6d%s", pid, name);
+    if ((name[0] != '[') || utime) {
+        snprcent(buffer, sizeof(buffer), 57, utime);
+    }
+    snprcent(buffer, sizeof(buffer), 65, stime);
+    if ((name[0] != '[') || iotime) {
+        snprcent(buffer, sizeof(buffer), 73, iotime);
+    }
+    if (iotime) {
+        snprdec(buffer, sizeof(buffer), 79, permille);
+    }
+    puts(buffer);  // adds a trailing newline
+
+    return;
+}
+
+void do_dmesg() {
+    const char *title = "KERNEL LOG (dmesg)";
+    DurationReporter duration_reporter(title);
+    printf("------ %s ------\n", title);
+
+    if (PropertiesHelper::IsDryRun()) return;
+
+    /* Get size of kernel buffer */
+    int size = klogctl(KLOG_SIZE_BUFFER, nullptr, 0);
+    if (size <= 0) {
+        printf("Unexpected klogctl return value: %d\n\n", size);
+        return;
+    }
+    char *buf = (char *) malloc(size + 1);
+    if (buf == nullptr) {
+        printf("memory allocation failed\n\n");
+        return;
+    }
+    int retval = klogctl(KLOG_READ_ALL, buf, size);
+    if (retval < 0) {
+        printf("klogctl failure\n\n");
+        free(buf);
+        return;
+    }
+    buf[retval] = '\0';
+    printf("%s\n\n", buf);
+    free(buf);
+    return;
+}
+
+void do_showmap(int pid, const char *name) {
+    char title[255];
+    char arg[255];
+
+    snprintf(title, sizeof(title), "SHOW MAP %d (%s)", pid, name);
+    snprintf(arg, sizeof(arg), "%d", pid);
+    RunCommand(title, {"showmap", "-q", arg}, CommandOptions::AS_ROOT);
+}
+
+int Dumpstate::DumpFile(const std::string& title, const std::string& path) {
+    DurationReporter duration_reporter(title);
+
+    int status = DumpFileToFd(STDOUT_FILENO, title, path);
+
+    UpdateProgress(WEIGHT_FILE);
+
+    return status;
+}
+
+int read_file_as_long(const char *path, long int *output) {
+    int fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
+    if (fd < 0) {
+        int err = errno;
+        MYLOGE("Error opening file descriptor for %s: %s\n", path, strerror(err));
+        return -1;
+    }
+    char buffer[50];
+    ssize_t bytes_read = TEMP_FAILURE_RETRY(read(fd, buffer, sizeof(buffer)));
+    if (bytes_read == -1) {
+        MYLOGE("Error reading file %s: %s\n", path, strerror(errno));
+        return -2;
+    }
+    if (bytes_read == 0) {
+        MYLOGE("File %s is empty\n", path);
+        return -3;
+    }
+    *output = atoi(buffer);
+    return 0;
+}
+
+/* calls skip to gate calling dump_from_fd recursively
+ * in the specified directory. dump_from_fd defaults to
+ * dump_file_from_fd above when set to NULL. skip defaults
+ * to false when set to NULL. dump_from_fd will always be
+ * called with title NULL.
+ */
+int dump_files(const std::string& title, const char* dir, bool (*skip)(const char* path),
+               int (*dump_from_fd)(const char* title, const char* path, int fd)) {
+    DurationReporter duration_reporter(title);
+    DIR *dirp;
+    struct dirent *d;
+    char *newpath = nullptr;
+    const char *slash = "/";
+    int retval = 0;
+
+    if (!title.empty()) {
+        printf("------ %s (%s) ------\n", title.c_str(), dir);
+    }
+    if (PropertiesHelper::IsDryRun()) return 0;
+
+    if (dir[strlen(dir) - 1] == '/') {
+        ++slash;
+    }
+    dirp = opendir(dir);
+    if (dirp == nullptr) {
+        retval = -errno;
+        MYLOGE("%s: %s\n", dir, strerror(errno));
+        return retval;
+    }
+
+    if (!dump_from_fd) {
+        dump_from_fd = dump_file_from_fd;
+    }
+    for (; ((d = readdir(dirp))); free(newpath), newpath = nullptr) {
+        if ((d->d_name[0] == '.')
+         && (((d->d_name[1] == '.') && (d->d_name[2] == '\0'))
+          || (d->d_name[1] == '\0'))) {
+            continue;
+        }
+        asprintf(&newpath, "%s%s%s%s", dir, slash, d->d_name,
+                 (d->d_type == DT_DIR) ? "/" : "");
+        if (!newpath) {
+            retval = -errno;
+            continue;
+        }
+        if (skip && (*skip)(newpath)) {
+            continue;
+        }
+        if (d->d_type == DT_DIR) {
+            int ret = dump_files("", newpath, skip, dump_from_fd);
+            if (ret < 0) {
+                retval = ret;
+            }
+            continue;
+        }
+        android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(newpath, O_RDONLY | O_NONBLOCK | O_CLOEXEC)));
+        if (fd.get() < 0) {
+            retval = -1;
+            printf("*** %s: %s\n", newpath, strerror(errno));
+            continue;
+        }
+        (*dump_from_fd)(nullptr, newpath, fd.get());
+    }
+    closedir(dirp);
+    if (!title.empty()) {
+        printf("\n");
+    }
+    return retval;
+}
+
+/* fd must have been opened with the flag O_NONBLOCK. With this flag set,
+ * it's possible to avoid issues where opening the file itself can get
+ * stuck.
+ */
+int dump_file_from_fd(const char *title, const char *path, int fd) {
+    if (PropertiesHelper::IsDryRun()) return 0;
+
+    int flags = fcntl(fd, F_GETFL);
+    if (flags == -1) {
+        printf("*** %s: failed to get flags on fd %d: %s\n", path, fd, strerror(errno));
+        return -1;
+    } else if (!(flags & O_NONBLOCK)) {
+        printf("*** %s: fd must have O_NONBLOCK set.\n", path);
+        return -1;
+    }
+    return DumpFileFromFdToFd(title, path, fd, STDOUT_FILENO, PropertiesHelper::IsDryRun());
+}
+
+int Dumpstate::RunCommand(const std::string& title, const std::vector<std::string>& full_command,
+                          const CommandOptions& options, bool verbose_duration) {
+    DurationReporter duration_reporter(title, false /* logcat_only */, verbose_duration);
+
+    int status = RunCommandToFd(STDOUT_FILENO, title, full_command, options);
+
+    /* TODO: for now we're simplifying the progress calculation by using the
+     * timeout as the weight. It's a good approximation for most cases, except when calling dumpsys,
+     * where its weight should be much higher proportionally to its timeout.
+     * Ideally, it should use a options.EstimatedDuration() instead...*/
+    UpdateProgress(options.Timeout());
+
+    return status;
+}
+
+void Dumpstate::RunDumpsys(const std::string& title, const std::vector<std::string>& dumpsys_args,
+                           const CommandOptions& options, long dumpsysTimeoutMs) {
+    long timeout_ms = dumpsysTimeoutMs > 0 ? dumpsysTimeoutMs : options.TimeoutInMs();
+    std::vector<std::string> dumpsys = {"/system/bin/dumpsys", "-T", std::to_string(timeout_ms)};
+    dumpsys.insert(dumpsys.end(), dumpsys_args.begin(), dumpsys_args.end());
+    RunCommand(title, dumpsys, options);
+}
+
+int open_socket(const char *service) {
+    int s = android_get_control_socket(service);
+    if (s < 0) {
+        MYLOGE("android_get_control_socket(%s): %s\n", service, strerror(errno));
+        return -1;
+    }
+    fcntl(s, F_SETFD, FD_CLOEXEC);
+
+    // Set backlog to 0 to make sure that queue size will be minimum.
+    // In Linux, because the minimum queue will be 1, connect() will be blocked
+    // if the other clients already called connect() and the connection request was not accepted.
+    if (listen(s, 0) < 0) {
+        MYLOGE("listen(control socket): %s\n", strerror(errno));
+        return -1;
+    }
+
+    struct sockaddr addr;
+    socklen_t alen = sizeof(addr);
+    int fd = accept4(s, &addr, &alen, SOCK_CLOEXEC);
+
+    // Close socket just after accept(), to make sure that connect() by client will get error
+    // when the socket is used by the other services.
+    // There is still a race condition possibility between accept and close, but there is no way
+    // to close-on-accept atomically.
+    // See detail; b/123306389#comment25
+    close(s);
+
+    if (fd < 0) {
+        MYLOGE("accept(control socket): %s\n", strerror(errno));
+        return -1;
+    }
+
+    return fd;
+}
+
+/* redirect output to a service control socket */
+bool redirect_to_socket(FILE* redirect, const char* service) {
+    int fd = open_socket(service);
+    if (fd == -1) {
+        return false;
+    }
+    fflush(redirect);
+    // TODO: handle dup2 failure
+    TEMP_FAILURE_RETRY(dup2(fd, fileno(redirect)));
+    close(fd);
+    return true;
+}
+
+// TODO: should call is_valid_output_file and/or be merged into it.
+void create_parent_dirs(const char *path) {
+    char *chp = const_cast<char *> (path);
+
+    /* skip initial slash */
+    if (chp[0] == '/')
+        chp++;
+
+    /* create leading directories, if necessary */
+    struct stat dir_stat;
+    while (chp && chp[0]) {
+        chp = strchr(chp, '/');
+        if (chp) {
+            *chp = 0;
+            if (stat(path, &dir_stat) == -1 || !S_ISDIR(dir_stat.st_mode)) {
+                MYLOGI("Creating directory %s\n", path);
+                if (mkdir(path, 0770)) { /* drwxrwx--- */
+                    MYLOGE("Unable to create directory %s: %s\n", path, strerror(errno));
+                } else if (chown(path, AID_SHELL, AID_SHELL)) {
+                    MYLOGE("Unable to change ownership of dir %s: %s\n", path, strerror(errno));
+                }
+            }
+            *chp++ = '/';
+        }
+    }
+}
+
+bool _redirect_to_file(FILE* redirect, char* path, int truncate_flag) {
+    create_parent_dirs(path);
+
+    int fd = TEMP_FAILURE_RETRY(open(path,
+                                     O_WRONLY | O_CREAT | truncate_flag | O_CLOEXEC | O_NOFOLLOW,
+                                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH));
+    if (fd < 0) {
+        MYLOGE("%s: %s\n", path, strerror(errno));
+        return false;
+    }
+
+    TEMP_FAILURE_RETRY(dup2(fd, fileno(redirect)));
+    close(fd);
+    return true;
+}
+
+bool redirect_to_file(FILE* redirect, char* path) {
+    return _redirect_to_file(redirect, path, O_TRUNC);
+}
+
+bool redirect_to_existing_file(FILE* redirect, char* path) {
+    return _redirect_to_file(redirect, path, O_APPEND);
+}
+
+void dump_route_tables() {
+    DurationReporter duration_reporter("DUMP ROUTE TABLES");
+    if (PropertiesHelper::IsDryRun()) return;
+    const char* const RT_TABLES_PATH = "/data/misc/net/rt_tables";
+    ds.DumpFile("RT_TABLES", RT_TABLES_PATH);
+    FILE* fp = fopen(RT_TABLES_PATH, "re");
+    if (!fp) {
+        printf("*** %s: %s\n", RT_TABLES_PATH, strerror(errno));
+        return;
+    }
+    char table[16];
+    // Each line has an integer (the table number), a space, and a string (the table name). We only
+    // need the table number. It's a 32-bit unsigned number, so max 10 chars. Skip the table name.
+    // Add a fixed max limit so this doesn't go awry.
+    for (int i = 0; i < 64 && fscanf(fp, " %10s %*s", table) == 1; ++i) {
+        RunCommand("ROUTE TABLE IPv4", {"ip", "-4", "route", "show", "table", table});
+        RunCommand("ROUTE TABLE IPv6", {"ip", "-6", "route", "show", "table", table});
+    }
+    fclose(fp);
+}
+
+// TODO: make this function thread safe if sections are generated in parallel.
+void Dumpstate::UpdateProgress(int32_t delta_sec) {
+    if (progress_ == nullptr) {
+        MYLOGE("UpdateProgress: progress_ not set\n");
+        return;
+    }
+
+    // Always update progess so stats can be tuned...
+    progress_->Inc(delta_sec);
+
+    // ...but only notifiy listeners when necessary.
+    if (!options_->do_progress_updates) return;
+
+    int progress = progress_->Get();
+    int max = progress_->GetMax();
+    int percent = 100 * progress / max;
+
+    if (last_reported_percent_progress_ > 0 && percent <= last_reported_percent_progress_) {
+        return;
+    }
+    last_reported_percent_progress_ = percent;
+
+    if (control_socket_fd_ >= 0) {
+        dprintf(control_socket_fd_, "PROGRESS:%d/%d\n", progress, max);
+        fsync(control_socket_fd_);
+    }
+
+    if (listener_ != nullptr) {
+        if (percent % 10 == 0) {
+            // We don't want to spam logcat, so only log multiples of 10.
+            MYLOGD("Setting progress: %d/%d (%d%%)\n", progress, max, percent);
+        } else {
+            // stderr is ignored on normal invocations, but useful when calling
+            // /system/bin/dumpstate directly for debuggging.
+            fprintf(stderr, "Setting progress: %d/%d (%d%%)\n", progress, max, percent);
+        }
+
+        listener_->onProgress(percent);
+    }
+}
+
+void Dumpstate::TakeScreenshot(const std::string& path) {
+    const std::string& real_path = path.empty() ? screenshot_path_ : path;
+    int status =
+        RunCommand("", {"/system/bin/screencap", "-p", real_path},
+                   CommandOptions::WithTimeout(10).Always().DropRoot().RedirectStderr().Build());
+    if (status == 0) {
+        MYLOGD("Screenshot saved on %s\n", real_path.c_str());
+    } else {
+        MYLOGE("Failed to take screenshot on %s\n", real_path.c_str());
+    }
+    if (listener_ != nullptr) {
+        // Show a visual indication to indicate screenshot is taken via
+        // IDumpstateListener.onScreenshotTaken()
+        listener_->onScreenshotTaken(status == 0);
+    }
+}
+
+bool is_dir(const char* pathname) {
+    struct stat info;
+    if (stat(pathname, &info) == -1) {
+        return false;
+    }
+    return S_ISDIR(info.st_mode);
+}
+
+time_t get_mtime(int fd, time_t default_mtime) {
+    struct stat info;
+    if (fstat(fd, &info) == -1) {
+        return default_mtime;
+    }
+    return info.st_mtime;
 }

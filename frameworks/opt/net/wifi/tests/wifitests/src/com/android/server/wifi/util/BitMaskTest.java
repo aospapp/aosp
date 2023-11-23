@@ -18,6 +18,8 @@ package com.android.server.wifi.util;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -25,7 +27,7 @@ import org.junit.Test;
  * Unit tests for {@link com.android.server.wifi.util.BitMask}.
  */
 @SmallTest
-public class BitMaskTest {
+public class BitMaskTest extends WifiBaseTest {
     /**
      * Test that checkoff.testAndClear works as advertised
      */

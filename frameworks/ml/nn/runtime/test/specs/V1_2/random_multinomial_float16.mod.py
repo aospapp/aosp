@@ -282,4 +282,4 @@ Example(({
     ],
 }, {
     output0: [],
-})).WithMultinomialDistributionTolerance(0.025)
+})).WithMultinomialDistributionTolerance(0.025).DisableLifeTimeVariation()

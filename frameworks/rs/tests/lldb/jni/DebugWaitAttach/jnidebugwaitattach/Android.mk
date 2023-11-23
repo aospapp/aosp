@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libjnidebugwaitattach
 
-LOCAL_SRC_FILES := jnidebugwaitattach.cpp simple.rs
+LOCAL_SRC_FILES := jnidebugwaitattach.cpp simple.rscript
 
 LOCAL_RENDERSCRIPT_FLAGS := -g
 

@@ -20,15 +20,26 @@
 
 LIBNEURALNETWORKS {
   global:
+    ANeuralNetworks_getDefaultLoopTimeout; # introduced=30
     ANeuralNetworks_getDeviceCount; # introduced=Q
     ANeuralNetworks_getDevice; # introduced=Q
+    ANeuralNetworks_getMaximumLoopTimeout; # introduced=30
     ANeuralNetworksDevice_getName; # introduced=Q
     ANeuralNetworksDevice_getType; # introduced=Q
     ANeuralNetworksDevice_getVersion; # introduced=Q
     ANeuralNetworksDevice_getFeatureLevel; # introduced=Q
+    ANeuralNetworksDevice_wait; # introduced=30
     ANeuralNetworksMemory_createFromAHardwareBuffer; # introduced=Q
+    ANeuralNetworksMemory_createFromDesc; # introduced=30
     ANeuralNetworksMemory_createFromFd;
+    ANeuralNetworksMemory_copy; # introduced=30
     ANeuralNetworksMemory_free;
+    ANeuralNetworksMemoryDesc_addInputRole; # introduced=30
+    ANeuralNetworksMemoryDesc_addOutputRole; # introduced=30
+    ANeuralNetworksMemoryDesc_create; # introduced=30
+    ANeuralNetworksMemoryDesc_finish; # introduced=30
+    ANeuralNetworksMemoryDesc_free; # introduced=30
+    ANeuralNetworksMemoryDesc_setDimensions; # introduced=30
     ANeuralNetworksModel_create;
     ANeuralNetworksModel_free;
     ANeuralNetworksModel_finish;
@@ -36,6 +47,7 @@ LIBNEURALNETWORKS {
     ANeuralNetworksModel_setOperandSymmPerChannelQuantParams; # introduced=Q
     ANeuralNetworksModel_setOperandValue;
     ANeuralNetworksModel_setOperandValueFromMemory;
+    ANeuralNetworksModel_setOperandValueFromModel; # introduced=30
     ANeuralNetworksModel_addOperation;
     ANeuralNetworksModel_identifyInputsAndOutputs;
     ANeuralNetworksModel_relaxComputationFloat32toFloat16;
@@ -46,6 +58,8 @@ LIBNEURALNETWORKS {
     ANeuralNetworksCompilation_setCaching; # introduced=Q
     ANeuralNetworksCompilation_setPreference;
     ANeuralNetworksCompilation_finish;
+    ANeuralNetworksCompilation_setPriority; # introduced=30
+    ANeuralNetworksCompilation_setTimeout; # introduced=30
     ANeuralNetworksBurst_create; # introduced=Q
     ANeuralNetworksBurst_free; # introduced=Q
     ANeuralNetworksExecution_burstCompute; # introduced=Q
@@ -59,8 +73,13 @@ LIBNEURALNETWORKS {
     ANeuralNetworksExecution_setOutput;
     ANeuralNetworksExecution_setOutputFromMemory;
     ANeuralNetworksExecution_startCompute;
+    ANeuralNetworksExecution_startComputeWithDependencies; # introduced=30
     ANeuralNetworksExecution_getOutputOperandDimensions; # introduced=Q
     ANeuralNetworksExecution_getOutputOperandRank; # introduced=Q
+    ANeuralNetworksExecution_setTimeout; # introduced=30
+    ANeuralNetworksExecution_setLoopTimeout; # introduced=30
+    ANeuralNetworksEvent_createFromSyncFenceFd; # introduced=30
+    ANeuralNetworksEvent_getSyncFenceFd; # introduced=30
     ANeuralNetworksEvent_wait;
     ANeuralNetworksEvent_free;
   local:

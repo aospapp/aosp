@@ -38,7 +38,7 @@ public final class AppTargetEvent implements Parcelable {
     /**
      * @hide
      */
-    @IntDef({ACTION_LAUNCH, ACTION_DISMISS, ACTION_PIN})
+    @IntDef({ACTION_LAUNCH, ACTION_DISMISS, ACTION_PIN, ACTION_UNPIN})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ActionType {}
 
@@ -56,6 +56,11 @@ public final class AppTargetEvent implements Parcelable {
      * Event type constant indicating an app target has been pinned.
      */
     public static final int ACTION_PIN = 3;
+
+    /**
+     * Event type constant indicating an app target has been un-pinned.
+     */
+    public static final int ACTION_UNPIN = 4;
 
     private final AppTarget mTarget;
     private final String mLocation;
@@ -98,7 +103,7 @@ public final class AppTargetEvent implements Parcelable {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (!getClass().equals(o != null ? o.getClass() : null)) return false;
 
         AppTargetEvent other = (AppTargetEvent) o;

@@ -18,34 +18,83 @@ package android.net;
 
 import static android.net.RouteInfo.RTN_UNREACHABLE;
 
-import android.os.Parcel;
-import android.test.suitebuilder.annotation.SmallTest;
+import static com.android.testutils.MiscAssertsKt.assertEqualBothWays;
+import static com.android.testutils.MiscAssertsKt.assertFieldCountEquals;
+import static com.android.testutils.MiscAssertsKt.assertNotEqualEitherWay;
+import static com.android.testutils.ParcelUtilsKt.assertParcelingIsLossless;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.os.Build;
+
+import androidx.core.os.BuildCompat;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
+
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 
-public class RouteInfoTest extends TestCase {
+@RunWith(AndroidJUnit4.class)
+@SmallTest
+public class RouteInfoTest {
+    @Rule
+    public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule();
+
+    private static final int INVALID_ROUTE_TYPE = -1;
 
     private InetAddress Address(String addr) {
-        return InetAddress.parseNumericAddress(addr);
+        return InetAddresses.parseNumericAddress(addr);
     }
 
     private IpPrefix Prefix(String prefix) {
         return new IpPrefix(prefix);
     }
 
-    @SmallTest
+    private static boolean isAtLeastR() {
+        // BuildCompat.isAtLeastR is documented to return false on release SDKs (including R)
+        return Build.VERSION.SDK_INT > Build.VERSION_CODES.Q || BuildCompat.isAtLeastR();
+    }
+
+    @Test
     public void testConstructor() {
         RouteInfo r;
-
         // Invalid input.
         try {
             r = new RouteInfo((IpPrefix) null, null, "rmnet0");
             fail("Expected RuntimeException:  destination and gateway null");
-        } catch(RuntimeException e) {}
+        } catch (RuntimeException e) { }
+
+        try {
+            r = new RouteInfo(Prefix("2001:db8:ace::/49"), Address("2001:db8::1"), "rmnet0",
+                    INVALID_ROUTE_TYPE);
+            fail("Invalid route type should cause exception");
+        } catch (IllegalArgumentException e) { }
+
+        try {
+            r = new RouteInfo(Prefix("2001:db8:ace::/49"), Address("192.0.2.1"), "rmnet0",
+                    RTN_UNREACHABLE);
+            fail("Address family mismatch should cause exception");
+        } catch (IllegalArgumentException e) { }
+
+        try {
+            r = new RouteInfo(Prefix("0.0.0.0/0"), Address("2001:db8::1"), "rmnet0",
+                    RTN_UNREACHABLE);
+            fail("Address family mismatch should cause exception");
+        } catch (IllegalArgumentException e) { }
 
         // Null destination is default route.
         r = new RouteInfo((IpPrefix) null, Address("2001:db8::1"), null);
@@ -70,6 +119,7 @@ public class RouteInfoTest extends TestCase {
         assertNull(r.getInterface());
     }
 
+    @Test
     public void testMatches() {
         class PatchedRouteInfo {
             private final RouteInfo mRouteInfo;
@@ -109,49 +159,41 @@ public class RouteInfoTest extends TestCase {
         assertFalse(ipv4Default.matches(Address("2001:db8::f00")));
     }
 
-    private void assertAreEqual(Object o1, Object o2) {
-        assertTrue(o1.equals(o2));
-        assertTrue(o2.equals(o1));
-    }
-
-    private void assertAreNotEqual(Object o1, Object o2) {
-        assertFalse(o1.equals(o2));
-        assertFalse(o2.equals(o1));
-    }
-
+    @Test
     public void testEquals() {
         // IPv4
         RouteInfo r1 = new RouteInfo(Prefix("2001:db8:ace::/48"), Address("2001:db8::1"), "wlan0");
         RouteInfo r2 = new RouteInfo(Prefix("2001:db8:ace::/48"), Address("2001:db8::1"), "wlan0");
-        assertAreEqual(r1, r2);
+        assertEqualBothWays(r1, r2);
 
         RouteInfo r3 = new RouteInfo(Prefix("2001:db8:ace::/49"), Address("2001:db8::1"), "wlan0");
         RouteInfo r4 = new RouteInfo(Prefix("2001:db8:ace::/48"), Address("2001:db8::2"), "wlan0");
         RouteInfo r5 = new RouteInfo(Prefix("2001:db8:ace::/48"), Address("2001:db8::1"), "rmnet0");
-        assertAreNotEqual(r1, r3);
-        assertAreNotEqual(r1, r4);
-        assertAreNotEqual(r1, r5);
+        assertNotEqualEitherWay(r1, r3);
+        assertNotEqualEitherWay(r1, r4);
+        assertNotEqualEitherWay(r1, r5);
 
         // IPv6
         r1 = new RouteInfo(Prefix("192.0.2.0/25"), Address("192.0.2.1"), "wlan0");
         r2 = new RouteInfo(Prefix("192.0.2.0/25"), Address("192.0.2.1"), "wlan0");
-        assertAreEqual(r1, r2);
+        assertEqualBothWays(r1, r2);
 
         r3 = new RouteInfo(Prefix("192.0.2.0/24"), Address("192.0.2.1"), "wlan0");
         r4 = new RouteInfo(Prefix("192.0.2.0/25"), Address("192.0.2.2"), "wlan0");
         r5 = new RouteInfo(Prefix("192.0.2.0/25"), Address("192.0.2.1"), "rmnet0");
-        assertAreNotEqual(r1, r3);
-        assertAreNotEqual(r1, r4);
-        assertAreNotEqual(r1, r5);
+        assertNotEqualEitherWay(r1, r3);
+        assertNotEqualEitherWay(r1, r4);
+        assertNotEqualEitherWay(r1, r5);
 
         // Interfaces (but not destinations or gateways) can be null.
         r1 = new RouteInfo(Prefix("192.0.2.0/25"), Address("192.0.2.1"), null);
         r2 = new RouteInfo(Prefix("192.0.2.0/25"), Address("192.0.2.1"), null);
         r3 = new RouteInfo(Prefix("192.0.2.0/24"), Address("192.0.2.1"), "wlan0");
-        assertAreEqual(r1, r2);
-        assertAreNotEqual(r1, r3);
+        assertEqualBothWays(r1, r2);
+        assertNotEqualEitherWay(r1, r3);
     }
 
+    @Test
     public void testHostAndDefaultRoutes() {
         RouteInfo r;
 
@@ -160,80 +202,133 @@ public class RouteInfoTest extends TestCase {
         assertTrue(r.isDefaultRoute());
         assertTrue(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("::/0"), Address("::"), "wlan0");
         assertFalse(r.isHostRoute());
         assertTrue(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertTrue(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("192.0.2.0/24"), null, "wlan0");
         assertFalse(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("2001:db8::/48"), null, "wlan0");
         assertFalse(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("192.0.2.0/32"), Address("0.0.0.0"), "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("2001:db8::/128"), Address("::"), "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("192.0.2.0/32"), null, "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("2001:db8::/128"), null, "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("::/128"), Address("fe80::"), "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("0.0.0.0/32"), Address("192.0.2.1"), "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(Prefix("0.0.0.0/32"), Address("192.0.2.1"), "wlan0");
         assertTrue(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(new IpPrefix(Inet4Address.ANY, 0), RTN_UNREACHABLE);
         assertFalse(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertTrue(r.isIPv4UnreachableDefault());
+            assertFalse(r.isIPv6UnreachableDefault());
+        }
 
         r = new RouteInfo(new IpPrefix(Inet6Address.ANY, 0), RTN_UNREACHABLE);
         assertFalse(r.isHostRoute());
         assertFalse(r.isDefaultRoute());
         assertFalse(r.isIPv4Default());
         assertFalse(r.isIPv6Default());
+        if (isAtLeastR()) {
+            assertFalse(r.isIPv4UnreachableDefault());
+            assertTrue(r.isIPv6UnreachableDefault());
+        }
     }
 
+    @Test
     public void testTruncation() {
       LinkAddress l;
       RouteInfo r;
@@ -250,6 +345,7 @@ public class RouteInfoTest extends TestCase {
     // Make sure that creating routes to multicast addresses doesn't throw an exception. Even though
     // there's nothing we can do with them, we don't want to crash if, e.g., someone calls
     // requestRouteToHostAddress("230.0.0.0", MOBILE_HIPRI);
+    @Test
     public void testMulticastRoute() {
       RouteInfo r;
       r = new RouteInfo(Prefix("230.0.0.0/32"), Address("192.0.2.1"), "wlan0");
@@ -257,32 +353,82 @@ public class RouteInfoTest extends TestCase {
       // No exceptions? Good.
     }
 
-    public RouteInfo passThroughParcel(RouteInfo r) {
-        Parcel p = Parcel.obtain();
-        RouteInfo r2 = null;
-        try {
-            r.writeToParcel(p, 0);
-            p.setDataPosition(0);
-            r2 = RouteInfo.CREATOR.createFromParcel(p);
-        } finally {
-            p.recycle();
-        }
-        assertNotNull(r2);
-        return r2;
-    }
-
-    public void assertParcelingIsLossless(RouteInfo r) {
-      RouteInfo r2 = passThroughParcel(r);
-      assertEquals(r, r2);
-    }
-
+    @Test
     public void testParceling() {
         RouteInfo r;
-
-        r = new RouteInfo(Prefix("::/0"), Address("2001:db8::"), null);
+        r = new RouteInfo(Prefix("192.0.2.0/24"), Address("192.0.2.1"), null);
         assertParcelingIsLossless(r);
-
         r = new RouteInfo(Prefix("192.0.2.0/24"), null, "wlan0");
         assertParcelingIsLossless(r);
+        r = new RouteInfo(Prefix("192.0.2.0/24"), Address("192.0.2.1"), "wlan0", RTN_UNREACHABLE);
+        assertParcelingIsLossless(r);
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    public void testMtuParceling() {
+        final RouteInfo r = new RouteInfo(Prefix("ff02::1/128"), Address("2001:db8::"), "testiface",
+                RTN_UNREACHABLE, 1450 /* mtu */);
+        assertParcelingIsLossless(r);
+    }
+
+    @Test @IgnoreAfter(Build.VERSION_CODES.Q)
+    public void testFieldCount_Q() {
+        assertFieldCountEquals(6, RouteInfo.class);
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    public void testFieldCount() {
+        // Make sure any new field is covered by the above parceling tests when changing this number
+        assertFieldCountEquals(7, RouteInfo.class);
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    public void testMtu() {
+        RouteInfo r;
+        r = new RouteInfo(Prefix("0.0.0.0/0"), Address("0.0.0.0"), "wlan0",
+                RouteInfo.RTN_UNICAST, 1500);
+        assertEquals(1500, r.getMtu());
+
+        r = new RouteInfo(Prefix("0.0.0.0/0"), Address("0.0.0.0"), "wlan0");
+        assertEquals(0, r.getMtu());
+    }
+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
+    public void testRouteKey() {
+        RouteInfo.RouteKey k1, k2;
+        // Only prefix, null gateway and null interface
+        k1 = new RouteInfo(Prefix("2001:db8::/128"), null).getRouteKey();
+        k2 = new RouteInfo(Prefix("2001:db8::/128"), null).getRouteKey();
+        assertEquals(k1, k2);
+        assertEquals(k1.hashCode(), k2.hashCode());
+
+        // With prefix, gateway and interface. Type and MTU does not affect RouteKey equality
+        k1 = new RouteInfo(Prefix("192.0.2.0/24"), Address("192.0.2.1"), "wlan0",
+                RTN_UNREACHABLE, 1450).getRouteKey();
+        k2 = new RouteInfo(Prefix("192.0.2.0/24"), Address("192.0.2.1"), "wlan0",
+                RouteInfo.RTN_UNICAST, 1400).getRouteKey();
+        assertEquals(k1, k2);
+        assertEquals(k1.hashCode(), k2.hashCode());
+
+        // Different scope IDs are ignored by the kernel, so we consider them equal here too.
+        k1 = new RouteInfo(Prefix("2001:db8::/64"), Address("fe80::1%1"), "wlan0").getRouteKey();
+        k2 = new RouteInfo(Prefix("2001:db8::/64"), Address("fe80::1%2"), "wlan0").getRouteKey();
+        assertEquals(k1, k2);
+        assertEquals(k1.hashCode(), k2.hashCode());
+
+        // Different prefix
+        k1 = new RouteInfo(Prefix("192.0.2.0/24"), null).getRouteKey();
+        k2 = new RouteInfo(Prefix("192.0.3.0/24"), null).getRouteKey();
+        assertNotEquals(k1, k2);
+
+        // Different gateway
+        k1 = new RouteInfo(Prefix("ff02::1/128"), Address("2001:db8::1"), null).getRouteKey();
+        k2 = new RouteInfo(Prefix("ff02::1/128"), Address("2001:db8::2"), null).getRouteKey();
+        assertNotEquals(k1, k2);
+
+        // Different interface
+        k1 = new RouteInfo(Prefix("ff02::1/128"), null, "tun0").getRouteKey();
+        k2 = new RouteInfo(Prefix("ff02::1/128"), null, "tun1").getRouteKey();
+        assertNotEquals(k1, k2);
     }
 }

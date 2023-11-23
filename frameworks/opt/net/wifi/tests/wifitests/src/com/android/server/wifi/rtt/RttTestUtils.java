@@ -16,8 +16,6 @@
 
 package com.android.server.wifi.rtt;
 
-import android.hardware.wifi.V1_0.RttResult;
-import android.hardware.wifi.V1_0.RttStatus;
 import android.net.MacAddress;
 import android.net.wifi.ScanResult;
 import android.net.wifi.rtt.RangingRequest;
@@ -117,18 +115,21 @@ public class RttTestUtils {
      *
      * @param request If non-null will be used as a template (BSSID) for the range results.
      */
-    public static Pair<List<RttResult>, List<RangingResult>> getDummyRangingResults(
+    public static Pair<List<RangingResult>, List<RangingResult>> getDummyRangingResults(
             RangingRequest request) {
         int rangeCmBase = 15;
         int rangeStdDevCmBase = 3;
         int rssiBase = -20;
         long rangeTimestampBase = 666;
-        List<RttResult> halResults = new ArrayList<>();
+        List<RangingResult> halResults = new ArrayList<>();
         List<RangingResult> results = new ArrayList<>();
 
         if (request != null) {
             for (ResponderConfig peer: request.mRttPeers) {
                 RangingResult rangingResult;
+                halResults.add(new RangingResult(RangingResult.STATUS_SUCCESS,
+                        peer.macAddress, rangeCmBase, rangeStdDevCmBase, rssiBase,
+                        8, 5, null, null, null, rangeTimestampBase));
                 if (peer.peerHandle == null) {
                     rangingResult = new RangingResult(RangingResult.STATUS_SUCCESS,
                             peer.macAddress, rangeCmBase++, rangeStdDevCmBase++, rssiBase++,
@@ -139,7 +140,7 @@ public class RttTestUtils {
                             8, 5, null, null, null, rangeTimestampBase++);
                 }
                 results.add(rangingResult);
-                halResults.add(getMatchingRttResult(rangingResult, peer.macAddress));
+
             }
         } else {
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
@@ -154,28 +155,9 @@ public class RttTestUtils {
                     MacAddress.fromString("08:09:08:07:06:05"), rangeCmBase++,
                     rangeStdDevCmBase++, rssiBase++, 10, 2, null, null,
                     null, rangeTimestampBase++));
-            halResults.add(getMatchingRttResult(results.get(0), null));
-            halResults.add(getMatchingRttResult(results.get(1), null));
-            halResults.add(getMatchingRttResult(results.get(2), null));
+            halResults.addAll(results);
         }
 
         return new Pair<>(halResults, results);
-    }
-
-    private static RttResult getMatchingRttResult(RangingResult rangingResult,
-            MacAddress overrideMac) {
-        RttResult rttResult = new RttResult();
-        rttResult.status = rangingResult.getStatus() == RangingResult.STATUS_SUCCESS
-                ? RttStatus.SUCCESS : RttStatus.FAILURE;
-        System.arraycopy(overrideMac == null ? rangingResult.getMacAddress().toByteArray()
-                : overrideMac.toByteArray(), 0, rttResult.addr, 0, 6);
-        rttResult.distanceInMm = rangingResult.getDistanceMm();
-        rttResult.distanceSdInMm = rangingResult.getDistanceStdDevMm();
-        rttResult.rssi = rangingResult.getRssi() * -2;
-        rttResult.numberPerBurstPeer = (byte) rangingResult.getNumAttemptedMeasurements();
-        rttResult.successNumber = rangingResult.getNumSuccessfulMeasurements();
-        rttResult.timeStampInUs = rangingResult.getRangingTimestampMillis() * 1000;
-
-        return rttResult;
     }
 }

@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
+#include <vector>
+
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
 
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-#include "tensorflow/lite/kernels/internal/reference/reference_ops.h"
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/reference_ops.h>
 
 #include "Tracing.h"
 
@@ -36,6 +41,8 @@ constexpr uint32_t kNumOutputs = 1;
 constexpr uint32_t kOutputTensor = 0;
 
 namespace {
+
+using namespace hal;
 
 template <typename T>
 bool transposeGeneric(const T* inputData, const Shape& inputShape, const int32_t* perm,
@@ -75,8 +82,14 @@ bool validate(const IOperationValidationContext* context) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_1));
     } else if (inputType == OperandType::TENSOR_FLOAT16) {
         NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_2));
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        NN_RET_CHECK(validateHalVersion(context, HalVersion::V1_3));
     } else {
         NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;
+    }
+    const Shape& input = context->getInputShape(kInputTensor);
+    if (hasKnownRank(input)) {
+        NN_RET_CHECK_LE(getNumberOfDimensions(input), 4);
     }
     return validateInputTypes(context, {inputType, OperandType::TENSOR_INT32}) &&
            validateOutputTypes(context, {inputType});
@@ -145,6 +158,13 @@ bool execute(IOperationExecutionContext* context) {
                                     context->getInputBuffer<int32_t>(kPermTensor),
                                     context->getInputShape(kPermTensor),
                                     context->getOutputBuffer<uint8_t>(kOutputTensor),
+                                    context->getOutputShape(kOutputTensor));
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED:
+            return transposeGeneric(context->getInputBuffer<int8_t>(kInputTensor),
+                                    context->getInputShape(kInputTensor),
+                                    context->getInputBuffer<int32_t>(kPermTensor),
+                                    context->getInputShape(kPermTensor),
+                                    context->getOutputBuffer<int8_t>(kOutputTensor),
                                     context->getOutputShape(kOutputTensor));
         default:
             NN_RET_CHECK_FAIL() << "Unsupported tensor type for operation " << kOperationName;

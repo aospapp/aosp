@@ -600,7 +600,7 @@ public final class Matrix_Delegate {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
                 "Matrix.setPolyToPoly is not supported.",
-                null, null /*data*/);
+                null, null, null /*data*/);
         return false;
     }
 

@@ -17,7 +17,14 @@
 #ifndef STATS_SERVICE_H
 #define STATS_SERVICE_H
 
+#include <aidl/android/os/BnStatsd.h>
+#include <aidl/android/os/IPendingIntentRef.h>
+#include <aidl/android/os/IPullAtomCallback.h>
 #include <gtest/gtest_prod.h>
+#include <utils/Looper.h>
+
+#include <mutex>
+
 #include "StatsLogProcessor.h"
 #include "anomaly/AlarmMonitor.h"
 #include "config/ConfigManager.h"
@@ -26,35 +33,25 @@
 #include "packages/UidMap.h"
 #include "shell/ShellSubscriber.h"
 #include "statscompanion_util.h"
-
-#include <android/frameworks/stats/1.0/IStats.h>
-#include <android/frameworks/stats/1.0/types.h>
-#include <android/os/BnStatsManager.h>
-#include <android/os/IStatsCompanionService.h>
-#include <android/os/IStatsManager.h>
-#include <binder/IResultReceiver.h>
-#include <binder/ParcelFileDescriptor.h>
-#include <utils/Looper.h>
-
-#include <deque>
-#include <mutex>
+#include "utils/MultiConditionTrigger.h"
 
 using namespace android;
-using namespace android::base;
-using namespace android::binder;
-using namespace android::frameworks::stats::V1_0;
 using namespace android::os;
 using namespace std;
+
+using Status = ::ndk::ScopedAStatus;
+using aidl::android::os::BnStatsd;
+using aidl::android::os::IPendingIntentRef;
+using aidl::android::os::IPullAtomCallback;
+using ::ndk::ScopedAIBinder_DeathRecipient;
+using ::ndk::ScopedFileDescriptor;
+using std::shared_ptr;
 
 namespace android {
 namespace os {
 namespace statsd {
 
-using android::hardware::Return;
-
-class StatsService : public BnStatsManager,
-                     public IStats,
-                     public IBinder::DeathRecipient {
+class StatsService : public BnStatsd {
 public:
     StatsService(const sp<Looper>& handlerLooper, std::shared_ptr<LogEventQueue> queue);
     virtual ~StatsService();
@@ -62,21 +59,21 @@ public:
     /** The anomaly alarm registered with AlarmManager won't be updated by less than this. */
     const uint32_t MIN_DIFF_TO_UPDATE_REGISTERED_ALARM_SECS = 5;
 
-    virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags);
-    virtual status_t dump(int fd, const Vector<String16>& args);
-    virtual status_t command(int inFd, int outFd, int err, Vector<String8>& args,
-                             sp<IResultReceiver> resultReceiver);
+    virtual status_t dump(int fd, const char** args, uint32_t numArgs) override;
+    virtual status_t handleShellCommand(int in, int out, int err, const char** argv,
+                                        uint32_t argc) override;
 
     virtual Status systemRunning();
     virtual Status statsCompanionReady();
+    virtual Status bootCompleted();
     virtual Status informAnomalyAlarmFired();
     virtual Status informPollAlarmFired();
     virtual Status informAlarmForSubscriberTriggeringFired();
 
-    virtual Status informAllUidData(const ParcelFileDescriptor& fd);
-    virtual Status informOnePackage(const String16& app, int32_t uid, int64_t version,
-                                    const String16& version_string, const String16& installer);
-    virtual Status informOnePackageRemoved(const String16& app, int32_t uid);
+    virtual Status informAllUidData(const ScopedFileDescriptor& fd);
+    virtual Status informOnePackage(const string& app, int32_t uid, int64_t version,
+                                    const string& versionString, const string& installer);
+    virtual Status informOnePackageRemoved(const string& app, int32_t uid);
     virtual Status informDeviceShutdown();
 
     /**
@@ -98,15 +95,14 @@ public:
      * Binder call for clients to request data for this configuration key.
      */
     virtual Status getData(int64_t key,
-                           const String16& packageName,
-                           vector<uint8_t>* output) override;
+                           const int32_t callingUid,
+                           vector<int8_t>* output) override;
 
 
     /**
      * Binder call for clients to get metadata across all configs in statsd.
      */
-    virtual Status getMetadata(const String16& packageName,
-                               vector<uint8_t>* output) override;
+    virtual Status getMetadata(vector<int8_t>* output) override;
 
 
     /**
@@ -114,156 +110,92 @@ public:
      * should requestData for this configuration.
      */
     virtual Status addConfiguration(int64_t key,
-                                    const vector<uint8_t>& config,
-                                    const String16& packageName) override;
+                                    const vector<int8_t>& config,
+                                    const int32_t callingUid) override;
 
     /**
      * Binder call to let clients register the data fetch operation for a configuration.
      */
     virtual Status setDataFetchOperation(int64_t key,
-                                         const sp<android::IBinder>& intentSender,
-                                         const String16& packageName) override;
+                                         const shared_ptr<IPendingIntentRef>& pir,
+                                         const int32_t callingUid) override;
 
     /**
      * Binder call to remove the data fetch operation for the specified config key.
      */
     virtual Status removeDataFetchOperation(int64_t key,
-                                            const String16& packageName) override;
+                                            const int32_t callingUid) override;
 
     /**
      * Binder call to let clients register the active configs changed operation.
      */
-    virtual Status setActiveConfigsChangedOperation(const sp<android::IBinder>& intentSender,
-                                                    const String16& packageName,
+    virtual Status setActiveConfigsChangedOperation(const shared_ptr<IPendingIntentRef>& pir,
+                                                    const int32_t callingUid,
                                                     vector<int64_t>* output) override;
 
     /**
      * Binder call to remove the active configs changed operation for the specified package..
      */
-    virtual Status removeActiveConfigsChangedOperation(const String16& packageName) override;
+    virtual Status removeActiveConfigsChangedOperation(const int32_t callingUid) override;
     /**
      * Binder call to allow clients to remove the specified configuration.
      */
     virtual Status removeConfiguration(int64_t key,
-                                       const String16& packageName) override;
+                                       const int32_t callingUid) override;
 
     /**
-     * Binder call to associate the given config's subscriberId with the given intentSender.
-     * intentSender must be convertible into an IntentSender (in Java) using IntentSender(IBinder).
+     * Binder call to associate the given config's subscriberId with the given pendingIntentRef.
      */
     virtual Status setBroadcastSubscriber(int64_t configId,
                                           int64_t subscriberId,
-                                          const sp<android::IBinder>& intentSender,
-                                          const String16& packageName) override;
+                                          const shared_ptr<IPendingIntentRef>& pir,
+                                          const int32_t callingUid) override;
 
     /**
-     * Binder call to unassociate the given config's subscriberId with any intentSender.
+     * Binder call to unassociate the given config's subscriberId with any pendingIntentRef.
      */
     virtual Status unsetBroadcastSubscriber(int64_t configId,
                                             int64_t subscriberId,
-                                            const String16& packageName) override;
+                                            const int32_t callingUid) override;
 
     /** Inform statsCompanion that statsd is ready. */
     virtual void sayHiToStatsCompanion();
 
     /**
-     * Binder call to get AppBreadcrumbReported atom.
+     * Binder call to notify statsd that all pullers from boot have been registered.
      */
-    virtual Status sendAppBreadcrumbAtom(int32_t label, int32_t state) override;
+    virtual Status allPullersFromBootRegistered();
 
     /**
-     * Binder call to register a callback function for a vendor pulled atom.
-     * Note: this atom must NOT have uid as a field.
+     * Binder call to register a callback function for a pulled atom.
      */
-    virtual Status registerPullerCallback(int32_t atomTag,
-        const sp<android::os::IStatsPullerCallback>& pullerCallback,
-        const String16& packageName) override;
+    virtual Status registerPullAtomCallback(
+            int32_t uid, int32_t atomTag, int64_t coolDownMillis, int64_t timeoutMillis,
+            const std::vector<int32_t>& additiveFields,
+            const shared_ptr<IPullAtomCallback>& pullerCallback) override;
 
     /**
-     * Binder call to unregister any existing callback function for a vendor pulled atom.
+     * Binder call to register a callback function for a pulled atom.
      */
-    virtual Status unregisterPullerCallback(int32_t atomTag, const String16& packageName) override;
+    virtual Status registerNativePullAtomCallback(
+            int32_t atomTag, int64_t coolDownMillis, int64_t timeoutMillis,
+            const std::vector<int32_t>& additiveFields,
+            const shared_ptr<IPullAtomCallback>& pullerCallback) override;
 
     /**
-     * Binder call to log BinaryPushStateChanged atom.
+     * Binder call to unregister any existing callback for the given uid and atom.
      */
-    virtual Status sendBinaryPushStateChangedAtom(
-            const android::String16& trainNameIn,
-            const int64_t trainVersionCodeIn,
-            const int options,
-            const int32_t state,
-            const std::vector<int64_t>& experimentIdsIn) override;
+    virtual Status unregisterPullAtomCallback(int32_t uid, int32_t atomTag) override;
 
     /**
-     * Binder call to log WatchdogRollbackOccurred atom.
+     * Binder call to unregister any existing callback for the given atom and calling uid.
      */
-    virtual Status sendWatchdogRollbackOccurredAtom(
-            const int32_t rollbackTypeIn,
-            const android::String16& packageNameIn,
-            const int64_t packageVersionCodeIn) override;
+    virtual Status unregisterNativePullAtomCallback(int32_t atomTag) override;
 
     /**
      * Binder call to get registered experiment IDs.
      */
     virtual Status getRegisteredExperimentIds(std::vector<int64_t>* expIdsOut);
-
-    /**
-     * Binder call to get SpeakerImpedance atom.
-     */
-    virtual Return<void> reportSpeakerImpedance(const SpeakerImpedance& speakerImpedance) override;
-
-    /**
-     * Binder call to get HardwareFailed atom.
-     */
-    virtual Return<void> reportHardwareFailed(const HardwareFailed& hardwareFailed) override;
-
-    /**
-     * Binder call to get PhysicalDropDetected atom.
-     */
-    virtual Return<void> reportPhysicalDropDetected(
-            const PhysicalDropDetected& physicalDropDetected) override;
-
-    /**
-     * Binder call to get ChargeCyclesReported atom.
-     */
-    virtual Return<void> reportChargeCycles(const ChargeCycles& chargeCycles) override;
-
-    /**
-     * Binder call to get BatteryHealthSnapshot atom.
-     */
-    virtual Return<void> reportBatteryHealthSnapshot(
-            const BatteryHealthSnapshotArgs& batteryHealthSnapshotArgs) override;
-
-    /**
-     * Binder call to get SlowIo atom.
-     */
-    virtual Return<void> reportSlowIo(const SlowIo& slowIo) override;
-
-    /**
-     * Binder call to get BatteryCausedShutdown atom.
-     */
-    virtual Return<void> reportBatteryCausedShutdown(
-            const BatteryCausedShutdown& batteryCausedShutdown) override;
-
-    /**
-     * Binder call to get UsbPortOverheatEvent atom.
-     */
-    virtual Return<void> reportUsbPortOverheatEvent(
-            const UsbPortOverheatEvent& usbPortOverheatEvent) override;
-
-    /**
-     * Binder call to get Speech DSP state atom.
-     */
-    virtual Return<void> reportSpeechDspStat(
-            const SpeechDspStat& speechDspStat) override;
-
-    /**
-     * Binder call to get vendor atom.
-     */
-    virtual Return<void> reportVendorAtom(const VendorAtom& vendorAtom) override;
-
-    /** IBinder::DeathRecipient */
-    virtual void binderDied(const wp<IBinder>& who) override;
 
 private:
     /**
@@ -388,12 +320,23 @@ private:
     /**
      * Adds a configuration after checking permissions and obtaining UID from binder call.
      */
-    bool addConfigurationChecked(int uid, int64_t key, const vector<uint8_t>& config);
+    bool addConfigurationChecked(int uid, int64_t key, const vector<int8_t>& config);
 
     /**
      * Update a configuration.
      */
     void set_config(int uid, const string& name, const StatsdConfig& config);
+
+    /**
+     * Death recipient callback that is called when StatsCompanionService dies.
+     * The cookie is a pointer to a StatsService object.
+     */
+    static void statsCompanionServiceDied(void* cookie);
+
+    /**
+     * Implementation of statsCompanionServiceDied.
+     */
+    void statsCompanionServiceDiedImpl();
 
     /**
      * Tracks the uid <--> package name mapping.
@@ -432,7 +375,18 @@ private:
 
     sp<ShellSubscriber> mShellSubscriber;
 
+    /**
+     * Mutex for setting the shell subscriber
+     */
+    mutable mutex mShellSubscriberMutex;
     std::shared_ptr<LogEventQueue> mEventQueue;
+
+    MultiConditionTrigger mBootCompleteTrigger;
+    static const inline string kBootCompleteTag = "BOOT_COMPLETE";
+    static const inline string kUidMapReceivedTag = "UID_MAP";
+    static const inline string kAllPullersRegisteredTag = "PULLERS_REGISTERED";
+
+    ScopedAIBinder_DeathRecipient mStatsCompanionServiceDeathRecipient;
 
     FRIEND_TEST(StatsLogProcessorTest, TestActivationsPersistAcrossSystemServerRestart);
     FRIEND_TEST(StatsServiceTest, TestAddConfig_simple);
@@ -440,11 +394,14 @@ private:
     FRIEND_TEST(StatsServiceTest, TestAddConfig_invalid);
     FRIEND_TEST(StatsServiceTest, TestGetUidFromArgs);
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricNoSplitOnNewApp);
+    FRIEND_TEST(PartialBucketE2eTest, TestCountMetricSplitOnBoot);
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricSplitOnUpgrade);
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricSplitOnRemoval);
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricWithoutSplit);
+    FRIEND_TEST(PartialBucketE2eTest, TestValueMetricOnBootWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestValueMetricWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestValueMetricWithMinPartialBucket);
+    FRIEND_TEST(PartialBucketE2eTest, TestGaugeMetricOnBootWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestGaugeMetricWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestGaugeMetricWithMinPartialBucket);
 };

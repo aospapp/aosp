@@ -16,8 +16,8 @@
 
 package com.android.server.wifi.aware;
 
+import android.os.BasicShellCommandHandler;
 import android.os.Binder;
-import android.os.ShellCommand;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -28,7 +28,7 @@ import java.util.Map;
 /**
  * Interprets and executes 'adb shell cmd wifiaware [args]'.
  */
-public class WifiAwareShellCommand extends ShellCommand {
+public class WifiAwareShellCommand extends BasicShellCommandHandler {
     private static final String TAG = "WifiAwareShellCommand";
 
     private Map<String, DelegatedShellCommand> mDelegatedCommands = new HashMap<>();
@@ -107,7 +107,7 @@ public class WifiAwareShellCommand extends ShellCommand {
          * Execute the specified command. Use the parent shell to obtain arguments. Note that the
          * first argument (which specified the delegated shell) has already been extracted.
          */
-        int onCommand(ShellCommand parentShell);
+        int onCommand(BasicShellCommandHandler parentShell);
 
         /**
          * Reset all parameters to their default values.
@@ -119,7 +119,7 @@ public class WifiAwareShellCommand extends ShellCommand {
          * as a first argument as an assist (prevents hard-coding of that string in multiple
          * places).
          */
-        void onHelp(String command, ShellCommand parentShell);
+        void onHelp(String command, BasicShellCommandHandler parentShell);
 
     }
 }

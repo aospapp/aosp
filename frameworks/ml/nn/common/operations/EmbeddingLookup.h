@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_EMBEDDING_LOOKUP_H
-#define FRAMEWORKS_ML_NN_EMBEDDING_LOOKUP_H
-
-#include "HalOperation.h"
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_EMBEDDING_LOOKUP_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_EMBEDDING_LOOKUP_H
 
 #include <vector>
+
+#include "HalInterfaces.h"
 
 namespace android {
 namespace nn {
@@ -27,26 +27,24 @@ namespace nn {
 struct RunTimeOperandInfo;
 
 class EmbeddingLookup {
- public:
-  EmbeddingLookup(
-      const Operation &operation,
-      std::vector<RunTimeOperandInfo> &operands);
+   public:
+    EmbeddingLookup(const hal::Operation& operation, RunTimeOperandInfo* operands);
 
-  bool Eval();
+    bool Eval();
 
-  static constexpr int kLookupTensor = 0;
-  static constexpr int kValueTensor = 1;
+    static constexpr int kLookupTensor = 0;
+    static constexpr int kValueTensor = 1;
 
-  static constexpr int kOutputTensor = 0;
+    static constexpr int kOutputTensor = 0;
 
- private:
-  const RunTimeOperandInfo *value_;
-  const RunTimeOperandInfo *lookup_;
+   private:
+    const RunTimeOperandInfo* value_;
+    const RunTimeOperandInfo* lookup_;
 
-  RunTimeOperandInfo *output_;
+    RunTimeOperandInfo* output_;
 };
 
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_EMBEDDING_LOOKUP_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_EMBEDDING_LOOKUP_H

@@ -16,20 +16,19 @@
 
 package com.android.internal.telephony.imsphone;
 
-import com.android.internal.R;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.content.Context;
+import android.net.Uri;
+import android.telecom.PhoneAccount;
+import android.telephony.PhoneNumberUtils;
+import android.telephony.ims.ImsExternalCallState;
+
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.UUSInfo;
-
-import android.annotation.UnsupportedAppUsage;
-import android.content.Context;
-import android.net.Uri;
-import android.telecom.PhoneAccount;
-import android.telephony.PhoneNumberUtils;
-import android.telephony.ims.ImsExternalCallState;
 
 import java.util.Collections;
 import java.util.Set;
@@ -131,6 +130,18 @@ public class ImsExternalConnection extends Connection {
     public void deflect(String number) throws CallStateException {
         // Deflect is not supported for external calls.
         throw new CallStateException ("Deflect is not supported for external calls");
+    }
+
+    @Override
+    public void transfer(String number, boolean isConfirmationRequired) throws CallStateException {
+        // Transfer is not supported for external calls.
+        throw new CallStateException("Transfer is not supported for external calls");
+    }
+
+    @Override
+    public void consultativeTransfer(Connection other) throws CallStateException {
+        // Transfer is not supported for external calls.
+        throw new CallStateException("Transfer is not supported for external calls");
     }
 
     @Override

@@ -30,6 +30,8 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.filters.FlakyTest;
 
+import com.android.ims.ImsCall;
+import com.android.ims.ImsException;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.TelephonyTest;
 
@@ -90,7 +92,6 @@ public class ImsPhoneCallTest extends TelephonyTest {
     }
 
     @FlakyTest
-    @Ignore
     @Test
     @SmallTest
     public void testConnectionDisconnected() {
@@ -105,6 +106,8 @@ public class ImsPhoneCallTest extends TelephonyTest {
         assertEquals(Call.State.ACTIVE, mImsCallUT.getState());
         doReturn(Call.State.DISCONNECTED).when(mConnection2).getState();
         mImsCallUT.connectionDisconnected(null);
+        assertEquals(Call.State.DISCONNECTED, mImsCallUT.getState());
+        mImsCallUT.onHangupLocal();
         assertEquals(Call.State.DISCONNECTED, mImsCallUT.getState());
     }
 
@@ -181,5 +184,29 @@ public class ImsPhoneCallTest extends TelephonyTest {
         mImsCallUT.attach(mConnection1, Call.State.ACTIVE);
         mImsCallUT.isMultiparty();
         verify(mImsCall, times(1)).isMultiparty();
+    }
+
+    @Test
+    @SmallTest
+    public void testGetImsCall() {
+        doReturn(mImsCall).when(mConnection1).getImsCall();
+        mImsCallUT.attach(mConnection1, Call.State.ACTIVE);
+
+        ImsCall imsCall = mImsCallUT.getImsCall();
+        assertEquals(mImsCall, imsCall);
+    }
+
+    @Test
+    @SmallTest
+    public void testSetMute() {
+        doReturn(mImsCall).when(mConnection1).getImsCall();
+        mImsCallUT.attach(mConnection1, Call.State.ACTIVE);
+
+        mImsCallUT.setMute(true);
+        try {
+            verify(mImsCall).setMute(eq(true));
+        } catch (ImsException e) {
+            fail("Exception unexpected");
+        }
     }
 }

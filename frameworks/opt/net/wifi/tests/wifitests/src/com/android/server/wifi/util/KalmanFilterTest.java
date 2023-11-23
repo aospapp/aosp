@@ -21,6 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.util.Random;
@@ -29,7 +31,7 @@ import java.util.Random;
  * Unit tests for {@link com.android.server.wifi.util.KalmanFilter}.
  */
 @SmallTest
-public class KalmanFilterTest {
+public class KalmanFilterTest extends WifiBaseTest {
     /**
      * Test that constructor works
      */

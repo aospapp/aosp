@@ -19,6 +19,10 @@
 
 #include <stdint.h>
 
+#include <audio_utils/Histogram.h>
+
+#include "utility/AudioClock.h"
+
 namespace aaudio {
 
 /**
@@ -31,7 +35,7 @@ class IsochronousClockModel {
 
 public:
     IsochronousClockModel();
-    virtual ~IsochronousClockModel();
+    virtual ~IsochronousClockModel() = default;
 
     void start(int64_t nanoTime);
     void stop(int64_t nanoTime);
@@ -79,12 +83,33 @@ public:
     int64_t convertPositionToTime(int64_t framePosition) const;
 
     /**
+     * Calculate the latest estimated time that the stream will be at that position.
+     * The more jittery the clock is then the later this will be.
+     *
+     * @param framePosition
+     * @return time in nanoseconds
+     */
+    int64_t convertPositionToLatestTime(int64_t framePosition) const;
+
+    /**
      * Calculate an estimated position where the stream will be at the specified time.
      *
      * @param nanoTime time of interest
      * @return position in frames
      */
     int64_t convertTimeToPosition(int64_t nanoTime) const;
+
+    /**
+     * Calculate the corresponding estimated position based on the specified time being
+     * the latest possible time.
+     *
+     * For the same nanoTime, this may return an earlier position than
+     * convertTimeToPosition().
+     *
+     * @param nanoTime
+     * @return position in frames
+     */
+    int64_t convertLatestTimeToPosition(int64_t nanoTime) const;
 
     /**
      * @param framesDelta difference in frames
@@ -100,7 +125,13 @@ public:
 
     void dump() const;
 
+    void dumpHistogram() const;
+
 private:
+
+    int32_t getLateTimeOffsetNanos() const;
+    void update();
+
     enum clock_model_state_t {
         STATE_STOPPED,
         STATE_STARTING,
@@ -108,14 +139,32 @@ private:
         STATE_RUNNING
     };
 
-    int64_t             mMarkerFramePosition;
-    int64_t             mMarkerNanoTime;
-    int32_t             mSampleRate;
-    int32_t             mFramesPerBurst;
-    int32_t             mMaxLatenessInNanos;
-    clock_model_state_t mState;
+    // Amount of time to drift forward when we get a late timestamp.
+    static constexpr int32_t   kDriftNanos         =   1 * 1000;
+    // Safety margin to add to the late edge of the timestamp window.
+    static constexpr int32_t   kExtraLatenessNanos = 100 * 1000;
+    // Initial small threshold for causing a drift later in time.
+    static constexpr int32_t   kInitialLatenessForDriftNanos = 10 * 1000;
 
-    void update();
+    static constexpr int32_t   kHistogramBinWidthMicros = 50;
+    static constexpr int32_t   kHistogramBinCount = 128;
+
+    int64_t             mMarkerFramePosition; // Estimated HW position.
+    int64_t             mMarkerNanoTime;      // Estimated HW time.
+    int32_t             mSampleRate;
+    int32_t             mFramesPerBurst;      // number of frames transferred at one time.
+    int32_t             mBurstPeriodNanos;    // Time between HW bursts.
+    // Includes mBurstPeriodNanos because we sample randomly over time.
+    int32_t             mMaxMeasuredLatenessNanos;
+    // Threshold for lateness that triggers a drift later in time.
+    int32_t             mLatenessForDriftNanos;
+    clock_model_state_t mState;               // State machine handles startup sequence.
+
+    int32_t             mTimestampCount = 0;  // For logging.
+
+    // distribution of timestamps relative to earliest
+    std::unique_ptr<android::audio_utils::Histogram>   mHistogramMicros;
+
 };
 
 } /* namespace aaudio */

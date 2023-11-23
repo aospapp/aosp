@@ -28,6 +28,7 @@
 #include <C2Buffer.h>
 #include <C2Debug.h>
 #include <C2ErrnoUtils.h>
+#include <C2HandleIonInternal.h>
 
 namespace android {
 
@@ -63,43 +64,6 @@ constexpr inline size_t ints2size(int intLo, int intHi) {
  *
  * This handle will not capture mapped fd-s as updating that would require a global mutex.
  */
-
-struct C2HandleIon : public C2Handle {
-    // ion handle owns ionFd(!) and bufferFd
-    C2HandleIon(int bufferFd, size_t size)
-        : C2Handle(cHeader),
-          mFds{ bufferFd },
-          mInts{ int(size & 0xFFFFFFFF), int((uint64_t(size) >> 32) & 0xFFFFFFFF), kMagic } { }
-
-    static bool isValid(const C2Handle * const o);
-
-    int bufferFd() const { return mFds.mBuffer; }
-    size_t size() const {
-        return size_t(unsigned(mInts.mSizeLo))
-                | size_t(uint64_t(unsigned(mInts.mSizeHi)) << 32);
-    }
-
-protected:
-    struct {
-        int mBuffer; // shared ion buffer
-    } mFds;
-    struct {
-        int mSizeLo; // low 32-bits of size
-        int mSizeHi; // high 32-bits of size
-        int mMagic;
-    } mInts;
-
-private:
-    typedef C2HandleIon _type;
-    enum {
-        kMagic = '\xc2io\x00',
-        numFds = sizeof(mFds) / sizeof(int),
-        numInts = sizeof(mInts) / sizeof(int),
-        version = sizeof(C2Handle)
-    };
-    //constexpr static C2Handle cHeader = { version, numFds, numInts, {} };
-    const static C2Handle cHeader;
-};
 
 const C2Handle C2HandleIon::cHeader = {
     C2HandleIon::version,
@@ -262,7 +226,7 @@ public:
                 *fence = C2Fence(); // not using fences
             }
             (void)mMappings.erase(it);
-            ALOGV("successfully unmapped: %d", mHandle.bufferFd());
+            ALOGV("successfully unmapped: addr=%p size=%zu fd=%d", addr, size, mHandle.bufferFd());
             return C2_OK;
         }
         ALOGD("unmap failed to find specified map");
@@ -600,7 +564,7 @@ c2_status_t C2AllocatorIon::newLinearAllocation(
     }
 
     std::shared_ptr<C2AllocationIon> alloc
-        = std::make_shared<C2AllocationIon>(dup(mIonFd), capacity, align, heapMask, flags, mTraits->id);
+        = std::make_shared<C2AllocationIon>(dup(mIonFd), capacity, align, heapMask, flags, getId());
     ret = alloc->status();
     if (ret == C2_OK) {
         *allocation = alloc;
@@ -622,7 +586,7 @@ c2_status_t C2AllocatorIon::priorLinearAllocation(
     // TODO: get capacity and validate it
     const C2HandleIon *h = static_cast<const C2HandleIon*>(handle);
     std::shared_ptr<C2AllocationIon> alloc
-        = std::make_shared<C2AllocationIon>(dup(mIonFd), h->size(), h->bufferFd(), mTraits->id);
+        = std::make_shared<C2AllocationIon>(dup(mIonFd), h->size(), h->bufferFd(), getId());
     c2_status_t ret = alloc->status();
     if (ret == C2_OK) {
         *allocation = alloc;

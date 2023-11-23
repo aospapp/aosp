@@ -27,9 +27,10 @@ import android.os.Handler;
 import android.os.RegistrantList;
 import android.os.SystemProperties;
 import android.provider.Settings;
+import android.sysprop.TelephonyProperties;
+import android.telephony.Annotation.CallState;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneStateListener;
-import android.telephony.Rlog;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -41,6 +42,7 @@ import com.android.internal.telephony.GlobalSettingsHelper;
 import com.android.internal.telephony.MultiSimSettingController;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.SubscriptionController;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -157,7 +159,7 @@ public class DataEnabledSettings {
 
     private final PhoneStateListener mPhoneStateListener = new PhoneStateListener() {
         @Override
-        public void onCallStateChanged(@TelephonyManager.CallState int state, String phoneNumber) {
+        public void onCallStateChanged(@CallState int state, String phoneNumber) {
             updateDataEnabledAndNotify(REASON_OVERRIDE_CONDITION_CHANGED);
         }
     };
@@ -192,8 +194,8 @@ public class DataEnabledSettings {
     }
 
     public synchronized void setInternalDataEnabled(boolean enabled) {
-        localLog("InternalDataEnabled", enabled);
         if (mInternalDataEnabled != enabled) {
+            localLog("InternalDataEnabled", enabled);
             mInternalDataEnabled = enabled;
             updateDataEnabledAndNotify(REASON_INTERNAL_DATA_ENABLED);
         }
@@ -203,17 +205,31 @@ public class DataEnabledSettings {
     }
 
     public synchronized void setUserDataEnabled(boolean enabled) {
+        // By default the change should propagate to the group.
+        setUserDataEnabled(enabled, true);
+    }
+
+    /**
+     * @param notifyMultiSimSettingController if setUserDataEnabled is already from propagating
+     *        from MultiSimSettingController, don't notify MultiSimSettingController again.
+     *        For example, if sub1 and sub2 are in the same group and user enables data for sub
+     *        1, sub 2 will also be enabled but with propagateToGroup = false.
+     */
+    public synchronized void setUserDataEnabled(boolean enabled,
+            boolean notifyMultiSimSettingController) {
         // Can't disable data for stand alone opportunistic subscription.
         if (isStandAloneOpportunistic(mPhone.getSubId(), mPhone.getContext()) && !enabled) return;
 
-        localLog("UserDataEnabled", enabled);
         boolean changed = GlobalSettingsHelper.setInt(mPhone.getContext(),
                 Settings.Global.MOBILE_DATA, mPhone.getSubId(), (enabled ? 1 : 0));
         if (changed) {
+            localLog("UserDataEnabled", enabled);
             mPhone.notifyUserMobileDataStateChanged(enabled);
             updateDataEnabledAndNotify(REASON_USER_DATA_ENABLED);
-            MultiSimSettingController.getInstance().notifyUserDataEnabled(mPhone.getSubId(),
-                    enabled);
+            if (notifyMultiSimSettingController) {
+                MultiSimSettingController.getInstance().notifyUserDataEnabled(
+                        mPhone.getSubId(), enabled);
+            }
         }
     }
 
@@ -221,8 +237,7 @@ public class DataEnabledSettings {
         // User data should always be true for opportunistic subscription.
         if (isStandAloneOpportunistic(mPhone.getSubId(), mPhone.getContext())) return true;
 
-        boolean defaultVal = "true".equalsIgnoreCase(SystemProperties.get(
-                "ro.com.android.mobiledata", "true"));
+        boolean defaultVal = TelephonyProperties.mobile_data().orElse(true);
 
         return GlobalSettingsHelper.getBoolean(mPhone.getContext(),
                 Settings.Global.MOBILE_DATA, mPhone.getSubId(), defaultVal);
@@ -249,16 +264,23 @@ public class DataEnabledSettings {
     }
 
     /**
-     * Set allowing mobile data during voice call.
+     * Set allowing mobile data during voice call. This is used for allowing data on the non-default
+     * data SIM. When a voice call is placed on the non-default data SIM on DSDS devices, users will
+     * not be able to use mobile data. By calling this API, data will be temporarily enabled on the
+     * non-default data SIM during the life cycle of the voice call.
      *
      * @param allow {@code true} if allowing using data during voice call, {@code false} if
      * disallowed
      *
-     * @return {@code false} if the setting is changed.
+     * @return {@code true} if operation is successful. otherwise {@code false}.
      */
     public synchronized boolean setAllowDataDuringVoiceCall(boolean allow) {
         localLog("setAllowDataDuringVoiceCall", allow);
+        if (allow == isDataAllowedInVoiceCall()) {
+            return true;
+        }
         mDataEnabledOverride.setDataAllowedInVoiceCall(allow);
+
         boolean changed = SubscriptionController.getInstance()
                 .setDataEnabledOverrideRules(mPhone.getSubId(), mDataEnabledOverride.getRules());
         if (changed) {
@@ -279,8 +301,8 @@ public class DataEnabledSettings {
     }
 
     public synchronized void setPolicyDataEnabled(boolean enabled) {
-        localLog("PolicyDataEnabled", enabled);
         if (mPolicyDataEnabled != enabled) {
+            localLog("PolicyDataEnabled", enabled);
             mPolicyDataEnabled = enabled;
             updateDataEnabledAndNotify(REASON_POLICY_DATA_ENABLED);
         }
@@ -291,8 +313,8 @@ public class DataEnabledSettings {
     }
 
     public synchronized void setCarrierDataEnabled(boolean enabled) {
-        localLog("CarrierDataEnabled", enabled);
         if (mCarrierDataEnabled != enabled) {
+            localLog("CarrierDataEnabled", enabled);
             mCarrierDataEnabled = enabled;
             updateDataEnabledAndNotify(REASON_DATA_ENABLED_BY_CARRIER);
         }
@@ -359,13 +381,12 @@ public class DataEnabledSettings {
     }
 
     public synchronized void setDataRoamingEnabled(boolean enabled) {
-        localLog("setDataRoamingEnabled", enabled);
-
         // will trigger handleDataOnRoamingChange() through observer
         boolean changed = GlobalSettingsHelper.setBoolean(mPhone.getContext(),
                 Settings.Global.DATA_ROAMING, mPhone.getSubId(), enabled);
 
         if (changed) {
+            localLog("setDataRoamingEnabled", enabled);
             MultiSimSettingController.getInstance().notifyRoamingDataEnabled(mPhone.getSubId(),
                     enabled);
         }
@@ -434,7 +455,7 @@ public class DataEnabledSettings {
 
     private static boolean isStandAloneOpportunistic(int subId, Context context) {
         SubscriptionInfo info = SubscriptionController.getInstance().getActiveSubscriptionInfo(
-                subId, context.getOpPackageName());
+                subId, context.getOpPackageName(), context.getAttributionTag());
         return (info != null) && info.isOpportunistic() && info.getGroupUuid() == null;
     }
 

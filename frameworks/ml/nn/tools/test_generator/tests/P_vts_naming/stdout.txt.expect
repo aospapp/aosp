@@ -19,7 +19,7 @@ Model createTestModel_model_name_nhwc_act_w_as_param_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -91,7 +91,7 @@ Model createTestModel_model_name_nhwc_act_w_as_param_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -166,7 +166,7 @@ Model createTestModel_model_name_nhwc_act_w_as_param_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -238,7 +238,7 @@ Model createTestModel_model_name_nhwc_act_w_as_param_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -314,7 +314,7 @@ Model createTestModel_model_name_nhwc_act_w_as_param_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -386,7 +386,7 @@ Model createTestModel_model_name_nhwc_act_w_as_param_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -461,7 +461,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -470,7 +470,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -533,7 +533,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -608,7 +608,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -617,7 +617,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -680,7 +680,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -756,7 +756,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -765,7 +765,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 0.25f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -828,7 +828,7 @@ Model createTestModel_model_name_nhwc_act_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -903,7 +903,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_param_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -975,7 +975,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_param_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1050,7 +1050,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_param_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1122,7 +1122,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_param_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1198,7 +1198,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_param_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1270,7 +1270,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_param_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1345,7 +1345,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1354,7 +1354,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1417,7 +1417,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1492,7 +1492,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1501,7 +1501,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1564,7 +1564,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1640,7 +1640,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1649,7 +1649,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 0.25f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1712,7 +1712,7 @@ Model createTestModel_model_name_nhwc_relu6_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1787,7 +1787,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_param_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -1859,7 +1859,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_param_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -1934,7 +1934,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_param_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2006,7 +2006,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_param_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2082,7 +2082,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_param_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2154,7 +2154,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_param_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2229,7 +2229,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2238,7 +2238,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2301,7 +2301,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2376,7 +2376,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2385,7 +2385,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2448,7 +2448,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2524,7 +2524,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2533,7 +2533,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 0.25f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2596,7 +2596,7 @@ Model createTestModel_model_name_nchw_layout_act_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2671,7 +2671,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_param_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2743,7 +2743,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_param_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2818,7 +2818,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_param_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -2890,7 +2890,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_param_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -2966,7 +2966,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_param_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3038,7 +3038,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_param_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -3113,7 +3113,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_float() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3122,7 +3122,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3185,7 +3185,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_float() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -3260,7 +3260,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_float_relaxed() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3269,7 +3269,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3332,7 +3332,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_float_relaxed() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };
@@ -3408,7 +3408,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_quantized() {
             .numberOfConsumers = 1,
             .scale = 0.5f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3417,7 +3417,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 0.25f,
             .zeroPoint = 128,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -3480,7 +3480,7 @@ Model createTestModel_model_name_nchw_layout_relu6_w_as_input_quantized() {
             .numberOfConsumers = 0,
             .scale = 2.0f,
             .zeroPoint = 100,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };

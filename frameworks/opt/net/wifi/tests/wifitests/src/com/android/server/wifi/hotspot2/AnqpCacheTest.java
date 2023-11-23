@@ -25,6 +25,7 @@ import static org.mockito.MockitoAnnotations.initMocks;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.Clock;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.hotspot2.ANQPData;
 import com.android.server.wifi.hotspot2.AnqpCache;
 
@@ -39,7 +40,7 @@ import org.mockito.Mock;
  * allow easy construction of ANQP elements for testing.
  */
 @SmallTest
-public class AnqpCacheTest {
+public class AnqpCacheTest extends WifiBaseTest {
     private static final ANQPNetworkKey ENTRY_KEY = new ANQPNetworkKey("test", 0L, 0L, 1);
 
     @Mock Clock mClock;
@@ -97,6 +98,18 @@ public class AnqpCacheTest {
         // Sweep the cache when the entry is expired.
         when(mClock.getElapsedSinceBootMillis()).thenReturn(ANQPData.DATA_LIFETIME_MILLISECONDS);
         mCache.sweep();
+        assertNull(mCache.getEntry(ENTRY_KEY));
+    }
+
+    /**
+     * Verify the expectation for the flush function (all entries will be removed).
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testCacheFlush() throws Exception {
+        mCache.addEntry(ENTRY_KEY, null);
+        mCache.flush();
         assertNull(mCache.getEntry(ENTRY_KEY));
     }
 }

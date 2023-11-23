@@ -17,89 +17,44 @@
 package com.android.systemui;
 
 import android.content.Context;
+import android.content.res.Resources;
 
-import com.android.internal.widget.LockPatternUtils;
-import com.android.keyguard.ViewMediatorCallback;
-import com.android.systemui.car.CarNotificationEntryManager;
-import com.android.systemui.car.CarNotificationInterruptionStateProvider;
-import com.android.systemui.statusbar.car.CarFacetButtonController;
-import com.android.systemui.statusbar.car.CarStatusBarKeyguardViewManager;
-import com.android.systemui.statusbar.notification.NotificationEntryManager;
-import com.android.systemui.statusbar.notification.NotificationInterruptionStateProvider;
-import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
-import com.android.systemui.volume.CarVolumeDialogComponent;
-import com.android.systemui.volume.VolumeDialogComponent;
+import com.android.systemui.dagger.SystemUIRootComponent;
 
-import javax.inject.Singleton;
-
-import dagger.Component;
-import dagger.Module;
-import dagger.Provides;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Class factory to provide car specific SystemUI components.
  */
 public class CarSystemUIFactory extends SystemUIFactory {
 
-    private CarDependencyComponent mCarDependencyComponent;
-
     @Override
-    protected void init(Context context) {
-        super.init(context);
-        mCarDependencyComponent = DaggerCarSystemUIFactory_CarDependencyComponent.builder()
+    protected SystemUIRootComponent buildSystemUIRootComponent(Context context) {
+        return DaggerCarSystemUIRootComponent.builder()
                 .contextHolder(new ContextHolder(context))
                 .build();
     }
 
-    public CarDependencyComponent getCarDependencyComponent() {
-        return mCarDependencyComponent;
-    }
-
-    public StatusBarKeyguardViewManager createStatusBarKeyguardViewManager(Context context,
-            ViewMediatorCallback viewMediatorCallback, LockPatternUtils lockPatternUtils) {
-        return new CarStatusBarKeyguardViewManager(context, viewMediatorCallback, lockPatternUtils);
-    }
-
-    public VolumeDialogComponent createVolumeDialogComponent(SystemUI systemUi, Context context) {
-        return new CarVolumeDialogComponent(systemUi, context);
-    }
-
     @Override
-    public NotificationInterruptionStateProvider provideNotificationInterruptionStateProvider(
-            Context context) {
-        return new CarNotificationInterruptionStateProvider(context);
-    }
+    public String[] getSystemUIServiceComponents(Resources resources) {
+        Set<String> names = new HashSet<>();
 
-    @Override
-    public boolean provideAllowNotificationLongPress() {
-        return false;
-    }
-
-    @Module
-    protected static class ContextHolder {
-        private Context mContext;
-
-        public ContextHolder(Context context) {
-            mContext = context;
+        for (String s : super.getSystemUIServiceComponents(resources)) {
+            names.add(s);
         }
 
-        @Provides
-        public Context provideContext() {
-            return mContext;
+        for (String s : resources.getStringArray(R.array.config_systemUIServiceComponentsExclude)) {
+            names.remove(s);
         }
-    }
 
-    @Singleton
-    @Component(modules = ContextHolder.class)
-    public interface CarDependencyComponent {
-        CarFacetButtonController getCarFacetButtonController();
-    }
+        for (String s : resources.getStringArray(R.array.config_systemUIServiceComponentsInclude)) {
+            names.add(s);
+        }
 
-    /**
-     * Use {@link CarNotificationEntryManager}, which does nothing when adding a notification.
-     */
-    @Singleton
-    public NotificationEntryManager provideNotificationEntryManager(Context context) {
-        return new CarNotificationEntryManager(context);
+        String[] finalNames = new String[names.size()];
+        names.toArray(finalNames);
+
+        return finalNames;
     }
 }

@@ -19,7 +19,9 @@ package android.os.image;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemService;
 import android.content.Context;
+import android.gsi.AvbPublicKey;
 import android.gsi.GsiProgress;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 
 /**
@@ -52,16 +54,50 @@ public class DynamicSystemManager {
     /** The DynamicSystemManager.Session represents a started session for the installation. */
     public class Session {
         private Session() {}
+
         /**
-         * Write a chunk of the DynamicSystem system image
+         * Set the file descriptor that points to a ashmem which will be used
+         * to fetch data during the submitFromAshmem.
          *
-         * @return {@code true} if the call succeeds. {@code false} if there is any native runtime
-         *     error.
+         * @param ashmem fd that points to a ashmem
+         * @param size size of the ashmem file
          */
         @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
-        public boolean write(byte[] buf) {
+        public boolean setAshmem(ParcelFileDescriptor ashmem, long size) {
             try {
-                return mService.write(buf);
+                return mService.setAshmem(ashmem, size);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e.toString());
+            }
+        }
+
+        /**
+         * Submit bytes to the DSU partition from the ashmem previously set with
+         * setAshmem.
+         *
+         * @param size Number of bytes
+         * @return true on success, false otherwise.
+         */
+        @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
+        public boolean submitFromAshmem(int size) {
+            try {
+                return mService.submitFromAshmem(size);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e.toString());
+            }
+        }
+
+        /**
+         * Retrieve AVB public key from installing partition.
+         *
+         * @param dst           Output the AVB public key.
+         * @return              true on success, false if partition doesn't have a
+         *                      valid VBMeta block to retrieve the AVB key from.
+         */
+        @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
+        public boolean getAvbPublicKey(AvbPublicKey dst) {
+            try {
+                return mService.getAvbPublicKey(dst);
             } catch (RemoteException e) {
                 throw new RuntimeException(e.toString());
             }
@@ -76,26 +112,40 @@ public class DynamicSystemManager {
         @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
         public boolean commit() {
             try {
-                return mService.commit();
+                return mService.setEnable(true, true);
             } catch (RemoteException e) {
                 throw new RuntimeException(e.toString());
             }
         }
     }
     /**
+     * Start DynamicSystem installation.
+     *
+     * @return true if the call succeeds
+     */
+    @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
+    public boolean startInstallation(String dsuSlot) {
+        try {
+            return mService.startInstallation(dsuSlot);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e.toString());
+        }
+    }
+    /**
      * Start DynamicSystem installation. This call may take an unbounded amount of time. The caller
      * may use another thread to call the getStartProgress() to get the progress.
      *
-     * @param systemSize system size in bytes
-     * @param userdataSize userdata size in bytes
+     * @param name The DSU partition name
+     * @param size Size of the DSU image in bytes
+     * @param readOnly True if the partition is read only, e.g. system.
      * @return {@code true} if the call succeeds. {@code false} either the device does not contain
      *     enough space or a DynamicSystem is currently in use where the {@link #isInUse} would be
      *     true.
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
-    public Session startInstallation(long systemSize, long userdataSize) {
+    public Session createPartition(String name, long size, boolean readOnly) {
         try {
-            if (mService.startInstallation(systemSize, userdataSize)) {
+            if (mService.createPartition(name, size, readOnly)) {
                 return new Session();
             } else {
                 return null;
@@ -104,7 +154,18 @@ public class DynamicSystemManager {
             throw new RuntimeException(e.toString());
         }
     }
-
+    /**
+     * Finish a previously started installation. Installations without a cooresponding
+     * finishInstallation() will be cleaned up during device boot.
+     */
+    @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
+    public boolean finishInstallation() {
+        try {
+            return mService.finishInstallation();
+        } catch (RemoteException e) {
+            throw new RuntimeException(e.toString());
+        }
+    }
     /**
      * Query the progress of the current installation operation. This can be called while the
      * installation is in progress.
@@ -188,9 +249,9 @@ public class DynamicSystemManager {
      * @return {@code true} if the call succeeds. {@code false} if there is no installed image.
      */
     @RequiresPermission(android.Manifest.permission.MANAGE_DYNAMIC_SYSTEM)
-    public boolean setEnable(boolean enable) {
+    public boolean setEnable(boolean enable, boolean oneShot) {
         try {
-            return mService.setEnable(enable);
+            return mService.setEnable(enable, oneShot);
         } catch (RemoteException e) {
             throw new RuntimeException(e.toString());
         }

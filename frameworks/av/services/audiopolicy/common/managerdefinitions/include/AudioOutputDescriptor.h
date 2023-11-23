@@ -21,14 +21,15 @@
 
 #include <sys/types.h>
 
+#include <media/AudioContainers.h>
 #include <utils/Errors.h>
 #include <utils/Timers.h>
 #include <utils/KeyedVector.h>
 #include <system/audio.h>
 #include "AudioIODescriptorInterface.h"
-#include "AudioPort.h"
 #include "ClientDescriptor.h"
 #include "DeviceDescriptor.h"
+#include "PolicyAudioPort.h"
 #include <vector>
 
 namespace android {
@@ -138,27 +139,28 @@ using RoutingActivities = std::map<product_strategy_t, RoutingActivity>;
 
 // descriptor for audio outputs. Used to maintain current configuration of each opened audio output
 // and keep track of the usage of this output by each audio stream type.
-class AudioOutputDescriptor: public AudioPortConfig, public AudioIODescriptorInterface
-    , public ClientMapHandler<TrackClientDescriptor>
+class AudioOutputDescriptor: public AudioPortConfig,
+        public PolicyAudioPortConfig,
+        public AudioIODescriptorInterface,
+        public ClientMapHandler<TrackClientDescriptor>
 {
 public:
-    AudioOutputDescriptor(const sp<AudioPort>& port,
+    AudioOutputDescriptor(const sp<PolicyAudioPort>& policyAudioPort,
                           AudioPolicyClientInterface *clientInterface);
     virtual ~AudioOutputDescriptor() {}
 
     void dump(String8 *dst) const override;
     void        log(const char* indent);
 
-    audio_port_handle_t getId() const;
     virtual DeviceVector devices() const { return mDevices; }
     bool sharesHwModuleWith(const sp<AudioOutputDescriptor>& outputDesc);
     virtual DeviceVector supportedDevices() const  { return mDevices; }
     virtual bool isDuplicated() const { return false; }
     virtual uint32_t latency() { return 0; }
-    virtual bool isFixedVolume(audio_devices_t device);
+    virtual bool isFixedVolume(const DeviceTypeSet& deviceTypes);
     virtual bool setVolume(float volumeDb,
                            VolumeSource volumeSource, const StreamTypeVector &streams,
-                           audio_devices_t device,
+                           const DeviceTypeSet& deviceTypes,
                            uint32_t delayMs,
                            bool force);
 
@@ -245,9 +247,19 @@ public:
         mRoutingActivities[ps].setMutedByDevice(isMuted);
     }
 
+    // PolicyAudioPortConfig
+    virtual sp<PolicyAudioPort> getPolicyAudioPort() const
+    {
+        return mPolicyAudioPort;
+    }
+
+    // AudioPortConfig
+    virtual status_t applyAudioPortConfig(const struct audio_port_config *config,
+                                          struct audio_port_config *backupConfig = NULL);
     virtual void toAudioPortConfig(struct audio_port_config *dstConfig,
                            const struct audio_port_config *srcConfig = NULL) const;
-    virtual sp<AudioPort> getAudioPort() const { return mPort; }
+    virtual sp<AudioPort> getAudioPort() const { return mPolicyAudioPort->asAudioPort(); }
+
     virtual void toAudioPort(struct audio_port *port) const;
 
     audio_module_handle_t getModuleHandle() const;
@@ -256,6 +268,12 @@ public:
     audio_config_base_t getConfig() const override;
     audio_patch_handle_t getPatchHandle() const override;
     void setPatchHandle(audio_patch_handle_t handle) override;
+    bool isMmap() override {
+        if (getPolicyAudioPort() != nullptr) {
+            return getPolicyAudioPort()->isMmap();
+        }
+        return false;
+    }
 
     TrackClientVector clientsList(bool activeOnly = false,
                                   product_strategy_t strategy = PRODUCT_STRATEGY_NONE,
@@ -289,11 +307,10 @@ public:
     wp<AudioPolicyMix> mPolicyMix;  // non NULL when used by a dynamic policy
 
 protected:
-    const sp<AudioPort> mPort;
+    const sp<PolicyAudioPort> mPolicyAudioPort;
     AudioPolicyClientInterface * const mClientInterface;
     uint32_t mGlobalActiveCount = 0;  // non-client-specific active count
     audio_patch_handle_t mPatchHandle = AUDIO_PATCH_HANDLE_NONE;
-    audio_port_handle_t mId = AUDIO_PORT_HANDLE_NONE;
 
     // The ActiveClients shows the clients that contribute to the @VolumeSource counts
     // and may include upstream clients from a duplicating thread.
@@ -319,10 +336,10 @@ public:
     void setDevices(const DeviceVector &devices) { mDevices = devices; }
     bool sharesHwModuleWith(const sp<SwAudioOutputDescriptor>& outputDesc);
     virtual DeviceVector supportedDevices() const;
-    virtual bool deviceSupportsEncodedFormats(audio_devices_t device);
+    virtual bool devicesSupportEncodedFormats(const DeviceTypeSet& deviceTypes);
     virtual uint32_t latency();
     virtual bool isDuplicated() const { return (mOutput1 != NULL && mOutput2 != NULL); }
-    virtual bool isFixedVolume(audio_devices_t device);
+    virtual bool isFixedVolume(const DeviceTypeSet& deviceTypes);
     sp<SwAudioOutputDescriptor> subOutput1() { return mOutput1; }
     sp<SwAudioOutputDescriptor> subOutput2() { return mOutput2; }
     void setClientActive(const sp<TrackClientDescriptor>& client, bool active) override;
@@ -334,7 +351,7 @@ public:
     }
     virtual bool setVolume(float volumeDb,
                            VolumeSource volumeSource, const StreamTypeVector &streams,
-                           audio_devices_t device,
+                           const DeviceTypeSet& device,
                            uint32_t delayMs,
                            bool force);
 
@@ -408,7 +425,7 @@ public:
 
     virtual bool setVolume(float volumeDb,
                            VolumeSource volumeSource, const StreamTypeVector &streams,
-                           audio_devices_t device,
+                           const DeviceTypeSet& deviceTypes,
                            uint32_t delayMs,
                            bool force);
 

@@ -50,17 +50,6 @@ class SimplePhilox {
         return Uint64ToDouble(x0, x1);
     }
 
-    // Uniform integer in [0, n).
-    // Uses rejection sampling, so may need more than one 32-bit sample.
-    uint32 Uniform(uint32 n);
-
-    // Approximately uniform integer in [0, n).
-    // Uses rejection sampling, so may need more than one 64-bit sample.
-    uint64 Uniform64(uint64 n);
-
-    // True with probability 1/n.
-    bool OneIn(uint32 n) { return Uniform(n) == 0; }
-
     // Skewed: pick "base" uniformly from range [0,max_log] and then
     // return "base" random bits.  The effect is to pick a number in the
     // range [0,2^max_log-1] with bias towards smaller numbers.

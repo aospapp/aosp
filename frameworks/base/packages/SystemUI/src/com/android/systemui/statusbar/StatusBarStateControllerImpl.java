@@ -20,9 +20,12 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.text.format.DateFormat;
 import android.util.FloatProperty;
+import android.util.Log;
 import android.view.animation.Interpolator;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.logging.UiEventLogger;
+import com.android.systemui.DejankUtils;
 import com.android.systemui.Dumpable;
 import com.android.systemui.Interpolators;
 import com.android.systemui.plugins.statusbar.StatusBarStateController.StateListener;
@@ -67,6 +70,7 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
             };
 
     private final ArrayList<RankedListener> mListeners = new ArrayList<>();
+    private final UiEventLogger mUiEventLogger;
     private int mState;
     private int mLastState;
     private boolean mLeaveOpenOnKeyguardHide;
@@ -75,6 +79,21 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
     // Record the HISTORY_SIZE most recent states
     private int mHistoryIndex = 0;
     private HistoricalState[] mHistoricalRecords = new HistoricalState[HISTORY_SIZE];
+
+    /**
+     * If any of the system bars is hidden.
+     */
+    private boolean mIsFullscreen = false;
+
+    /**
+     * If the navigation bar can stay hidden when the display gets tapped.
+     */
+    private boolean mIsImmersive = false;
+
+    /**
+     * If the device is currently pulsing (AOD2).
+     */
+    private boolean mPulsing;
 
     /**
      * If the device is currently dozing or not.
@@ -102,7 +121,8 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
     private Interpolator mDozeInterpolator = Interpolators.FAST_OUT_SLOW_IN;
 
     @Inject
-    public StatusBarStateControllerImpl() {
+    public StatusBarStateControllerImpl(UiEventLogger uiEventLogger) {
+        mUiEventLogger = uiEventLogger;
         for (int i = 0; i < HISTORY_SIZE; i++) {
             mHistoricalRecords[i] = new HistoricalState();
         }
@@ -125,12 +145,20 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
         // Record the to-be mState and mLastState
         recordHistoricalState(state, mState);
 
+        // b/139259891
+        if (mState == StatusBarState.SHADE && state == StatusBarState.SHADE_LOCKED) {
+            Log.e(TAG, "Invalid state transition: SHADE -> SHADE_LOCKED", new Throwable());
+        }
+
         synchronized (mListeners) {
+            String tag = getClass().getSimpleName() + "#setState(" + state + ")";
+            DejankUtils.startDetectingBlockingIpcs(tag);
             for (RankedListener rl : new ArrayList<>(mListeners)) {
                 rl.mListener.onStatePreChange(mState, state);
             }
             mLastState = mState;
             mState = state;
+            mUiEventLogger.log(StatusBarStateEvent.fromState(mState));
             for (RankedListener rl : new ArrayList<>(mListeners)) {
                 rl.mListener.onStateChanged(mState);
             }
@@ -138,6 +166,7 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
             for (RankedListener rl : new ArrayList<>(mListeners)) {
                 rl.mListener.onStatePostChange();
             }
+            DejankUtils.stopDetectingBlockingIpcs(tag);
         }
 
         return true;
@@ -146,6 +175,11 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
     @Override
     public boolean isDozing() {
         return mIsDozing;
+    }
+
+    @Override
+    public boolean isPulsing() {
+        return mPulsing;
     }
 
     @Override
@@ -167,9 +201,12 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
         mIsDozing = isDozing;
 
         synchronized (mListeners) {
+            String tag = getClass().getSimpleName() + "#setIsDozing";
+            DejankUtils.startDetectingBlockingIpcs(tag);
             for (RankedListener rl : new ArrayList<>(mListeners)) {
                 rl.mListener.onDozingChanged(isDozing);
             }
+            DejankUtils.stopDetectingBlockingIpcs(tag);
         }
 
         return true;
@@ -209,9 +246,12 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
         mDozeAmount = dozeAmount;
         float interpolatedAmount = mDozeInterpolator.getInterpolation(dozeAmount);
         synchronized (mListeners) {
+            String tag = getClass().getSimpleName() + "#setDozeAmount";
+            DejankUtils.startDetectingBlockingIpcs(tag);
             for (RankedListener rl : new ArrayList<>(mListeners)) {
                 rl.mListener.onDozeAmountChanged(mDozeAmount, interpolatedAmount);
             }
+            DejankUtils.stopDetectingBlockingIpcs(tag);
         }
     }
 
@@ -290,6 +330,31 @@ public class StatusBarStateControllerImpl implements SysuiStatusBarStateControll
     @Override
     public boolean isKeyguardRequested() {
         return mKeyguardRequested;
+    }
+
+    @Override
+    public void setFullscreenState(boolean isFullscreen, boolean isImmersive) {
+        if (mIsFullscreen != isFullscreen || mIsImmersive != isImmersive) {
+            mIsFullscreen = isFullscreen;
+            mIsImmersive = isImmersive;
+            synchronized (mListeners) {
+                for (RankedListener rl : new ArrayList<>(mListeners)) {
+                    rl.mListener.onFullscreenStateChanged(isFullscreen, isImmersive);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void setPulsing(boolean pulsing) {
+        if (mPulsing != pulsing) {
+            mPulsing = pulsing;
+            synchronized (mListeners) {
+                for (RankedListener rl : new ArrayList<>(mListeners)) {
+                    rl.mListener.onPulsingChanged(pulsing);
+                }
+            }
+        }
     }
 
     /**

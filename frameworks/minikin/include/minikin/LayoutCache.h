@@ -140,12 +140,10 @@ public:
             f(LayoutPiece(text, range, dir, paint, startHyphen, endHyphen), paint);
             return;
         }
-        mRequestCount++;
         {
             std::lock_guard<std::mutex> lock(mMutex);
             LayoutPiece* layout = mCache.get(key);
             if (layout != nullptr) {
-                mCacheHitCount++;
                 f(*layout, paint);
                 return;
             }
@@ -162,34 +160,13 @@ public:
         }
     }
 
-    void dumpStats(int fd) {
-        std::lock_guard<std::mutex> lock(mMutex);
-#ifdef _WIN32
-        float ratio = (mRequestCount == 0) ? 0 : mCacheHitCount / (float)mRequestCount;
-        int count = _scprintf(
-                "\nLayout Cache Info:\n  Usage: %zd/%zd entries\n  Hit ratio: %d/%d (%f)\n",
-                mCache.size(), kMaxEntries, mCacheHitCount, mRequestCount, ratio);
-        int size = count + 1;
-        char* buffer = new char[size];
-        sprintf_s(buffer, size,
-                  "\nLayout Cache Info:\n  Usage: %zd/%zd entries\n  Hit ratio: %d/%d (%f)\n",
-                  mCache.size(), kMaxEntries, mCacheHitCount, mRequestCount, ratio);
-        _write(fd, buffer, sizeof(buffer));
-#else
-        dprintf(fd, "\nLayout Cache Info:\n");
-        dprintf(fd, "  Usage: %zd/%zd entries\n", mCache.size(), kMaxEntries);
-        float ratio = (mRequestCount == 0) ? 0 : mCacheHitCount / (float)mRequestCount;
-        dprintf(fd, "  Hit ratio: %d/%d (%f)\n", mCacheHitCount, mRequestCount, ratio);
-#endif
-    }
-
     static LayoutCache& getInstance() {
         static LayoutCache cache(kMaxEntries);
         return cache;
     }
 
 protected:
-    LayoutCache(uint32_t maxEntries) : mCache(maxEntries), mRequestCount(0), mCacheHitCount(0) {
+    LayoutCache(uint32_t maxEntries) : mCache(maxEntries) {
         mCache.setOnEntryRemovedListener(this);
     }
 
@@ -206,9 +183,6 @@ private:
     }
 
     android::LruCache<LayoutCacheKey, LayoutPiece*> mCache GUARDED_BY(mMutex);
-
-    int32_t mRequestCount;
-    int32_t mCacheHitCount;
 
     // static const size_t kMaxEntries = LruCache<LayoutCacheKey, Layout*>::kUnlimitedCapacity;
 

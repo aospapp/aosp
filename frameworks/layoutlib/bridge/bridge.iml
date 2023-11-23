@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/tests/res/testApp/MyApplication/src/main/myapplication.widgets" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/.settings" />
       <excludeFolder url="file://$MODULE_DIR$/bin" />
+      <excludeFolder url="file://$MODULE_DIR$/out" />
       <excludeFolder url="file://$MODULE_DIR$/tests/res/testApp/MyApplication/.gradle" />
       <excludeFolder url="file://$MODULE_DIR$/tests/res/testApp/MyApplication/.idea" />
       <excludeFolder url="file://$MODULE_DIR$/tests/res/testApp/MyApplication/build/generated" />
@@ -27,17 +28,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="layoutlib_api-prebuilt" level="project" />
     <orderEntry type="module-library">
-      <library name="ninepatch-prebuilt">
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/ninepatch/ninepatch-prebuilt.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="file://$ANDROID_SRC$/tools/base/ninepatch/src/main/java" />
-        </SOURCES>
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
       <library name="tools-common-prebuilt">
         <ANNOTATIONS>
           <root url="file://$MODULE_DIR$/.." />
@@ -52,28 +42,7 @@
       </library>
     </orderEntry>
     <orderEntry type="library" name="framework.jar" level="project" />
-    <orderEntry type="module-library" scope="TEST">
-      <library name="kxml2-2.3.0">
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/kxml2/kxml2-2.3.0.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="file://$MODULE_DIR$/../../../libcore/xml/src/main/java" />
-        </SOURCES>
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
-      <library name="guava">
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/com/google/guava/guava/22.0/guava-22.0.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/com/google/guava/guava/22.0/guava-22.0-sources.jar!/" />
-        </SOURCES>
-      </library>
-    </orderEntry>
+    <orderEntry type="library" name="guava" level="project" />
     <orderEntry type="module-library" scope="TEST">
       <library name="sdk-common">
         <CLASSES>
@@ -89,5 +58,49 @@
     <orderEntry type="library" scope="TEST" name="mockito" level="project" />
     <orderEntry type="library" scope="TEST" name="objenesis" level="project" />
     <orderEntry type="module" module-name="common" />
+    <orderEntry type="module-library">
+      <library name="kxml2-2.3.0">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/kxml2/kxml2-2.3.0.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="file://$MODULE_DIR$/../../../libcore/xml/src/main/java" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+    <orderEntry type="library" scope="TEST" name="hamcrest" level="project" />
+    <orderEntry type="module-library">
+      <library name="ninepatch-prebuilt">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/ninepatch/ninepatch-prebuilt.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/ninepatch/ninepatch-prebuilt-sources.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library" scope="TEST">
+      <library name="trove4j">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/net/sf/trove4j/trove4j/1.1/trove4j-1.1.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/net/sf/trove4j/trove4j/1.1/trove4j-1.1-sources.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
+    <orderEntry type="module" module-name="validator" />
+    <orderEntry type="module-library" scope="TEST">
+      <library>
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/atf/atf_classes.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
   </component>
 </module>

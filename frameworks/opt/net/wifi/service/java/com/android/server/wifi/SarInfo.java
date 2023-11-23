@@ -23,7 +23,6 @@ import java.io.PrintWriter;
  * This class represents the list of SAR inputs that will be used to select the proper
  * power profile.
  * This includes:
- *  - SAR sensor status
  *  - Is there an ongoing voice call
  *  - Is SoftAP active
  * It also contains info about state of the other Wifi modes
@@ -51,25 +50,13 @@ public class SarInfo {
      */
     public static final int RESET_SAR_SCENARIO = -1;
 
-    private static final String SAR_SENSOR_FREE_SPACE_STR = "SAR_SENSOR_FREE_SPACE";
-    private static final String SAR_SENSOR_NEAR_BODY_STR  = "SAR_SENSOR_NEAR_BODY";
-    private static final String SAR_SENSOR_NEAR_HAND_STR  = "SAR_SENSOR_NEAR_HAND";
-    private static final String SAR_SENSOR_NEAR_HEAD_STR  = "SAR_SENSOR_NEAR_HEAD";
-
-    public static final int SAR_SENSOR_FREE_SPACE = 1;
-    public static final int SAR_SENSOR_NEAR_HAND  = 2;
-    public static final int SAR_SENSOR_NEAR_HEAD  = 3;
-    public static final int SAR_SENSOR_NEAR_BODY  = 4;
-
     /* For Logging */
     private static final String TAG = "WifiSarInfo";
 
     /* SAR support configs */
     public boolean sarVoiceCallSupported;
     public boolean sarSapSupported;
-    public boolean sarSensorSupported;
 
-    public int sensorState = SAR_SENSOR_FREE_SPACE;
     public boolean isWifiClientEnabled = false;
     public boolean isWifiSapEnabled = false;
     public boolean isWifiScanOnlyEnabled = false;
@@ -80,7 +67,6 @@ public class SarInfo {
     private boolean mAllWifiDisabled = true;
 
     /* Variables representing the last successfully reported values to hal */
-    private int mLastReportedSensorState = SAR_SENSOR_FREE_SPACE;
     private boolean mLastReportedIsWifiSapEnabled = false;
     private boolean mLastReportedIsVoiceCall = false;
     private boolean mLastReportedIsEarPieceActive = false;
@@ -113,14 +99,9 @@ public class SarInfo {
         }
 
         /* Check if some change happened since last successful reporting */
-        if ((sensorState != mLastReportedSensorState)
-                || (isWifiSapEnabled != mLastReportedIsWifiSapEnabled)
+        return ((isWifiSapEnabled != mLastReportedIsWifiSapEnabled)
                 || (isVoiceCall != mLastReportedIsVoiceCall)
-                || (isEarPieceActive != mLastReportedIsEarPieceActive)) {
-            return true;
-        } else {
-            return false;
-        }
+                || (isEarPieceActive != mLastReportedIsEarPieceActive));
     }
 
     /**
@@ -129,7 +110,6 @@ public class SarInfo {
      * This results in caching the last reported inputs for future comparison.
      */
     public void reportingSuccessful() {
-        mLastReportedSensorState = sensorState;
         mLastReportedIsWifiSapEnabled = isWifiSapEnabled;
         mLastReportedIsVoiceCall = isVoiceCall;
         mLastReportedIsEarPieceActive = isEarPieceActive;
@@ -175,37 +155,17 @@ public class SarInfo {
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("Dump of SarInfo");
         pw.println("Current values:");
-        pw.println("    Sensor state is: " + sensorStateToString(sensorState));
         pw.println("    Voice Call state is: " + isVoiceCall);
         pw.println("    Wifi Client state is: " + isWifiClientEnabled);
         pw.println("    Wifi Soft AP state is: " + isWifiSapEnabled);
         pw.println("    Wifi ScanOnly state is: " + isWifiScanOnlyEnabled);
         pw.println("    Earpiece state is : " + isEarPieceActive);
         pw.println("Last reported values:");
-        pw.println("    Sensor state is: " + sensorStateToString(mLastReportedSensorState));
         pw.println("    Soft AP state is: " + mLastReportedIsWifiSapEnabled);
         pw.println("    Voice Call state is: " + mLastReportedIsVoiceCall);
         pw.println("    Earpiece state is: " + mLastReportedIsEarPieceActive);
         pw.println("Last reported scenario: " + mLastReportedScenario);
         pw.println("Reported " +  (System.currentTimeMillis() - mLastReportedScenarioTs) / 1000
                 + " seconds ago");
-    }
-
-    /**
-     * Convert SAR sensor state to string
-     */
-    public static String sensorStateToString(int sensorState) {
-        switch(sensorState) {
-            case SAR_SENSOR_FREE_SPACE:
-                return SAR_SENSOR_FREE_SPACE_STR;
-            case SAR_SENSOR_NEAR_BODY:
-                return SAR_SENSOR_NEAR_BODY_STR;
-            case SAR_SENSOR_NEAR_HAND:
-                return SAR_SENSOR_NEAR_HAND_STR;
-            case SAR_SENSOR_NEAR_HEAD:
-                return SAR_SENSOR_NEAR_HEAD_STR;
-            default:
-                return "Invalid SAR sensor state";
-        }
     }
 }

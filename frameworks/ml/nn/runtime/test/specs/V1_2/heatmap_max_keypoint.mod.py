@@ -17,11 +17,18 @@
 layout = BoolScalar("layout", False) # NHWC
 
 # TEST 1: HEATMAP_MAX_KEYPOINT_1
-heatmap1 = Input("heatmap", "TENSOR_FLOAT32", "{6, 4, 4, 1}")
-boxes1 = Input("boxes", "TENSOR_FLOAT32", "{6, 4}")
-score1 = Output("score", "TENSOR_FLOAT32", "{6, 1}")
-keypoint1 = Output("keypoint", "TENSOR_FLOAT32", "{6, 1, 2}")
+heatmap1 = Input("heatmap", "TENSOR_FLOAT32", "{5, 4, 4, 1}")
+boxes1 = Input("boxes", "TENSOR_FLOAT32", "{5, 4}")
+score1 = Output("score", "TENSOR_FLOAT32", "{5, 1}")
+keypoint1 = Output("keypoint", "TENSOR_FLOAT32", "{5, 1, 2}")
 Model().Operation("HEATMAP_MAX_KEYPOINT", heatmap1, boxes1, layout).To(score1, keypoint1)
+
+quant8 = DataTypeConverter().Identify({
+    heatmap1: ("TENSOR_QUANT8_ASYMM", 0.5, 128),
+    boxes1: ("TENSOR_QUANT16_ASYMM", 0.125, 0),
+    score1: ("TENSOR_QUANT8_ASYMM", 0.1, 10),
+    keypoint1: ("TENSOR_QUANT16_ASYMM", 0.125, 0)
+})
 
 # Instantiate an example
 Example({
@@ -45,10 +52,6 @@ Example({
         -10,-56,  4, -5, # batch4 - test out of range delta
          -8, -2,  9,  1,
           7, -2,  3, -7,
-         -2,  2, -3,  5,
-        -10,-57.827329175, 4, -5, # batch5 - test detA = 0
-         -8, -2,  9,  1,
-          7, -2,  3, -7,
          -2,  2, -3,  5
     ],
     boxes1: [
@@ -57,25 +60,22 @@ Example({
         8, 3, 15, 13,
         6, 5, 19, 12,
         5, 2, 10, 20,
-        5, 2, 10, 20
     ],
     score1: [
         9.071493,
         10.00500,
         7.187500,
         10.00000,
-        10.689667,
-        9.000000
+        10.689667
     ],
     keypoint1: [
         8.224462, 8.537316,
         11.73000, 9.625000,
         8.875000, 9.562500,
         17.37500, 5.875000,
-        9.569672, 2.000000,
-        8.125000, 8.750000
+        9.569672, 2.000000
     ]
-}).AddNchw(heatmap1, layout).AddVariations("relaxed", "float16")
+}).AddNchw(heatmap1, layout).AddVariations("relaxed", "float16", quant8)
 
 
 # TEST 2: HEATMAP_MAX_KEYPOINT_2
@@ -131,11 +131,11 @@ Example({
 }).AddNchw(heatmap2, layout).AddVariations("relaxed", "float16", quant8)
 
 
-# TEST 3: HEATMAP_MAX_KEYPOINT_3
-heatmap3 = Input("heatmap", "TENSOR_FLOAT32", "{5, 4, 4, 1}")
-boxes3 = Input("boxes", "TENSOR_FLOAT32", "{5, 4}")
-score3 = Output("score", "TENSOR_FLOAT32", "{5, 1}")
-keypoint3 = Output("keypoint", "TENSOR_FLOAT32", "{5, 1, 2}")
+# TEST 3: HEATMAP_MAX_KEYPOINT_3, corner case that the hessian matrix is not invertible
+heatmap3 = Input("heatmap", "TENSOR_FLOAT32", "{1, 2, 2, 1}")
+boxes3 = Input("boxes", "TENSOR_FLOAT32", "{1, 4}")
+score3 = Output("score", "TENSOR_FLOAT32", "{1, 1}")
+keypoint3 = Output("keypoint", "TENSOR_FLOAT32", "{1, 1, 2}")
 Model().Operation("HEATMAP_MAX_KEYPOINT", heatmap3, boxes3, layout).To(score3, keypoint3)
 
 quant8 = DataTypeConverter().Identify({
@@ -148,46 +148,16 @@ quant8 = DataTypeConverter().Identify({
 # Instantiate an example
 Example({
     heatmap3: [
-        -10, -1,  4, -5, # batch0
-         -8, -2,  9,  1,
-          7, -2,  3, -7,
-         -2,  2, -3,  5,
-        -10, -1,  4, -5, # batch1 - test mirror bottom
-         -8, -2,  9,  1,
-          7, -2,  3, -7,
-         -2, 10, -3,  5,
-        -10, -1,  4, -5, # batch2 - test mirror left
-         -8, -2,  4,  1,
-          7, -2,  3, -7,
-         -2,  2, -3,  5,
-        -10, -1,  4, 10, # batch3 - test mirror top right
-         -8, -2,  4,  1,
-          7, -2,  3, -7,
-         -2,  2, -3,  5,
-        -10,-56,  4, -5, # batch4 - test out of range delta
-         -8, -2,  9,  1,
-          7, -2,  3, -7,
-         -2,  2, -3,  5
+        4, 4,
+        1, 2
     ],
     boxes3: [
-        5, 2, 10, 20,
-        1, 7, 30, 10,
-        8, 3, 15, 13,
-        6, 5, 19, 12,
-        5, 2, 10, 20
+        4, 2, 8, 18
     ],
     score3: [
-        9.071493,
-        10.00500,
-        7.187500,
-        10.00000,
-        10.689667
+        4,
     ],
     keypoint3: [
-        8.224462, 8.537316,
-        11.73000, 9.625000,
-        8.875000, 9.562500,
-        17.37500, 5.875000,
-        9.569672, 2.000000
+        5, 6
     ]
-}).AddNchw(heatmap3, layout).AddVariations(quant8, includeDefault=False)
+}).AddNchw(heatmap3, layout).AddVariations("relaxed", "float16", quant8)

@@ -55,8 +55,15 @@ Model("axis").Operation("SOFTMAX", i, 0.000001, axis).To(o)
 Example(example2).AddVariations("relaxed", "float16", quant8).AddAllDimsAndAxis(i, o, axis)
 
 # SOFTMAX of rank 4 and TENSOR_FLOAT32 and TENSOR_QUANT8_ASYMM data type is introduced in V1_0.
-Example.SetVersion("V1_0", "softmax_v1_2", "softmax_v1_2_quant8", \
-                           "softmax_v1_2_2", "softmax_v1_2_quant8_2")
+Example.SetVersion("V1_0",
+                   "softmax_v1_2",
+                   "softmax_v1_2_all_inputs_as_internal",
+                   "softmax_v1_2_quant8",
+                   "softmax_v1_2_quant8_all_inputs_as_internal",
+                   "softmax_v1_2_2",
+                   "softmax_v1_2_all_inputs_as_internal_2",
+                   "softmax_v1_2_quant8_2",
+                   "softmax_v1_2_quant8_all_inputs_as_internal_2")
 
 
 # TEST 3: zero-sized input
@@ -90,10 +97,29 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 1./256, 0)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddVariations("relaxed", quant8, "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "softmax_v1_2_axis_dim2_axis1_neg",
+                   "softmax_v1_2_axis_dim2_axis1_neg_2",
+                   "softmax_v1_2_axis_dim2_axis1_neg_all_inputs_as_internal",
+                   "softmax_v1_2_axis_dim2_axis1_neg_all_inputs_as_internal_2",
+                   "softmax_v1_2_axis_dim4_axis3_neg",
+                   "softmax_v1_2_axis_dim4_axis3_neg_2",
+                   "softmax_v1_2_axis_dim4_axis3_neg_all_inputs_as_internal",
+                   "softmax_v1_2_axis_dim4_axis3_neg_all_inputs_as_internal_2",
+                   "softmax_v1_2_axis_quant8_dim2_axis1_neg",
+                   "softmax_v1_2_axis_quant8_dim2_axis1_neg_2",
+                   "softmax_v1_2_axis_quant8_dim2_axis1_neg_all_inputs_as_internal",
+                   "softmax_v1_2_axis_quant8_dim2_axis1_neg_all_inputs_as_internal_2",
+                   "softmax_v1_2_axis_quant8_dim4_axis3_neg",
+                   "softmax_v1_2_axis_quant8_dim4_axis3_neg_2",
+                   "softmax_v1_2_axis_quant8_dim4_axis3_neg_all_inputs_as_internal",
+                   "softmax_v1_2_axis_quant8_dim4_axis3_neg_all_inputs_as_internal_2")

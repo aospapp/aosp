@@ -22,9 +22,9 @@ import android.net.wifi.p2p.WifiP2pGroupList;
 import android.util.Log;
 
 import com.android.server.wifi.Clock;
-import com.android.server.wifi.nano.WifiMetricsProto.GroupEvent;
-import com.android.server.wifi.nano.WifiMetricsProto.P2pConnectionEvent;
-import com.android.server.wifi.nano.WifiMetricsProto.WifiP2pStats;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.GroupEvent;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.P2pConnectionEvent;
+import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiP2pStats;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;

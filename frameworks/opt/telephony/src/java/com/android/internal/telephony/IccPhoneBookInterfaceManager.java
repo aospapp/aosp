@@ -16,13 +16,12 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.pm.PackageManager;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.telephony.Rlog;
 
 import com.android.internal.telephony.uicc.AdnRecord;
 import com.android.internal.telephony.uicc.AdnRecordCache;
@@ -30,6 +29,7 @@ import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 import com.android.internal.telephony.uicc.IccConstants;
 import com.android.internal.telephony.uicc.IccFileHandler;
 import com.android.internal.telephony.uicc.IccRecords;
+import com.android.telephony.Rlog;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -190,11 +190,12 @@ public class IccPhoneBookInterfaceManager {
             if (mAdnCache != null) {
                 mAdnCache.updateAdnBySearch(efid, oldAdn, newAdn, pin2, response);
                 waitForResult(updateRequest);
+                return (boolean) updateRequest.mResult;
             } else {
                 loge("Failure while trying to update by search due to uninitialised adncache");
+                return false;
             }
         }
-        return (boolean) updateRequest.mResult;
     }
 
     /**
@@ -239,11 +240,12 @@ public class IccPhoneBookInterfaceManager {
             if (mAdnCache != null) {
                 mAdnCache.updateAdnByIndex(efid, newAdn, index, pin2, response);
                 waitForResult(updateRequest);
+                return (boolean) updateRequest.mResult;
             } else {
                 loge("Failure while trying to update by index due to uninitialised adncache");
+                return false;
             }
         }
-        return (boolean) updateRequest.mResult;
     }
 
     /**
@@ -301,11 +303,12 @@ public class IccPhoneBookInterfaceManager {
             if (mAdnCache != null) {
                 mAdnCache.requestLoadAllAdnLike(efid, mAdnCache.extensionEfForEf(efid), response);
                 waitForResult(loadRequest);
+                return (List<AdnRecord>) loadRequest.mResult;
             } else {
                 loge("Failure while trying to load from SIM due to uninitialised adncache");
+                return null;
             }
         }
-        return (List<AdnRecord>) loadRequest.mResult;
     }
 
     @UnsupportedAppUsage

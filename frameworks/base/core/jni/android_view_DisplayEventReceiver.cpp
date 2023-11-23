@@ -23,11 +23,10 @@
 #include <inttypes.h>
 
 #include <android_runtime/AndroidRuntime.h>
-#include <androidfw/DisplayEventDispatcher.h>
+#include <gui/DisplayEventDispatcher.h>
 #include <utils/Log.h>
 #include <utils/Looper.h>
 #include <utils/threads.h>
-#include <gui/DisplayEventReceiver.h>
 #include "android_os_MessageQueue.h"
 
 #include <nativehelper/ScopedLocalRef.h>
@@ -48,7 +47,8 @@ static struct {
 class NativeDisplayEventReceiver : public DisplayEventDispatcher {
 public:
     NativeDisplayEventReceiver(JNIEnv* env,
-            jobject receiverWeak, const sp<MessageQueue>& messageQueue, jint vsyncSource);
+            jobject receiverWeak, const sp<MessageQueue>& messageQueue, jint vsyncSource,
+            jint configChanged);
 
     void dispose();
 
@@ -58,19 +58,20 @@ protected:
 private:
     jobject mReceiverWeakGlobal;
     sp<MessageQueue> mMessageQueue;
-    DisplayEventReceiver mReceiver;
 
     void dispatchVsync(nsecs_t timestamp, PhysicalDisplayId displayId, uint32_t count) override;
     void dispatchHotplug(nsecs_t timestamp, PhysicalDisplayId displayId, bool connected) override;
     void dispatchConfigChanged(nsecs_t timestamp, PhysicalDisplayId displayId,
-                               int32_t configId) override;
+                               int32_t configId, nsecs_t vsyncPeriod) override;
 };
 
 
 NativeDisplayEventReceiver::NativeDisplayEventReceiver(JNIEnv* env,
-        jobject receiverWeak, const sp<MessageQueue>& messageQueue, jint vsyncSource) :
+        jobject receiverWeak, const sp<MessageQueue>& messageQueue, jint vsyncSource,
+        jint configChanged) :
         DisplayEventDispatcher(messageQueue->getLooper(),
-                static_cast<ISurfaceComposer::VsyncSource>(vsyncSource)),
+                static_cast<ISurfaceComposer::VsyncSource>(vsyncSource),
+                static_cast<ISurfaceComposer::ConfigChanged>(configChanged)),
         mReceiverWeakGlobal(env->NewGlobalRef(receiverWeak)),
         mMessageQueue(messageQueue) {
     ALOGV("receiver %p ~ Initializing display event receiver.", this);
@@ -117,26 +118,25 @@ void NativeDisplayEventReceiver::dispatchHotplug(nsecs_t timestamp, PhysicalDisp
     mMessageQueue->raiseAndClearException(env, "dispatchHotplug");
 }
 
-void NativeDisplayEventReceiver::dispatchConfigChanged(nsecs_t timestamp,
-                                                       PhysicalDisplayId displayId,
-                                                       int32_t configId) {
-    JNIEnv* env = AndroidRuntime::getJNIEnv();
+void NativeDisplayEventReceiver::dispatchConfigChanged(
+    nsecs_t timestamp, PhysicalDisplayId displayId, int32_t configId, nsecs_t) {
+  JNIEnv* env = AndroidRuntime::getJNIEnv();
 
-    ScopedLocalRef<jobject> receiverObj(env, jniGetReferent(env, mReceiverWeakGlobal));
-    if (receiverObj.get()) {
-        ALOGV("receiver %p ~ Invoking config changed handler.", this);
-        env->CallVoidMethod(receiverObj.get(),
-                            gDisplayEventReceiverClassInfo.dispatchConfigChanged,
-                            timestamp, displayId, configId);
-        ALOGV("receiver %p ~ Returned from config changed handler.", this);
-    }
+  ScopedLocalRef<jobject> receiverObj(env,
+                                      jniGetReferent(env, mReceiverWeakGlobal));
+  if (receiverObj.get()) {
+    ALOGV("receiver %p ~ Invoking config changed handler.", this);
+    env->CallVoidMethod(receiverObj.get(),
+                        gDisplayEventReceiverClassInfo.dispatchConfigChanged,
+                        timestamp, displayId, configId);
+    ALOGV("receiver %p ~ Returned from config changed handler.", this);
+  }
 
-    mMessageQueue->raiseAndClearException(env, "dispatchConfigChanged");
+  mMessageQueue->raiseAndClearException(env, "dispatchConfigChanged");
 }
 
-
 static jlong nativeInit(JNIEnv* env, jclass clazz, jobject receiverWeak,
-        jobject messageQueueObj, jint vsyncSource) {
+        jobject messageQueueObj, jint vsyncSource, jint configChanged) {
     sp<MessageQueue> messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueueObj);
     if (messageQueue == NULL) {
         jniThrowRuntimeException(env, "MessageQueue is not initialized.");
@@ -144,7 +144,7 @@ static jlong nativeInit(JNIEnv* env, jclass clazz, jobject receiverWeak,
     }
 
     sp<NativeDisplayEventReceiver> receiver = new NativeDisplayEventReceiver(env,
-            receiverWeak, messageQueue, vsyncSource);
+            receiverWeak, messageQueue, vsyncSource, configChanged);
     status_t status = receiver->initialize();
     if (status) {
         String8 message;
@@ -179,7 +179,7 @@ static void nativeScheduleVsync(JNIEnv* env, jclass clazz, jlong receiverPtr) {
 static const JNINativeMethod gMethods[] = {
     /* name, signature, funcPtr */
     { "nativeInit",
-            "(Ljava/lang/ref/WeakReference;Landroid/os/MessageQueue;I)J",
+            "(Ljava/lang/ref/WeakReference;Landroid/os/MessageQueue;II)J",
             (void*)nativeInit },
     { "nativeDispose",
             "(J)V",

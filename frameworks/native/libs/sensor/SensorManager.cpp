@@ -150,7 +150,7 @@ status_t SensorManager::assertStateLocked() {
         class DeathObserver : public IBinder::DeathRecipient {
             SensorManager& mSensorManager;
             virtual void binderDied(const wp<IBinder>& who) {
-                ALOGW("sensorservice died [%p]", who.unsafe_get());
+                ALOGW("sensorservice died [%p]", static_cast<void*>(who.unsafe_get()));
                 mSensorManager.sensorManagerDied();
             }
         public:
@@ -209,7 +209,7 @@ Sensor const* SensorManager::getDefaultSensor(int type)
             type == SENSOR_TYPE_TILT_DETECTOR || type == SENSOR_TYPE_WAKE_GESTURE ||
             type == SENSOR_TYPE_GLANCE_GESTURE || type == SENSOR_TYPE_PICK_UP_GESTURE ||
             type == SENSOR_TYPE_WRIST_TILT_GESTURE ||
-            type == SENSOR_TYPE_LOW_LATENCY_OFFBODY_DETECT) {
+            type == SENSOR_TYPE_LOW_LATENCY_OFFBODY_DETECT || type == SENSOR_TYPE_HINGE_ANGLE) {
             wakeUpSensor = true;
         }
         // For now we just return the first sensor of that type we find.

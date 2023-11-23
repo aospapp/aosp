@@ -31,7 +31,7 @@ import org.junit.Test;
  * Unit tests for {@link com.android.server.wifi.BinderUtil}.
  */
 @SmallTest
-public class BinderUtilTest {
+public class BinderUtilTest extends WifiBaseTest {
     static final int FAKE_UID = 30000000;
 
     private long mToken;

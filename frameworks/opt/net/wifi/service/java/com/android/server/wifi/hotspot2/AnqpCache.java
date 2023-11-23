@@ -100,4 +100,12 @@ public class AnqpCache {
             out.println(entry.getKey() + ": " + entry.getValue());
         }
     }
+
+    /**
+     * Flush the ANQP cache
+     */
+    public void flush() {
+        mANQPCache.clear();
+        mLastSweep = mClock.getElapsedSinceBootMillis();
+    }
 }

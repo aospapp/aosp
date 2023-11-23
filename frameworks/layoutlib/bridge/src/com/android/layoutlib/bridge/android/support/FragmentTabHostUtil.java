@@ -60,7 +60,7 @@ public class FragmentTabHostUtil {
 
         if (fragmentManager == null) {
             Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                    "Unable to find FragmentManager.", null);
+                    "Unable to find FragmentManager.", null, null);
             return;
         }
 
@@ -71,7 +71,7 @@ public class FragmentTabHostUtil {
         } catch (ReflectionException e) {
             Throwable cause = getCause(e);
             Bridge.getLog().error(LayoutLog.TAG_BROKEN,
-                    "Error occurred while trying to setup FragmentTabHost.", cause, null);
+                    "Error occurred while trying to setup FragmentTabHost.", cause, null, null);
         }
     }
 }

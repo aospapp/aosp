@@ -17,6 +17,11 @@
 #define LOG_TAG "Operations"
 
 #include "Cast.h"
+
+#include <algorithm>
+
+#include "HalInterfaces.h"
+#include "Operations.h"
 #include "Tracing.h"
 
 namespace android {
@@ -24,6 +29,8 @@ namespace nn {
 namespace cast {
 
 namespace {
+
+using namespace hal;
 
 template <typename FromT, typename ToT>
 void copyCast(const FromT* in, ToT* out, int numElements) {
@@ -61,9 +68,6 @@ bool copyToTensor(const FromT* inputData, int numElements, uint8_t* outputData,
 }  // namespace
 
 bool prepare(const Shape& input, Shape* output) {
-    if (input.dimensions.size() != output->dimensions.size()) {
-        return false;
-    }
     output->dimensions = input.dimensions;
     return true;
 }
@@ -87,8 +91,12 @@ bool eval(const uint8_t* inputData, const Shape& inputShape, uint8_t* outputData
         ANDROID_NN_COPY_TO_TENSOR(OperandType::TENSOR_INT32, int32_t);
         ANDROID_NN_COPY_TO_TENSOR(OperandType::TENSOR_QUANT8_ASYMM, uint8_t);
         default:
-            LOG(ERROR) << "Unsupported CAST input type";
-            return false;
+            if (inputShape.type == outputShape.type) {
+                return copyData(inputData, inputShape, outputData, outputShape);
+            } else {
+                LOG(ERROR) << "Unsupported CAST input type";
+                return false;
+            }
     }
 #undef ANDROID_NN_COPY_TO_TENSOR
 }

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import math
+
 input0 = Input("input0", "TENSOR_FLOAT32", "{1, 2, 3, 4, 5}")
 output0 = Output("output0", "TENSOR_FLOAT32", "{1, 2, 3, 4, 5}")
 model = Model().Operation("EXP", input0).To(output0)

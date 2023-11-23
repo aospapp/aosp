@@ -74,7 +74,7 @@ public:
         addParameter(
                 DefineParam(mChannelCount, C2_PARAMKEY_CHANNEL_COUNT)
                 .withDefault(new C2StreamChannelCountInfo::output(0u, 1))
-                .withFields({C2F(mChannelCount, value).equalTo(1)})
+                .withFields({C2F(mChannelCount, value).inRange(1, 6)})
                 .withSetter(Setter<decltype(*mChannelCount)>::StrictValueWithNoDeps)
                 .build());
 

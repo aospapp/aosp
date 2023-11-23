@@ -48,6 +48,7 @@ class BindNativeBufferAsFramebuffer;
 class Image;
 class Mesh;
 class Texture;
+struct RenderEngineCreationArgs;
 
 namespace impl {
 class RenderEngine;
@@ -60,16 +61,13 @@ enum class Protection {
 
 class RenderEngine {
 public:
-    enum FeatureFlag {
-        USE_COLOR_MANAGEMENT = 1 << 0,      // Device manages color
-        USE_HIGH_PRIORITY_CONTEXT = 1 << 1, // Use high priority context
-
-        // Create a protected context when if possible
-        ENABLE_PROTECTED_CONTEXT = 1 << 2,
+    enum class ContextPriority {
+        LOW = 1,
+        MEDIUM = 2,
+        HIGH = 3,
     };
 
-    static std::unique_ptr<impl::RenderEngine> create(int hwcFormat, uint32_t featureFlags,
-                                                      uint32_t imageCacheSize);
+    static std::unique_ptr<impl::RenderEngine> create(const RenderEngineCreationArgs& args);
 
     virtual ~RenderEngine() = 0;
 
@@ -77,10 +75,6 @@ public:
     // This interface, while still in use until a suitable replacement is built,
     // should be considered deprecated, minus some methods which still may be
     // used to support legacy behavior.
-
-    virtual std::unique_ptr<Framebuffer> createFramebuffer() = 0;
-    virtual std::unique_ptr<Image> createImage() = 0;
-
     virtual void primeCache() const = 0;
 
     // dump the extension strings. always call the base class.
@@ -88,24 +82,6 @@ public:
 
     virtual bool useNativeFenceSync() const = 0;
     virtual bool useWaitSync() const = 0;
-
-    virtual bool isCurrent() const = 0;
-
-    // helpers
-    // flush submits RenderEngine command stream for execution and returns a
-    // native fence fd that is signaled when the execution has completed.  It
-    // returns -1 on errors.
-    virtual base::unique_fd flush() = 0;
-    // finish waits until RenderEngine command stream has been executed.  It
-    // returns false on errors.
-    virtual bool finish() = 0;
-    // waitFence inserts a wait on an external fence fd to RenderEngine
-    // command stream.  It returns false on errors.
-    virtual bool waitFence(base::unique_fd fenceFd) = 0;
-
-    virtual void clearWithColor(float red, float green, float blue, float alpha) = 0;
-    virtual void fillRegionWithColor(const Region& region, float red, float green, float blue,
-                                     float alpha) = 0;
     virtual void genTextures(size_t count, uint32_t* names) = 0;
     virtual void deleteTextures(size_t count, uint32_t const* names) = 0;
     virtual void bindExternalTextureImage(uint32_t texName, const Image& image) = 0;
@@ -116,49 +92,33 @@ public:
                                                const sp<Fence>& fence) = 0;
     // Caches Image resources for this buffer, but does not bind the buffer to
     // a particular texture.
-    virtual status_t cacheExternalTextureBuffer(const sp<GraphicBuffer>& buffer) = 0;
+    // Note that work is deferred to an additional thread, i.e. this call
+    // is made asynchronously, but the caller can expect that cache/unbind calls
+    // are performed in a manner that's conflict serializable, i.e. unbinding
+    // a buffer should never occur before binding the buffer if the caller
+    // called {bind, cache}ExternalTextureBuffer before calling unbind.
+    virtual void cacheExternalTextureBuffer(const sp<GraphicBuffer>& buffer) = 0;
     // Removes internal resources referenced by the bufferId. This method should be
     // invoked when the caller will no longer hold a reference to a GraphicBuffer
     // and needs to clean up its resources.
+    // Note that work is deferred to an additional thread, i.e. this call
+    // is made asynchronously, but the caller can expect that cache/unbind calls
+    // are performed in a manner that's conflict serializable, i.e. unbinding
+    // a buffer should never occur before binding the buffer if the caller
+    // called {bind, cache}ExternalTextureBuffer before calling unbind.
     virtual void unbindExternalTextureBuffer(uint64_t bufferId) = 0;
     // When binding a native buffer, it must be done before setViewportAndProjection
     // Returns NO_ERROR when binds successfully, NO_MEMORY when there's no memory for allocation.
     virtual status_t bindFrameBuffer(Framebuffer* framebuffer) = 0;
     virtual void unbindFrameBuffer(Framebuffer* framebuffer) = 0;
-
-    // set-up
-    virtual void checkErrors() const = 0;
-    virtual void setViewportAndProjection(size_t vpw, size_t vph, Rect sourceCrop,
-                                          ui::Transform::orientation_flags rotation) = 0;
-    virtual void setupLayerBlending(bool premultipliedAlpha, bool opaque, bool disableTexture,
-                                    const half4& color, float cornerRadius) = 0;
-    virtual void setupLayerTexturing(const Texture& texture) = 0;
-    virtual void setupLayerBlackedOut() = 0;
-    virtual void setupFillWithColor(float r, float g, float b, float a) = 0;
-    // Sets up the crop size for corner radius clipping.
+    // Clean-up method that should be called on the main thread after the
+    // drawFence returned by drawLayers fires. This method will free up
+    // resources used by the most recently drawn frame. If the frame is still
+    // being drawn, then this call is silently ignored.
     //
-    // Having corner radius will force GPU composition on the layer and its children, drawing it
-    // with a special shader. The shader will receive the radius and the crop rectangle as input,
-    // modifying the opacity of the destination texture, multiplying it by a number between 0 and 1.
-    // We query Layer#getRoundedCornerState() to retrieve the radius as well as the rounded crop
-    // rectangle to figure out how to apply the radius for this layer. The crop rectangle will be
-    // in local layer coordinate space, so we have to take the layer transform into account when
-    // walking up the tree.
-    virtual void setupCornerRadiusCropSize(float width, float height) = 0;
-
-    // Set a color transform matrix that is applied in linear space right before OETF.
-    virtual void setColorTransform(const mat4& /* colorTransform */) = 0;
-    virtual void disableTexturing() = 0;
-    virtual void disableBlending() = 0;
-
-    // HDR and color management support
-    virtual void setSourceY410BT2020(bool enable) = 0;
-    virtual void setSourceDataSpace(ui::Dataspace source) = 0;
-    virtual void setOutputDataSpace(ui::Dataspace dataspace) = 0;
-    virtual void setDisplayMaxLuminance(const float maxLuminance) = 0;
-
-    // drawing
-    virtual void drawMesh(const Mesh& mesh) = 0;
+    // Returns true if resources were cleaned up, and false if we didn't need to
+    // do any work.
+    virtual bool cleanupPostRender() = 0;
 
     // queries
     virtual size_t getMaxTextureSize() const = 0;
@@ -176,6 +136,17 @@ public:
     // should be called for every display that needs to be rendered via the GPU.
     // @param display The display-wide settings that should be applied prior to
     // drawing any layers.
+    //
+    // Assumptions when calling this method:
+    // 1. There is exactly one caller - i.e. multi-threading is not supported.
+    // 2. Additional threads may be calling the {bind,cache}ExternalTexture
+    // methods above. But the main thread is responsible for holding resources
+    // such that Image destruction does not occur while this method is called.
+    //
+    // TODO(b/136806342): This should behavior should ideally be fixed since
+    // the above two assumptions are brittle, as conditional thread safetyness
+    // may be insufficient when maximizing rendering performance in the future.
+    //
     // @param layers The layers to draw onto the display, in Z-order.
     // @param buffer The buffer which will be drawn to. This buffer will be
     // ready once drawFence fires.
@@ -191,7 +162,7 @@ public:
     // @return An error code indicating whether drawing was successful. For
     // now, this always returns NO_ERROR.
     virtual status_t drawLayers(const DisplaySettings& display,
-                                const std::vector<LayerSettings>& layers,
+                                const std::vector<const LayerSettings*>& layers,
                                 ANativeWindowBuffer* buffer, const bool useFramebufferCache,
                                 base::unique_fd&& bufferFence, base::unique_fd* drawFence) = 0;
 
@@ -203,6 +174,85 @@ protected:
     // live longer than RenderEngine.
     virtual Framebuffer* getFramebufferForDrawing() = 0;
     friend class BindNativeBufferAsFramebuffer;
+};
+
+struct RenderEngineCreationArgs {
+    int pixelFormat;
+    uint32_t imageCacheSize;
+    bool useColorManagement;
+    bool enableProtectedContext;
+    bool precacheToneMapperShaderOnly;
+    bool supportsBackgroundBlur;
+    RenderEngine::ContextPriority contextPriority;
+
+    struct Builder;
+
+private:
+    // must be created by Builder via constructor with full argument list
+    RenderEngineCreationArgs(
+            int _pixelFormat,
+            uint32_t _imageCacheSize,
+            bool _useColorManagement,
+            bool _enableProtectedContext,
+            bool _precacheToneMapperShaderOnly,
+            bool _supportsBackgroundBlur,
+            RenderEngine::ContextPriority _contextPriority)
+        : pixelFormat(_pixelFormat)
+        , imageCacheSize(_imageCacheSize)
+        , useColorManagement(_useColorManagement)
+        , enableProtectedContext(_enableProtectedContext)
+        , precacheToneMapperShaderOnly(_precacheToneMapperShaderOnly)
+        , supportsBackgroundBlur(_supportsBackgroundBlur)
+        , contextPriority(_contextPriority) {}
+    RenderEngineCreationArgs() = delete;
+};
+
+struct RenderEngineCreationArgs::Builder {
+    Builder() {}
+
+    Builder& setPixelFormat(int pixelFormat) {
+        this->pixelFormat = pixelFormat;
+        return *this;
+    }
+    Builder& setImageCacheSize(uint32_t imageCacheSize) {
+        this->imageCacheSize = imageCacheSize;
+        return *this;
+    }
+    Builder& setUseColorManagerment(bool useColorManagement) {
+        this->useColorManagement = useColorManagement;
+        return *this;
+    }
+    Builder& setEnableProtectedContext(bool enableProtectedContext) {
+        this->enableProtectedContext = enableProtectedContext;
+        return *this;
+    }
+    Builder& setPrecacheToneMapperShaderOnly(bool precacheToneMapperShaderOnly) {
+        this->precacheToneMapperShaderOnly = precacheToneMapperShaderOnly;
+        return *this;
+    }
+    Builder& setSupportsBackgroundBlur(bool supportsBackgroundBlur) {
+        this->supportsBackgroundBlur = supportsBackgroundBlur;
+        return *this;
+    }
+    Builder& setContextPriority(RenderEngine::ContextPriority contextPriority) {
+        this->contextPriority = contextPriority;
+        return *this;
+    }
+    RenderEngineCreationArgs build() const {
+        return RenderEngineCreationArgs(pixelFormat, imageCacheSize, useColorManagement,
+                                        enableProtectedContext, precacheToneMapperShaderOnly,
+                                        supportsBackgroundBlur, contextPriority);
+    }
+
+private:
+    // 1 means RGBA_8888
+    int pixelFormat = 1;
+    uint32_t imageCacheSize = 0;
+    bool useColorManagement = true;
+    bool enableProtectedContext = false;
+    bool precacheToneMapperShaderOnly = false;
+    bool supportsBackgroundBlur = false;
+    RenderEngine::ContextPriority contextPriority = RenderEngine::ContextPriority::MEDIUM;
 };
 
 class BindNativeBufferAsFramebuffer {
@@ -238,8 +288,8 @@ public:
     bool useWaitSync() const override;
 
 protected:
-    RenderEngine(uint32_t featureFlags);
-    const uint32_t mFeatureFlags;
+    RenderEngine(const RenderEngineCreationArgs& args);
+    const RenderEngineCreationArgs mArgs;
 };
 
 } // namespace impl

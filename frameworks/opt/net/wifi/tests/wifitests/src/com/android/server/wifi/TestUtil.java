@@ -64,16 +64,6 @@ public class TestUtil {
     }
 
     /**
-     * Send {@link WifiManager#WIFI_SCAN_AVAILABLE} broadcast.
-     */
-    public static void sendWifiScanAvailable(BroadcastReceiver broadcastReceiver,
-            Context context, int scanAvailable) {
-        Intent intent = new Intent(WifiManager.WIFI_SCAN_AVAILABLE);
-        intent.putExtra(WifiManager.EXTRA_SCAN_AVAILABLE, scanAvailable);
-        broadcastReceiver.onReceive(context, intent);
-    }
-
-    /**
      * Send {@link WifiManager#WIFI_STATE_CHANGED} broadcast.
      */
     public static void sendWifiStateChanged(BroadcastReceiver broadcastReceiver,

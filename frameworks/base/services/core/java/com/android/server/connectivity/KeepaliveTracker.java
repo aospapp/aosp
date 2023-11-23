@@ -39,11 +39,11 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ISocketKeepaliveCallback;
+import android.net.InvalidPacketException;
 import android.net.KeepalivePacketData;
 import android.net.NattKeepalivePacketData;
 import android.net.NetworkAgent;
 import android.net.NetworkUtils;
-import android.net.SocketKeepalive.InvalidPacketException;
 import android.net.SocketKeepalive.InvalidSocketException;
 import android.net.TcpKeepalivePacketData;
 import android.net.util.IpUtils;
@@ -220,9 +220,9 @@ public class KeepaliveTracker {
                     + " network=" + mNai.network
                     + " startedState=" + startedStateString(mStartedState)
                     + " "
-                    + IpUtils.addressAndPortToString(mPacket.srcAddress, mPacket.srcPort)
+                    + IpUtils.addressAndPortToString(mPacket.getSrcAddress(), mPacket.getSrcPort())
                     + "->"
-                    + IpUtils.addressAndPortToString(mPacket.dstAddress, mPacket.dstPort)
+                    + IpUtils.addressAndPortToString(mPacket.getDstAddress(), mPacket.getDstPort())
                     + " interval=" + mInterval
                     + " uid=" + mUid + " pid=" + mPid + " privileged=" + mPrivileged
                     + " packetData=" + HexDump.toHexString(mPacket.getPacket())
@@ -250,7 +250,7 @@ public class KeepaliveTracker {
         private int checkSourceAddress() {
             // Check that we have the source address.
             for (InetAddress address : mNai.linkProperties.getAddresses()) {
-                if (address.equals(mPacket.srcAddress)) {
+                if (address.equals(mPacket.getSrcAddress())) {
                     return SUCCESS;
                 }
             }
@@ -325,7 +325,7 @@ public class KeepaliveTracker {
             mSlot = slot;
             int error = isValid();
             if (error == SUCCESS) {
-                Log.d(TAG, "Starting keepalive " + mSlot + " on " + mNai.name());
+                Log.d(TAG, "Starting keepalive " + mSlot + " on " + mNai.toShortString());
                 switch (mType) {
                     case TYPE_NATT:
                         mNai.asyncChannel.sendMessage(
@@ -365,7 +365,8 @@ public class KeepaliveTracker {
                     Log.e(TAG, "Cannot stop unowned keepalive " + mSlot + " on " + mNai.network);
                 }
             }
-            Log.d(TAG, "Stopping keepalive " + mSlot + " on " + mNai.name() + ": " + reason);
+            Log.d(TAG, "Stopping keepalive " + mSlot + " on " + mNai.toShortString()
+                    + ": " + reason);
             switch (mStartedState) {
                 case NOT_STARTED:
                     // Remove the reference of the keepalive that meet error before starting,
@@ -473,12 +474,10 @@ public class KeepaliveTracker {
                 cleanupStoppedKeepalive(nai, ki.mSlot);
             }
         }
-        // Clean up keepalives will be done as a result of calling ki.stop() after the slots are
-        // freed.
     }
 
     public void handleStopKeepalive(NetworkAgentInfo nai, int slot, int reason) {
-        String networkName = (nai == null) ? "(null)" : nai.name();
+        final String networkName = NetworkAgentInfo.toShortString(nai);
         HashMap <Integer, KeepaliveInfo> networkKeepalives = mKeepalives.get(nai);
         if (networkKeepalives == null) {
             Log.e(TAG, "Attempt to stop keepalive on nonexistent network " + networkName);
@@ -495,7 +494,7 @@ public class KeepaliveTracker {
     }
 
     private void cleanupStoppedKeepalive(NetworkAgentInfo nai, int slot) {
-        String networkName = (nai == null) ? "(null)" : nai.name();
+        final String networkName = NetworkAgentInfo.toShortString(nai);
         HashMap<Integer, KeepaliveInfo> networkKeepalives = mKeepalives.get(nai);
         if (networkKeepalives == null) {
             Log.e(TAG, "Attempt to remove keepalive on nonexistent network " + networkName);
@@ -542,7 +541,7 @@ public class KeepaliveTracker {
         } catch(NullPointerException e) {}
         if (ki == null) {
             Log.e(TAG, "Event " + message.what + "," + slot + "," + reason
-                    + " for unknown keepalive " + slot + " on " + nai.name());
+                    + " for unknown keepalive " + slot + " on " + nai.toShortString());
             return;
         }
 
@@ -564,7 +563,7 @@ public class KeepaliveTracker {
         if (KeepaliveInfo.STARTING == ki.mStartedState) {
             if (SUCCESS == reason) {
                 // Keepalive successfully started.
-                Log.d(TAG, "Started keepalive " + slot + " on " + nai.name());
+                Log.d(TAG, "Started keepalive " + slot + " on " + nai.toShortString());
                 ki.mStartedState = KeepaliveInfo.STARTED;
                 try {
                     ki.mCallback.onStarted(slot);
@@ -572,14 +571,14 @@ public class KeepaliveTracker {
                     Log.w(TAG, "Discarded onStarted(" + slot + ") callback");
                 }
             } else {
-                Log.d(TAG, "Failed to start keepalive " + slot + " on " + nai.name()
+                Log.d(TAG, "Failed to start keepalive " + slot + " on " + nai.toShortString()
                         + ": " + reason);
                 // The message indicated some error trying to start: do call handleStopKeepalive.
                 handleStopKeepalive(nai, slot, reason);
             }
         } else if (KeepaliveInfo.STOPPING == ki.mStartedState) {
             // The message indicated result of stopping : clean up keepalive slots.
-            Log.d(TAG, "Stopped keepalive " + slot + " on " + nai.name()
+            Log.d(TAG, "Stopped keepalive " + slot + " on " + nai.toShortString()
                     + " stopped: " + reason);
             ki.mStartedState = KeepaliveInfo.NOT_STARTED;
             cleanupStoppedKeepalive(nai, slot);
@@ -620,7 +619,7 @@ public class KeepaliveTracker {
             packet = NattKeepalivePacketData.nattKeepalivePacket(
                     srcAddress, srcPort, dstAddress, NATT_PORT);
         } catch (InvalidPacketException e) {
-            notifyErrorCallback(cb, e.error);
+            notifyErrorCallback(cb, e.getError());
             return;
         }
         KeepaliveInfo ki = null;
@@ -659,8 +658,11 @@ public class KeepaliveTracker {
         final TcpKeepalivePacketData packet;
         try {
             packet = TcpKeepaliveController.getTcpKeepalivePacket(fd);
-        } catch (InvalidPacketException | InvalidSocketException e) {
+        } catch (InvalidSocketException e) {
             notifyErrorCallback(cb, e.error);
+            return;
+        } catch (InvalidPacketException e) {
+            notifyErrorCallback(cb, e.getError());
             return;
         }
         KeepaliveInfo ki = null;
@@ -732,7 +734,7 @@ public class KeepaliveTracker {
         pw.println("Socket keepalives:");
         pw.increaseIndent();
         for (NetworkAgentInfo nai : mKeepalives.keySet()) {
-            pw.println(nai.name());
+            pw.println(nai.toShortString());
             pw.increaseIndent();
             for (int slot : mKeepalives.get(nai).keySet()) {
                 KeepaliveInfo ki = mKeepalives.get(nai).get(slot);

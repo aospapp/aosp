@@ -16,9 +16,7 @@
 
 package com.android.layoutlib.bridge;
 
-import com.android.ide.common.rendering.api.Capability;
 import com.android.ide.common.rendering.api.DrawableParams;
-import com.android.ide.common.rendering.api.Features;
 import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.RenderSession;
 import com.android.ide.common.rendering.api.ResourceNamespace;
@@ -37,6 +35,8 @@ import com.android.tools.layoutlib.create.MethodAdapter;
 import com.android.tools.layoutlib.create.OverrideMethod;
 import com.android.util.Pair;
 
+import android.animation.PropertyValuesHolder;
+import android.animation.PropertyValuesHolder_Delegate;
 import android.content.res.BridgeAssetManager;
 import android.graphics.Bitmap;
 import android.graphics.FontFamily_Delegate;
@@ -126,17 +126,18 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
      */
     private final static LayoutLog sDefaultLog = new LayoutLog() {
         @Override
-        public void error(String tag, String message, Object data) {
+        public void error(String tag, String message, Object viewCookie, Object data) {
             System.err.println(message);
         }
 
         @Override
-        public void error(String tag, String message, Throwable throwable, Object data) {
+        public void error(String tag, String message, Throwable throwable, Object viewCookie,
+                Object data) {
             System.err.println(message);
         }
 
         @Override
-        public void warning(String tag, String message, Object data) {
+        public void warning(String tag, String message, Object viewCookie, Object data) {
             System.out.println(message);
         }
     };
@@ -148,30 +149,10 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
 
     public static boolean sIsTypefaceInitialized;
 
-    private static final int LAST_SUPPORTED_FEATURE = Features.THEME_PREVIEW_NAVIGATION_BAR;
-
-    @Override
-    public int getApiLevel() {
-        return com.android.ide.common.rendering.api.Bridge.API_CURRENT;
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override
-    @Deprecated
-    public EnumSet<Capability> getCapabilities() {
-        // The Capability class is deprecated and frozen. All Capabilities enumerated there are
-        // supported by this version of LayoutLibrary. So, it's safe to use EnumSet.allOf()
-        return EnumSet.allOf(Capability.class);
-    }
-
-    @Override
-    public boolean supports(int feature) {
-        return feature <= LAST_SUPPORTED_FEATURE;
-    }
-
     @Override
     public boolean init(Map<String,String> platformProperties,
             File fontLocation,
+            String nativeLibPath,
             String icuDataPath,
             Map<String, Map<String, Integer>> enumValueMap,
             LayoutLog log) {
@@ -196,7 +177,7 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
                 @Override
                 public void onInvokeV(String signature, boolean isNative, Object caller) {
                     sDefaultLog.error(null, "Missing Stub: " + signature +
-                            (isNative ? " (native)" : ""), null /*data*/);
+                            (isNative ? " (native)" : ""), null, null /*data*/);
 
                     if (debug.equalsIgnoreCase("throw")) {
                         // Throwing this exception doesn't seem that useful. It breaks
@@ -266,7 +247,7 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
             if (log != null) {
                 log.error(LayoutLog.TAG_BROKEN,
                         "Failed to load com.android.internal.R from the layout library jar",
-                        throwable, null);
+                        throwable, null, null);
             }
             return false;
         }
@@ -443,11 +424,17 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
     }
 
     @Override
-    public void clearCaches(Object projectKey) {
+    public void clearResourceCaches(Object projectKey) {
         if (projectKey != null) {
             sProjectBitmapCache.remove(projectKey);
             sProject9PatchCache.remove(projectKey);
         }
+    }
+
+    @Override
+    public void clearAllCaches(Object projectKey) {
+        clearResourceCaches(projectKey);
+        PropertyValuesHolder_Delegate.clearCaches();
     }
 
     @Override
@@ -545,7 +532,7 @@ public final class Bridge extends com.android.ide.common.rendering.api.Bridge {
     /**
      * Returns details of a framework resource from its integer value.
      *
-     * <p>TODO(namespaces): remove this and just do all id resolution through the callback.
+     * <p>TODO(b/156609434): remove this and just do all id resolution through the callback.
      */
     @Nullable
     public static ResourceReference resolveResourceId(int value) {

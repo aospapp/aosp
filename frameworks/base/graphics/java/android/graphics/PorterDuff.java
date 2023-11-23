@@ -16,7 +16,7 @@
 
 package android.graphics;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 /**
  * <p>This class contains the list of alpha compositing and blending modes
@@ -29,8 +29,6 @@ import android.annotation.UnsupportedAppUsage;
 public class PorterDuff {
     /**
      * {@usesMathJax}
-     *
-     * <h3>Porter-Duff</h3>
      *
      * <p>The name of the parent class is an homage to the work of Thomas Porter and
      * Tom Duff, presented in their seminal 1984 paper titled "Compositing Digital Images".

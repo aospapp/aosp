@@ -24,11 +24,22 @@
 #include <gui/IGraphicBufferProducer.h>
 #include <media/hardware/CryptoAPI.h>
 #include <media/MediaCodecInfo.h>
-#include <media/MediaResource.h>
-#include <media/MediaAnalyticsItem.h>
+#include <media/MediaMetrics.h>
 #include <media/stagefright/foundation/AHandler.h>
 #include <media/stagefright/FrameRenderTracker.h>
 #include <utils/Vector.h>
+
+class C2Buffer;
+class C2GraphicBlock;
+class C2LinearBlock;
+
+namespace aidl {
+namespace android {
+namespace media {
+class MediaResourceParcel;
+} // media
+} // android
+} // aidl
 
 namespace android {
 
@@ -36,14 +47,13 @@ struct ABuffer;
 struct AMessage;
 struct AReplyToken;
 struct AString;
+struct BatteryChecker;
 class BufferChannelBase;
 struct CodecBase;
 class IBatteryStats;
 struct ICrypto;
 class MediaCodecBuffer;
 class IMemory;
-class IResourceManagerClient;
-class IResourceManagerService;
 struct PersistentSurface;
 class SoftwareRenderer;
 class Surface;
@@ -53,11 +63,14 @@ namespace native {
 namespace V1_0 {
 struct IDescrambler;
 }}}}
+
 using hardware::cas::native::V1_0::IDescrambler;
+using aidl::android::media::MediaResourceParcel;
 
 struct MediaCodec : public AHandler {
     enum ConfigureFlags {
-        CONFIGURE_FLAG_ENCODE   = 1,
+        CONFIGURE_FLAG_ENCODE           = 1,
+        CONFIGURE_FLAG_USE_BLOCK_MODEL  = 2,
     };
 
     enum BufferFlags {
@@ -126,6 +139,8 @@ struct MediaCodec : public AHandler {
     // object.
     status_t release();
 
+    status_t releaseAsync(const sp<AMessage> &notify);
+
     status_t flush();
 
     status_t queueInputBuffer(
@@ -148,6 +163,38 @@ struct MediaCodec : public AHandler {
             int64_t presentationTimeUs,
             uint32_t flags,
             AString *errorDetailMsg = NULL);
+
+    status_t queueBuffer(
+            size_t index,
+            const std::shared_ptr<C2Buffer> &buffer,
+            int64_t presentationTimeUs,
+            uint32_t flags,
+            const sp<AMessage> &tunings,
+            AString *errorDetailMsg = NULL);
+
+    status_t queueEncryptedBuffer(
+            size_t index,
+            const sp<hardware::HidlMemory> &memory,
+            size_t offset,
+            const CryptoPlugin::SubSample *subSamples,
+            size_t numSubSamples,
+            const uint8_t key[16],
+            const uint8_t iv[16],
+            CryptoPlugin::Mode mode,
+            const CryptoPlugin::Pattern &pattern,
+            int64_t presentationTimeUs,
+            uint32_t flags,
+            const sp<AMessage> &tunings,
+            AString *errorDetailMsg = NULL);
+
+    std::shared_ptr<C2Buffer> decrypt(
+            const std::shared_ptr<C2Buffer> &buffer,
+            const CryptoPlugin::SubSample *subSamples,
+            size_t numSubSamples,
+            const uint8_t key[16],
+            const uint8_t iv[16],
+            CryptoPlugin::Mode mode,
+            const CryptoPlugin::Pattern &pattern);
 
     status_t dequeueInputBuffer(size_t *index, int64_t timeoutUs = 0ll);
 
@@ -188,7 +235,7 @@ struct MediaCodec : public AHandler {
 
     status_t getCodecInfo(sp<MediaCodecInfo> *codecInfo) const;
 
-    status_t getMetrics(MediaAnalyticsItem * &reply);
+    status_t getMetrics(mediametrics_handle_t &reply);
 
     status_t setParameters(const sp<AMessage> &params);
 
@@ -197,6 +244,29 @@ struct MediaCodec : public AHandler {
     // of frames that were rendered.
     static size_t CreateFramesRenderedMessage(
             const std::list<FrameRenderTracker::Info> &done, sp<AMessage> &msg);
+
+    static status_t CanFetchLinearBlock(
+            const std::vector<std::string> &names, bool *isCompatible);
+
+    static std::shared_ptr<C2LinearBlock> FetchLinearBlock(
+            size_t capacity, const std::vector<std::string> &names);
+
+    static status_t CanFetchGraphicBlock(
+            const std::vector<std::string> &names, bool *isCompatible);
+
+    static std::shared_ptr<C2GraphicBlock> FetchGraphicBlock(
+            int32_t width,
+            int32_t height,
+            int32_t format,
+            uint64_t usage,
+            const std::vector<std::string> &names);
+
+    template <typename T>
+    struct WrapperObject : public RefBase {
+        WrapperObject(const T& v) : value(v) {}
+        WrapperObject(T&& v) : value(std::move(v)) {}
+        T value;
+    };
 
 protected:
     virtual ~MediaCodec();
@@ -257,6 +327,7 @@ private:
         kWhatSetCallback                    = 'setC',
         kWhatSetNotification                = 'setN',
         kWhatDrmReleaseCrypto               = 'rDrm',
+        kWhatCheckBatteryStats              = 'chkB',
     };
 
     enum {
@@ -273,6 +344,7 @@ private:
         kFlagIsAsync                    = 1024,
         kFlagIsComponentAllocated       = 2048,
         kFlagPushBlankBuffersOnShutdown = 4096,
+        kFlagUseBlockModel              = 8192,
     };
 
     struct BufferInfo {
@@ -282,29 +354,7 @@ private:
         bool mOwnedByClient;
     };
 
-    struct ResourceManagerServiceProxy : public IBinder::DeathRecipient {
-        ResourceManagerServiceProxy(pid_t pid);
-        ~ResourceManagerServiceProxy();
-
-        void init();
-
-        // implements DeathRecipient
-        virtual void binderDied(const wp<IBinder>& /*who*/);
-
-        void addResource(
-                int64_t clientId,
-                const sp<IResourceManagerClient> &client,
-                const Vector<MediaResource> &resources);
-
-        void removeResource(int64_t clientId);
-
-        bool reclaimResource(const Vector<MediaResource> &resources);
-
-    private:
-        Mutex mLock;
-        sp<IResourceManagerService> mService;
-        pid_t mPid;
-    };
+    struct ResourceManagerServiceProxy;
 
     State mState;
     uid_t mUid;
@@ -321,21 +371,22 @@ private:
     sp<Surface> mSurface;
     SoftwareRenderer *mSoftRenderer;
 
-    MediaAnalyticsItem *mAnalyticsItem;
-    void initAnalyticsItem();
-    void updateAnalyticsItem();
-    void flushAnalyticsItem();
-    void updateEphemeralAnalytics(MediaAnalyticsItem *item);
+    mediametrics_handle_t mMetricsHandle = 0;
+    nsecs_t mLifetimeStartNs = 0;
+    void initMediametrics();
+    void updateMediametrics();
+    void flushMediametrics();
+    void updateEphemeralMediametrics(mediametrics_handle_t item);
+    void updateLowLatency(const sp<AMessage> &msg);
 
     sp<AMessage> mOutputFormat;
     sp<AMessage> mInputFormat;
     sp<AMessage> mCallback;
     sp<AMessage> mOnFrameRenderedNotification;
+    sp<AMessage> mAsyncReleaseCompleteNotification;
 
-    sp<IResourceManagerClient> mResourceManagerClient;
-    sp<ResourceManagerServiceProxy> mResourceManagerService;
+    sp<ResourceManagerServiceProxy> mResourceManagerProxy;
 
-    bool mBatteryStatNotified;
     bool mIsVideo;
     int32_t mVideoWidth;
     int32_t mVideoHeight;
@@ -425,11 +476,9 @@ private:
     status_t onSetParameters(const sp<AMessage> &params);
 
     status_t amendOutputFormatWithCodecSpecificData(const sp<MediaCodecBuffer> &buffer);
-    void updateBatteryStat();
     bool isExecuting() const;
 
     uint64_t getGraphicBufferSize();
-    void addResource(MediaResource::Type type, MediaResource::SubType subtype, uint64_t value);
     void requestCpuBoostIfNeeded();
 
     bool hasPendingBuffer(int portIndex);
@@ -457,6 +506,20 @@ private:
     std::deque<BufferFlightTiming_t> mBuffersInFlight;
     Mutex mLatencyLock;
     int64_t mLatencyUnknown;    // buffers for which we couldn't calculate latency
+    int64_t mNumLowLatencyEnables;  // how many times low latency mode is enabled
+    int64_t mNumLowLatencyDisables;  // how many times low latency mode is disabled
+    bool mIsLowLatencyModeOn;  // is low latency mode on currently
+    int64_t mIndexOfFirstFrameWhenLowLatencyOn;  // index of the first frame queued
+                                                 // when low latency is on
+    int64_t mInputBufferCounter;  // number of input buffers queued since last reset/flush
+
+    class ReleaseSurface;
+    std::unique_ptr<ReleaseSurface> mReleaseSurface;
+
+    std::list<sp<AMessage>> mLeftover;
+    status_t handleLeftover(size_t index);
+
+    sp<BatteryChecker> mBatteryChecker;
 
     void statsBufferSent(int64_t presentationUs);
     void statsBufferReceived(int64_t presentationUs);

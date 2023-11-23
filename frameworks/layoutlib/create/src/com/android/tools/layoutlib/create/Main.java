@@ -134,6 +134,8 @@ public class Main {
                         "android.annotation.Nullable",      // annotations
                         "com.android.internal.transition.EpicenterTranslateClipReveal",
                         "com.android.internal.graphics.drawable.AnimationScaleListDrawable",
+                        "com.google.android.apps.common.testing.accessibility.**",
+                        "com.google.android.libraries.accessibility.**",
                     },
                     info.getExcludedClasses(),
                     new String[] {

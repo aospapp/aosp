@@ -29,7 +29,7 @@ import java.util.ArrayList;
  * access WifiNative. It starts with firmware roaming. TODO(b/34819513): Move operations
  * such as connection to network and legacy framework roaming here.
  *
- * NOTE: This class is not thread safe and should only be used from the ClientModeImpl thread.
+ * NOTE: This class is not thread safe and should only be used from the main Wifi thread.
  */
 public class WifiConnectivityHelper {
     private static final String TAG = "WifiConnectivityHelper";
@@ -161,15 +161,5 @@ public class WifiConnectivityHelper {
         roamConfig.whitelistSsids = whitelistSsids;
 
         return mWifiNative.configureRoaming(mWifiNative.getClientInterfaceName(), roamConfig);
-    }
-
-    /**
-     * Remove the request |networkId| from supplicant if it's the current network,
-     * if the current configured network matches |networkId|.
-     *
-     * @param networkId network id of the network to be removed from supplicant.
-     */
-    public void removeNetworkIfCurrent(int networkId) {
-        mWifiNative.removeNetworkIfCurrent(mWifiNative.getClientInterfaceName(), networkId);
     }
 }

@@ -15,20 +15,34 @@
  */
 package android.os.image;
 
+import android.gsi.AvbPublicKey;
 import android.gsi.GsiProgress;
 
 /** {@hide} */
 interface IDynamicSystemService
 {
     /**
-     * Start DynamicSystem installation. This call may take 60~90 seconds. The caller
-     * may use another thread to call the getStartProgress() to get the progress.
-     *
-     * @param systemSize system size in bytes
-     * @param userdataSize userdata size in bytes
+     * Start DynamicSystem installation.
+     * @param dsuSlot Name used to identify this installation
      * @return true if the call succeeds
      */
-    boolean startInstallation(long systemSize, long userdataSize);
+    boolean startInstallation(@utf8InCpp String dsuSlot);
+
+    /**
+     * Create a DSU partition. This call may take 60~90 seconds. The caller
+     * may use another thread to call the getStartProgress() to get the progress.
+     * @param name The DSU partition name
+     * @param size Size of the DSU image in bytes
+     * @param readOnly True if this partition is readOnly
+     * @return true if the call succeeds
+     */
+    boolean createPartition(@utf8InCpp String name, long size, boolean readOnly);
+
+    /**
+     * Finish a previously started installation. Installations without
+     * a cooresponding finishInstallation() will be cleaned up during device boot.
+     */
+    boolean finishInstallation();
 
     /**
      * Query the progress of the current installation operation. This can be called while
@@ -72,21 +86,36 @@ interface IDynamicSystemService
     /**
      * Enable or disable DynamicSystem.
      *
-     * @return true if the call succeeds
-     */
-    boolean setEnable(boolean enable);
-
-    /**
-     * Write a chunk of the DynamicSystem system image
+     * @param oneShot       If true, the GSI will boot once and then disable itself.
      *
      * @return true if the call succeeds
      */
-    boolean write(in byte[] buf);
+    boolean setEnable(boolean enable, boolean oneShot);
 
     /**
-     * Finish write and make device to boot into the it after reboot.
+     * Set the file descriptor that points to a ashmem which will be used
+     * to fetch data during the submitFromAshmem.
      *
-     * @return true if the call succeeds
+     * @param fd            fd that points to a ashmem
+     * @param size          size of the ashmem file
      */
-    boolean commit();
+    boolean setAshmem(in ParcelFileDescriptor fd, long size);
+
+    /**
+     * Submit bytes to the DSU partition from the ashmem previously set with
+     * setAshmem.
+     *
+     * @param bytes         number of bytes that can be read from stream.
+     * @return              true on success, false otherwise.
+     */
+    boolean submitFromAshmem(long bytes);
+
+    /**
+     * Retrieve AVB public key from installing partition.
+     *
+     * @param dst           Output the AVB public key.
+     * @return              true on success, false if partition doesn't have a
+     *                      valid VBMeta block to retrieve the AVB key from.
+     */
+    boolean getAvbPublicKey(out AvbPublicKey dst);
 }

@@ -18,9 +18,11 @@ package com.android.server.pm;
 
 import android.content.pm.ApplicationInfo;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.pm.permission.PermissionsState;
 
-abstract class SettingBase {
+@VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
+public abstract class SettingBase {
     int pkgFlags;
     int pkgPrivateFlags;
 
@@ -63,7 +65,7 @@ abstract class SettingBase {
                 | ApplicationInfo.PRIVATE_FLAG_OEM
                 | ApplicationInfo.PRIVATE_FLAG_VENDOR
                 | ApplicationInfo.PRIVATE_FLAG_PRODUCT
-                | ApplicationInfo.PRIVATE_FLAG_PRODUCT_SERVICES
+                | ApplicationInfo.PRIVATE_FLAG_SYSTEM_EXT
                 | ApplicationInfo.PRIVATE_FLAG_REQUIRED_FOR_SYSTEM_USER
                 | ApplicationInfo.PRIVATE_FLAG_ODM);
     }

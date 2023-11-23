@@ -22,8 +22,9 @@ cc_binary_host {
     // Shared libraries which are dependencies of minikin; these are not automatically
     // pulled in by the build system (and thus sadly must be repeated).
     shared_libs: [
+        "libicui18n",
+        "libicuuc",
         "liblog",
-        "libandroidicu",
     ],
 
     srcs: ["HyphTool.cpp"],

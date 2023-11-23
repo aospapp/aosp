@@ -56,7 +56,7 @@ public class BridgeContextTest extends RenderTestBase {
         Configuration configuration = RenderAction.getConfiguration(params);
         BridgeContext context = new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                 params.getAssets(), params.getLayoutlibCallback(), configuration,
-                params.getTargetSdkVersion(), params.isRtlSupported());
+                params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
 
         context.initResources();
         BridgeContext oldContext = RenderActionTestUtil.setBridgeContext(context);
@@ -103,7 +103,7 @@ public class BridgeContextTest extends RenderTestBase {
         Configuration configuration = RenderAction.getConfiguration(params);
         BridgeContext context = new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                 params.getAssets(), params.getLayoutlibCallback(), configuration,
-                params.getTargetSdkVersion(), params.isRtlSupported());
+                params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
 
         context.initResources();
         BridgeContext oldContext = RenderActionTestUtil.setBridgeContext(context);

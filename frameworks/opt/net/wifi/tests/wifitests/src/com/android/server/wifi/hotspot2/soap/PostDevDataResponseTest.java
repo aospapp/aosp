@@ -22,6 +22,7 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.hotspot2.soap.command.SppCommand;
 
 import org.junit.Before;
@@ -33,7 +34,7 @@ import org.ksoap2.serialization.SoapObject;
  * Unit tests for {@link PostDevDataResponse}.
  */
 @SmallTest
-public class PostDevDataResponseTest {
+public class PostDevDataResponseTest extends WifiBaseTest {
     private static final String EXEC = "exec";
     private static final String BROWSER_COMMAND = "launchBrowserToURI";
     private static final String TEST_URL = "https://127.0.0.1:12345/index.htm";

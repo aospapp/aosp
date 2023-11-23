@@ -373,7 +373,7 @@ $ out/host/linux-x86/bin/llvm-rs-cc \
   -MD \
   -I frameworks/base/libs/rs/script_api/include \
   -I external/clang/lib/Headers \
-  frameworks/base/libs/rs/java/Fountain/src/com/android/fountain/fountain.rs
+  frameworks/base/libs/rs/java/Fountain/src/com/android/fountain/fountain.rscript
 </pre>
 <p>This command will generate:</p>
 <ul class="simple">
@@ -384,8 +384,8 @@ $ out/host/linux-x86/bin/llvm-rs-cc \
 <p>The <strong>Script*.java</strong> files above will be documented below.</p>
 </div>
 <div class="section" id="example-program-fountain-rs">
-<h1>Example Program: fountain.rs</h1>
-<p>fountain.rs is in the Renderscript language, which is based on the standard
+<h1>Example Program: fountain.rscript</h1>
+<p>fountain.rscript is in the Renderscript language, which is based on the standard
 C99. However, llvm-rs-cc goes beyond &quot;clang -std=c99&quot; and provides the
 following important features:</p>
 </div>
@@ -398,7 +398,7 @@ developers can invoke those APIs.</p>
 <p>To do that, a Renderscript programmer should specify the package name, so
 that llvm-rs-cc knows the package expression and hence the directory
 for outputting ScriptC_[SCRIPT_NAME].java.</p>
-<p>In fountain.rs, we have:</p>
+<p>In fountain.rscript, we have:</p>
 <pre class="literal-block">
 #pragma rs java_package_name(com.android.fountain)
 </pre>
@@ -435,7 +435,7 @@ to the functions and global variables within a script. In summary,
 global variables and functions within a script that are not declared
 static will generate get, set, or invoke methods.  This provides a way
 to set the data within a script and call its functions.</p>
-<p>Take the addParticles function in fountain.rs as an example:</p>
+<p>Take the addParticles function in fountain.rscript as an example:</p>
 <pre class="literal-block">
 void addParticles(int rate, float x, float y, int index, bool newColor) {
   ...
@@ -451,7 +451,7 @@ void invoke_addParticles(int rate, float x, float y,
 </div>
 <div class="section" id="export-user-defined-structs">
 <h1>3. Export User-Defined Structs</h1>
-<p>In fountain.rs, we have:</p>
+<p>In fountain.rscript, we have:</p>
 <pre class="literal-block">
 typedef struct __attribute__((packed, aligned(4))) Point {
   float2 delta;

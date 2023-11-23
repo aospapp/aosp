@@ -168,8 +168,4 @@ void Layout::purgeCaches() {
     LayoutCache::getInstance().clear();
 }
 
-void Layout::dumpMinikinStats(int fd) {
-    LayoutCache::getInstance().dumpStats(fd);
-}
-
 }  // namespace minikin

@@ -19,7 +19,6 @@
 #include "VolumeGroup.h"
 
 #include <system/audio.h>
-#include <AudioPolicyManagerInterface.h>
 #include <utils/RefBase.h>
 #include <HandleGenerator.h>
 #include <string>
@@ -27,6 +26,9 @@
 #include <map>
 #include <utils/Errors.h>
 #include <utils/String8.h>
+#include <media/AudioAttributes.h>
+#include <media/AudioContainers.h>
+#include <media/AudioPolicy.h>
 
 namespace android {
 
@@ -77,12 +79,12 @@ public:
 
     std::string getDeviceAddress() const { return mDeviceAddress; }
 
-    void setDeviceTypes(audio_devices_t devices)
+    void setDeviceTypes(const DeviceTypeSet& devices)
     {
         mApplicableDevices = devices;
     }
 
-    audio_devices_t getDeviceTypes() const { return mApplicableDevices; }
+    DeviceTypeSet getDeviceTypes() const { return mApplicableDevices; }
 
     audio_attributes_t getAttributesForStreamType(audio_stream_type_t stream) const;
     audio_stream_type_t getStreamTypeForAttributes(const audio_attributes_t &attr) const;
@@ -109,7 +111,7 @@ private:
     /**
      * Applicable device(s) type mask for this strategy.
      */
-    audio_devices_t mApplicableDevices = AUDIO_DEVICE_NONE;
+    DeviceTypeSet mApplicableDevices;
 };
 
 class ProductStrategyMap : public std::map<product_strategy_t, sp<ProductStrategy> >
@@ -144,7 +146,7 @@ public:
      */
     audio_attributes_t getAttributesForProductStrategy(product_strategy_t strategy) const;
 
-    audio_devices_t getDeviceTypesForProductStrategy(product_strategy_t strategy) const;
+    DeviceTypeSet getDeviceTypesForProductStrategy(product_strategy_t strategy) const;
 
     std::string getDeviceAddressForProductStrategy(product_strategy_t strategy) const;
 
@@ -160,6 +162,12 @@ public:
 
 private:
     product_strategy_t mDefaultStrategy = PRODUCT_STRATEGY_NONE;
+};
+
+class ProductStrategyPreferredRoutingMap : public std::map<product_strategy_t, AudioDeviceTypeAddr>
+{
+public:
+    void dump(String8 *dst, int spaces = 0) const;
 };
 
 } // namespace android

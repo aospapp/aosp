@@ -34,7 +34,6 @@ interface IAccountManager {
     String getPassword(in Account account);
     String getUserData(in Account account, String key);
     AuthenticatorDescription[] getAuthenticatorTypes(int userId);
-    Account[] getAccounts(String accountType, String opPackageName);
     Account[] getAccountsForPackage(String packageName, int uid, String opPackageName);
     Account[] getAccountsByTypeForPackage(String type, String packageName, String opPackageName);
     Account[] getAccountsAsUser(String accountType, int userId, String opPackageName);
@@ -45,8 +44,6 @@ interface IAccountManager {
     void getAccountsByFeatures(in IAccountManagerResponse response, String accountType,
         in String[] features, String opPackageName);
     boolean addAccountExplicitly(in Account account, String password, in Bundle extras);
-    void removeAccount(in IAccountManagerResponse response, in Account account,
-        boolean expectActivityLaunch);
     void removeAccountAsUser(in IAccountManagerResponse response, in Account account,
         boolean expectActivityLaunch, int userId);
     boolean removeAccountExplicitly(in Account account);
@@ -80,14 +77,11 @@ interface IAccountManager {
         String authTokenType);
 
     /* Shared accounts */
-    Account[] getSharedAccountsAsUser(int userId);
-    boolean removeSharedAccountAsUser(in Account account, int userId);
     void addSharedAccountsFromParentUser(int parentUserId, int userId, String opPackageName);
 
     /* Account renaming. */
     void renameAccount(in IAccountManagerResponse response, in Account accountToRename, String newName);
     String getPreviousName(in Account account);
-    boolean renameSharedAccountAsUser(in Account accountToRename, String newName, int userId);
 
     /* Add account in two steps. */
     void startAddAccountSession(in IAccountManagerResponse response, String accountType,

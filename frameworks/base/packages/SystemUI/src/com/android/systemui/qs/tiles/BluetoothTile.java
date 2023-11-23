@@ -82,10 +82,6 @@ public class BluetoothTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
-    }
-
-    @Override
     protected void handleClick() {
         // Secondary clicks are header clicks, just toggle.
         final boolean isEnabled = mState.value;
@@ -134,25 +130,27 @@ public class BluetoothTile extends QSTileImpl<BooleanState> {
         state.label = mContext.getString(R.string.quick_settings_bluetooth_label);
         state.secondaryLabel = TextUtils.emptyIfNull(
                 getSecondaryLabel(enabled, connecting, connected, state.isTransient));
+        state.contentDescription = state.label;
+        state.stateDescription = "";
         if (enabled) {
             if (connected) {
                 state.icon = new BluetoothConnectedTileIcon();
                 if (!TextUtils.isEmpty(mController.getConnectedDeviceName())) {
                     state.label = mController.getConnectedDeviceName();
                 }
-                state.contentDescription =
+                state.stateDescription =
                         mContext.getString(R.string.accessibility_bluetooth_name, state.label)
                                 + ", " + state.secondaryLabel;
             } else if (state.isTransient) {
                 state.icon = ResourceIcon.get(
                         com.android.internal.R.drawable.ic_bluetooth_transient_animation);
-                state.contentDescription = state.secondaryLabel;
+                state.stateDescription = state.secondaryLabel;
             } else {
                 state.icon =
                         ResourceIcon.get(com.android.internal.R.drawable.ic_qs_bluetooth);
                 state.contentDescription = mContext.getString(
-                        R.string.accessibility_quick_settings_bluetooth) + ","
-                        + mContext.getString(R.string.accessibility_not_connected);
+                        R.string.accessibility_quick_settings_bluetooth);
+                state.stateDescription = mContext.getString(R.string.accessibility_not_connected);
             }
             state.state = Tile.STATE_ACTIVE;
         } else {
@@ -199,7 +197,7 @@ public class BluetoothTile extends QSTileImpl<BooleanState> {
             CachedBluetoothDevice lastDevice = connectedDevices.get(0);
             final int batteryLevel = lastDevice.getBatteryLevel();
 
-            if (batteryLevel != BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+            if (batteryLevel > BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
                 return mContext.getString(
                         R.string.quick_settings_bluetooth_secondary_label_battery_level,
                         Utils.formatPercentage(batteryLevel));
@@ -392,7 +390,7 @@ public class BluetoothTile extends QSTileImpl<BooleanState> {
                     if (state == BluetoothProfile.STATE_CONNECTED) {
                         item.iconResId = R.drawable.ic_bluetooth_connected;
                         int batteryLevel = device.getBatteryLevel();
-                        if (batteryLevel != BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
+                        if (batteryLevel > BluetoothDevice.BATTERY_LEVEL_UNKNOWN) {
                             item.icon = new BluetoothBatteryTileIcon(batteryLevel,1 /* iconScale */);
                             item.line2 = mContext.getString(
                                     R.string.quick_settings_connected_battery_level,

@@ -18,23 +18,30 @@ package com.android.server.wifi;
 
 import android.util.ArrayMap;
 
+import com.android.server.wifi.proto.WifiScoreCardProto;
+
 import java.util.Map;
 
 public final class ConcreteCandidate implements WifiCandidates.Candidate {
     private WifiCandidates.Key mKey;
-    private ScanDetail mScanDetail;
     private int mNetworkConfigId = -1;
     private boolean mIsOpenNetwork;
     private boolean mIsCurrentNetwork;
     private boolean mIsCurrentBssid;
     private boolean mIsPasspoint;
     private boolean mIsEphemeral;
-    private boolean mIsTrusted;
-    private int mEvaluatorId = -1;
-    private int mEvaluatorScore = Integer.MIN_VALUE;
+    private boolean mIsTrusted = true;
+    private boolean mCarrierOrPrivileged;
+    private boolean mIsMetered;
+    private boolean mHasNoInternetAccess;
+    private boolean mIsNoInternetAccessExpected;
+    private int mNominatorId = -1;
     private double mLastSelectionWeight;
     private int mScanRssi = -127;
     private int mFrequency = -1;
+    private int mPredictedThroughputMbps = 0;
+    private int mEstimatedPercentInternetAvailability = 50;
+
     private final Map<WifiScoreCardProto.Event, WifiScoreCardProto.Signal>
             mEventStatisticsMap = new ArrayMap<>();
 
@@ -43,7 +50,6 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
 
     public ConcreteCandidate(WifiCandidates.Candidate candidate) {
         mKey = candidate.getKey();
-        mScanDetail = candidate.getScanDetail();
         mNetworkConfigId = candidate.getNetworkConfigId();
         mIsOpenNetwork = candidate.isOpenNetwork();
         mIsCurrentNetwork = candidate.isCurrentNetwork();
@@ -51,11 +57,17 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         mIsPasspoint = candidate.isPasspoint();
         mIsEphemeral = candidate.isEphemeral();
         mIsTrusted = candidate.isTrusted();
-        mEvaluatorId = candidate.getEvaluatorId();
-        mEvaluatorScore = candidate.getEvaluatorScore();
+        mCarrierOrPrivileged = candidate.isCarrierOrPrivileged();
+        mIsMetered = candidate.isMetered();
+        mHasNoInternetAccess = candidate.hasNoInternetAccess();
+        mIsNoInternetAccessExpected = candidate.isNoInternetAccessExpected();
+        mNominatorId = candidate.getNominatorId();
         mLastSelectionWeight = candidate.getLastSelectionWeight();
         mScanRssi = candidate.getScanRssi();
         mFrequency = candidate.getFrequency();
+        mPredictedThroughputMbps = candidate.getPredictedThroughputMbps();
+        mEstimatedPercentInternetAvailability = candidate
+                .getEstimatedPercentInternetAvailability();
         for (WifiScoreCardProto.Event event : WifiScoreCardProto.Event.values()) {
             WifiScoreCardProto.Signal signal = candidate.getEventStatistics(event);
             if (signal != null) {
@@ -72,16 +84,6 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
     @Override
     public WifiCandidates.Key getKey() {
         return mKey;
-    }
-
-    public ConcreteCandidate setScanDetail(ScanDetail scanDetail) {
-        mScanDetail = scanDetail;
-        return this;
-    }
-
-    @Override
-    public ScanDetail getScanDetail() {
-        return mScanDetail;
     }
 
     public ConcreteCandidate setNetworkConfigId(int networkConfigId) {
@@ -134,24 +136,54 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
         return mIsTrusted;
     }
 
-    public ConcreteCandidate setEvaluatorId(int evaluatorId) {
-        mEvaluatorId = evaluatorId;
+    public ConcreteCandidate setCarrierOrPrivileged(boolean carrierOrPrivileged) {
+        mCarrierOrPrivileged = carrierOrPrivileged;
         return this;
     }
 
     @Override
-    public int getEvaluatorId() {
-        return mEvaluatorId;
+    public boolean isCarrierOrPrivileged() {
+        return mCarrierOrPrivileged;
     }
 
-    public ConcreteCandidate setEvaluatorScore(int evaluatorScore) {
-        mEvaluatorScore = evaluatorScore;
+    public ConcreteCandidate setMetered(boolean isMetered) {
+        mIsMetered = isMetered;
         return this;
     }
 
     @Override
-    public int getEvaluatorScore() {
-        return mEvaluatorScore;
+    public boolean isMetered() {
+        return mIsMetered;
+    }
+
+    public ConcreteCandidate setNoInternetAccess(boolean hasNoInternetAccess) {
+        mHasNoInternetAccess = hasNoInternetAccess;
+        return this;
+    }
+
+    @Override
+    public boolean hasNoInternetAccess() {
+        return mHasNoInternetAccess;
+    }
+
+    public ConcreteCandidate setNoInternetAccessExpected(boolean isNoInternetAccessExpected) {
+        mIsNoInternetAccessExpected = isNoInternetAccessExpected;
+        return this;
+    }
+
+    @Override
+    public boolean isNoInternetAccessExpected() {
+        return mIsNoInternetAccessExpected;
+    }
+
+    public ConcreteCandidate setNominatorId(int nominatorId) {
+        mNominatorId = nominatorId;
+        return this;
+    }
+
+    @Override
+    public int getNominatorId() {
+        return mNominatorId;
     }
 
     public ConcreteCandidate setLastSelectionWeight(double lastSelectionWeight) {
@@ -202,6 +234,26 @@ public final class ConcreteCandidate implements WifiCandidates.Candidate {
     @Override
     public int getFrequency() {
         return mFrequency;
+    }
+
+    public ConcreteCandidate setPredictedThroughputMbps(int predictedThroughputMbps) {
+        mPredictedThroughputMbps = predictedThroughputMbps;
+        return this;
+    }
+
+    @Override
+    public int getPredictedThroughputMbps() {
+        return mPredictedThroughputMbps;
+    }
+
+    public ConcreteCandidate setEstimatedPercentInternetAvailability(int percent) {
+        mEstimatedPercentInternetAvailability = percent;
+        return this;
+    }
+
+    @Override
+    public int getEstimatedPercentInternetAvailability() {
+        return mEstimatedPercentInternetAvailability;
     }
 
     public ConcreteCandidate setEventStatistics(

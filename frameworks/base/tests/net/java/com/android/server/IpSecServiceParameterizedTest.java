@@ -46,6 +46,7 @@ import android.net.LinkAddress;
 import android.net.Network;
 import android.net.NetworkUtils;
 import android.os.Binder;
+import android.os.INetworkManagementService;
 import android.os.ParcelFileDescriptor;
 import android.system.Os;
 import android.test.mock.MockContext;
@@ -135,6 +136,7 @@ public class IpSecServiceParameterizedTest {
     };
 
     INetd mMockNetd;
+    INetworkManagementService mNetworkManager;
     PackageManager mMockPkgMgr;
     IpSecService.IpSecServiceConfiguration mMockIpSecSrvConfig;
     IpSecService mIpSecService;
@@ -160,9 +162,10 @@ public class IpSecServiceParameterizedTest {
     @Before
     public void setUp() throws Exception {
         mMockNetd = mock(INetd.class);
+        mNetworkManager = mock(INetworkManagementService.class);
         mMockPkgMgr = mock(PackageManager.class);
         mMockIpSecSrvConfig = mock(IpSecService.IpSecServiceConfiguration.class);
-        mIpSecService = new IpSecService(mMockContext, mMockIpSecSrvConfig);
+        mIpSecService = new IpSecService(mMockContext, mNetworkManager, mMockIpSecSrvConfig);
 
         // Injecting mock netd
         when(mMockIpSecSrvConfig.getNetdInstance()).thenReturn(mMockNetd);
@@ -544,12 +547,55 @@ public class IpSecServiceParameterizedTest {
 
     @Test
     public void testApplyTransportModeTransform() throws Exception {
+        verifyApplyTransportModeTransformCommon(false);
+    }
+
+    @Test
+    public void testApplyTransportModeTransformReleasedSpi() throws Exception {
+        verifyApplyTransportModeTransformCommon(true);
+    }
+
+    public void verifyApplyTransportModeTransformCommon(
+                boolean closeSpiBeforeApply) throws Exception {
         IpSecConfig ipSecConfig = new IpSecConfig();
         addDefaultSpisAndRemoteAddrToIpSecConfig(ipSecConfig);
         addAuthAndCryptToIpSecConfig(ipSecConfig);
 
         IpSecTransformResponse createTransformResp =
                 mIpSecService.createTransform(ipSecConfig, new Binder(), "blessedPackage");
+
+        if (closeSpiBeforeApply) {
+            mIpSecService.releaseSecurityParameterIndex(ipSecConfig.getSpiResourceId());
+        }
+
+        Socket socket = new Socket();
+        socket.bind(null);
+        ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(socket);
+
+        int resourceId = createTransformResp.resourceId;
+        mIpSecService.applyTransportModeTransform(pfd, IpSecManager.DIRECTION_OUT, resourceId);
+
+        verify(mMockNetd)
+                .ipSecApplyTransportModeTransform(
+                        eq(pfd),
+                        eq(mUid),
+                        eq(IpSecManager.DIRECTION_OUT),
+                        anyString(),
+                        anyString(),
+                        eq(TEST_SPI));
+    }
+
+    @Test
+    public void testApplyTransportModeTransformWithClosedSpi() throws Exception {
+        IpSecConfig ipSecConfig = new IpSecConfig();
+        addDefaultSpisAndRemoteAddrToIpSecConfig(ipSecConfig);
+        addAuthAndCryptToIpSecConfig(ipSecConfig);
+
+        IpSecTransformResponse createTransformResp =
+                mIpSecService.createTransform(ipSecConfig, new Binder(), "blessedPackage");
+
+        // Close SPI record
+        mIpSecService.releaseSecurityParameterIndex(ipSecConfig.getSpiResourceId());
 
         Socket socket = new Socket();
         socket.bind(null);
@@ -609,6 +655,7 @@ public class IpSecServiceParameterizedTest {
                         anyInt(),
                         anyInt(),
                         anyInt());
+        verify(mNetworkManager).setInterfaceUp(createTunnelResp.interfaceName);
     }
 
     @Test
@@ -656,6 +703,15 @@ public class IpSecServiceParameterizedTest {
 
     @Test
     public void testApplyTunnelModeTransform() throws Exception {
+        verifyApplyTunnelModeTransformCommon(false);
+    }
+
+    @Test
+    public void testApplyTunnelModeTransformReleasedSpi() throws Exception {
+        verifyApplyTunnelModeTransformCommon(true);
+    }
+
+    public void verifyApplyTunnelModeTransformCommon(boolean closeSpiBeforeApply) throws Exception {
         IpSecConfig ipSecConfig = new IpSecConfig();
         ipSecConfig.setMode(IpSecTransform.MODE_TUNNEL);
         addDefaultSpisAndRemoteAddrToIpSecConfig(ipSecConfig);
@@ -665,6 +721,49 @@ public class IpSecServiceParameterizedTest {
                 mIpSecService.createTransform(ipSecConfig, new Binder(), "blessedPackage");
         IpSecTunnelInterfaceResponse createTunnelResp =
                 createAndValidateTunnel(mSourceAddr, mDestinationAddr, "blessedPackage");
+
+        if (closeSpiBeforeApply) {
+            mIpSecService.releaseSecurityParameterIndex(ipSecConfig.getSpiResourceId());
+        }
+
+        int transformResourceId = createTransformResp.resourceId;
+        int tunnelResourceId = createTunnelResp.resourceId;
+        mIpSecService.applyTunnelModeTransform(tunnelResourceId, IpSecManager.DIRECTION_OUT,
+                transformResourceId, "blessedPackage");
+
+        for (int selAddrFamily : ADDRESS_FAMILIES) {
+            verify(mMockNetd)
+                    .ipSecUpdateSecurityPolicy(
+                            eq(mUid),
+                            eq(selAddrFamily),
+                            eq(IpSecManager.DIRECTION_OUT),
+                            anyString(),
+                            anyString(),
+                            eq(TEST_SPI),
+                            anyInt(), // iKey/oKey
+                            anyInt(), // mask
+                            eq(tunnelResourceId));
+        }
+
+        ipSecConfig.setXfrmInterfaceId(tunnelResourceId);
+        verifyTransformNetdCalledForCreatingSA(ipSecConfig, createTransformResp);
+    }
+
+
+    @Test
+    public void testApplyTunnelModeTransformWithClosedSpi() throws Exception {
+        IpSecConfig ipSecConfig = new IpSecConfig();
+        ipSecConfig.setMode(IpSecTransform.MODE_TUNNEL);
+        addDefaultSpisAndRemoteAddrToIpSecConfig(ipSecConfig);
+        addAuthAndCryptToIpSecConfig(ipSecConfig);
+
+        IpSecTransformResponse createTransformResp =
+                mIpSecService.createTransform(ipSecConfig, new Binder(), "blessedPackage");
+        IpSecTunnelInterfaceResponse createTunnelResp =
+                createAndValidateTunnel(mSourceAddr, mDestinationAddr, "blessedPackage");
+
+        // Close SPI record
+        mIpSecService.releaseSecurityParameterIndex(ipSecConfig.getSpiResourceId());
 
         int transformResourceId = createTransformResp.resourceId;
         int tunnelResourceId = createTunnelResp.resourceId;

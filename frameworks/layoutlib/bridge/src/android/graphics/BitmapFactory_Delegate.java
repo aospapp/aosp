@@ -93,7 +93,7 @@ import java.util.Set;
                 bm = Bitmap_Delegate.createBitmap(is, bitmapCreateFlags, density);
             }
         } catch (IOException e) {
-            Bridge.getLog().error(null, "Failed to load image", e, null);
+            Bridge.getLog().error(null, "Failed to load image", e, null, null);
         }
 
         return bm;

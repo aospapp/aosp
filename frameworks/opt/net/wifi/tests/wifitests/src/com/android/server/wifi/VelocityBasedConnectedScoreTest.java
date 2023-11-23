@@ -26,7 +26,7 @@ import android.net.wifi.WifiInfo;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.internal.R;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -38,7 +38,7 @@ import org.mockito.Spy;
  * Unit tests for {@link com.android.server.wifi.VelocityBasedConnectedScore}.
  */
 @SmallTest
-public class VelocityBasedConnectedScoreTest {
+public class VelocityBasedConnectedScoreTest extends WifiBaseTest {
 
 
     class FakeClock extends Clock {
@@ -114,9 +114,9 @@ public class VelocityBasedConnectedScoreTest {
     public void allowLowRssiIfErrorRateIsLowAndSomeDataIsMoving() throws Exception {
         mWifiInfo.setRssi(mRssiExitThreshold2GHz - 2);
         mWifiInfo.setLinkSpeed(6); // Mbps
-        mWifiInfo.txSuccessRate = 2.1; // proportional to pps
-        mWifiInfo.txBadRate = .5;
-        mWifiInfo.rxSuccessRate = 2.1;
+        mWifiInfo.setSuccessfulTxPacketsPerSecond(2.1); // proportional to pps
+        mWifiInfo.setLostTxPacketsPerSecond(.5);
+        mWifiInfo.setSuccessfulRxPacketsPerSecond(2.1);
         for (int i = 0; i < 10; i++) {
             mVelocityBasedConnectedScore.updateUsingWifiInfo(mWifiInfo,
                     mClock.getWallClockMillis());
@@ -140,9 +140,9 @@ public class VelocityBasedConnectedScoreTest {
     public void disallowLowRssiIfDataIsNotMoving() throws Exception {
         mWifiInfo.setRssi(mRssiExitThreshold2GHz - 1);
         mWifiInfo.setLinkSpeed(6); // Mbps
-        mWifiInfo.txSuccessRate = .1; // proportional to pps
-        mWifiInfo.txBadRate = 0;
-        mWifiInfo.rxSuccessRate = .1;
+        mWifiInfo.setSuccessfulTxPacketsPerSecond(.1); // proportional to pps
+        mWifiInfo.setLostTxPacketsPerSecond(0);
+        mWifiInfo.setSuccessfulRxPacketsPerSecond(.1);
         for (int i = 0; i < 10; i++) {
             mVelocityBasedConnectedScore.updateUsingWifiInfo(mWifiInfo,
                     mClock.getWallClockMillis());

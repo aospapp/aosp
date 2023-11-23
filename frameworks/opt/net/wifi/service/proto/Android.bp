@@ -13,9 +13,30 @@
 // limitations under the License.
 
 java_library {
-    name: "wifi_service_proto",
+    name: "wifi-lite-protos",
     proto: {
         type: "lite",
     },
-    srcs: ["src/**/*.proto"],
+    sdk_version: "system_current",
+    srcs: ["src/scorecard.proto"],
+}
+
+java_library {
+    name: "wifi-nano-protos",
+    host_supported: true,
+    proto: {
+        type: "nano",
+    },
+    srcs: [
+        "src/metrics.proto",
+        ":system-messages-proto-src",
+    ],
+    sdk_version: "system_current",
+    // Pin java_version until jarjar is certified to support later versions. http://b/72703434
+    java_version: "1.8",
+    target: {
+        host: {
+            static_libs: ["libprotobuf-java-nano"],
+        },
+    },
 }

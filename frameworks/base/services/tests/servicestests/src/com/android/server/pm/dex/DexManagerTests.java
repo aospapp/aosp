@@ -85,6 +85,9 @@ public class DexManagerTests {
     private TestData mBarUser0UnsupportedClassLoader;
     private TestData mBarUser0DelegateLastClassLoader;
 
+    private TestData mSystemServerJar;
+    private TestData mSystemServerJarInvalid;
+
     private int mUser0;
     private int mUser1;
 
@@ -107,6 +110,9 @@ public class DexManagerTests {
                 UNSUPPORTED_CLASS_LOADER_NAME);
         mBarUser0DelegateLastClassLoader = new TestData(bar, isa, mUser0,
                 DELEGATE_LAST_CLASS_LOADER_NAME);
+
+        mSystemServerJar = new TestData("android", isa, mUser0, PATH_CLASS_LOADER_NAME);
+        mSystemServerJarInvalid = new TestData("android", isa, mUser0, PATH_CLASS_LOADER_NAME);
 
         mDexManager = new DexManager(/*Context*/ null, mPM, /*PackageDexOptimizer*/ null,
                 mInstaller, mInstallLock);
@@ -157,6 +163,31 @@ public class DexManagerTests {
         assertSecondaryUse(mFooUser0, pui, fooSecondaries, /*isUsedByOtherApps*/false, mUser0);
 
         assertHasDclInfo(mFooUser0, mFooUser0, fooSecondaries);
+    }
+
+    @Test
+    public void testNotifyPrimaryAndSecondary() {
+        List<String> dexFiles = mFooUser0.getBaseAndSplitDexPaths();
+        List<String> secondaries = mFooUser0.getSecondaryDexPaths();
+        int baseAndSplitCount = dexFiles.size();
+        dexFiles.addAll(secondaries);
+
+        notifyDexLoad(mFooUser0, dexFiles, mUser0);
+
+        PackageUseInfo pui = getPackageUseInfo(mFooUser0);
+        assertIsUsedByOtherApps(mFooUser0, pui, false);
+        assertEquals(secondaries.size(), pui.getDexUseInfoMap().size());
+
+        String[] allExpectedContexts = DexoptUtils.processContextForDexLoad(
+                Arrays.asList(mFooUser0.mClassLoader),
+                Arrays.asList(String.join(File.pathSeparator, dexFiles)));
+        String[] secondaryExpectedContexts = Arrays.copyOfRange(allExpectedContexts,
+                baseAndSplitCount, dexFiles.size());
+
+        assertSecondaryUse(mFooUser0, pui, secondaries, /*isUsedByOtherApps*/false, mUser0,
+                secondaryExpectedContexts);
+
+        assertHasDclInfo(mFooUser0, mFooUser0, secondaries);
     }
 
     @Test
@@ -507,6 +538,80 @@ public class DexManagerTests {
         assertHasDclInfo(mBarUser0, mBarUser0, secondaries);
     }
 
+    @Test
+    public void testPrimaryAndSecondaryDexLoad() {
+        // Foo loads both primary and secondary dexes
+        List<String> fooSecondaries = mFooUser0.getSecondaryDexPaths();
+        List<String> fooDexes = new ArrayList<>(mFooUser0.getBaseAndSplitDexPaths());
+        int primaryCount = fooDexes.size();
+        fooDexes.addAll(fooSecondaries);
+
+        notifyDexLoad(mFooUser0, fooDexes, mUser0);
+
+        PackageUseInfo pui = getPackageUseInfo(mFooUser0);
+        assertIsUsedByOtherApps(mFooUser0, pui, false);
+        assertEquals(fooSecondaries.size(), pui.getDexUseInfoMap().size());
+
+        // Below we want to verify that the secondary dex files within fooDexes have been correctly
+        // reported and their class loader contexts were correctly recorded.
+        //
+        // In order to achieve this we first use DexoptUtils.processContextForDexLoad to compute the
+        // class loader contexts for all the dex files.
+        String[] allClassLoaderContexts = DexoptUtils.processContextForDexLoad(
+                Arrays.asList(mFooUser0.mClassLoader),
+                Arrays.asList(String.join(File.pathSeparator, fooDexes)));
+        // Next we filter out the class loader contexts corresponding to non-secondary dex files.
+        String[] secondaryClassLoaderContexts = Arrays.copyOfRange(allClassLoaderContexts,
+                primaryCount, allClassLoaderContexts.length);
+        assertSecondaryUse(mFooUser0, pui, fooSecondaries, /*isUsedByOtherApps*/false, mUser0,
+                secondaryClassLoaderContexts);
+
+        assertHasDclInfo(mFooUser0, mFooUser0, fooSecondaries);
+    }
+
+    @Test
+    public void testNotifySecondary_withSharedLibrary() {
+        // Foo loads its own secondary files.
+        List<String> fooSecondaries = mFooUser0.getSecondaryDexPaths();
+
+        String contextSuffix = "{PCL[/system/framework/org.apache.http.legacy.jar]}";
+        String[] expectedContexts = DexoptUtils.processContextForDexLoad(
+                Arrays.asList(mFooUser0.mClassLoader),
+                Arrays.asList(String.join(File.pathSeparator, fooSecondaries)));
+        for (int i = 0; i < expectedContexts.length; i++) {
+            expectedContexts[i] += contextSuffix;
+        }
+
+        notifyDexLoad(mFooUser0, fooSecondaries, expectedContexts, mUser0);
+
+        PackageUseInfo pui = getPackageUseInfo(mFooUser0);
+        assertIsUsedByOtherApps(mFooUser0, pui, false);
+        assertEquals(fooSecondaries.size(), pui.getDexUseInfoMap().size());
+        assertSecondaryUse(mFooUser0, pui, fooSecondaries, /*isUsedByOtherApps*/false, mUser0,
+                expectedContexts);
+
+        assertHasDclInfo(mFooUser0, mFooUser0, fooSecondaries);
+    }
+
+
+    @Test
+    public void testNotifySystemServerUse() {
+        List<String> dexFiles = new ArrayList<String>();
+        dexFiles.add("/system/framework/foo");
+        notifyDexLoad(mSystemServerJar, dexFiles, mUser0);
+        PackageUseInfo pui = getPackageUseInfo(mSystemServerJar);
+        assertIsUsedByOtherApps(mSystemServerJar, pui, false);
+    }
+
+    @Test
+    public void testNotifySystemServerInvalidUse() {
+        List<String> dexFiles = new ArrayList<String>();
+        dexFiles.add("/data/foo");
+        notifyDexLoad(mSystemServerJarInvalid, dexFiles, mUser0);
+        assertNoUseInfo(mSystemServerJarInvalid);
+        assertNoDclInfo(mSystemServerJarInvalid);
+    }
+
     private void assertSecondaryUse(TestData testData, PackageUseInfo pui,
             List<String> secondaries, boolean isUsedByOtherApps, int ownerUserId,
             String[] expectedContexts) {
@@ -547,17 +652,43 @@ public class DexManagerTests {
         // By default, assume a single class loader in the chain.
         // This makes writing tests much easier.
         List<String> classLoaders = Arrays.asList(testData.mClassLoader);
-        List<String> classPaths = (dexPaths == null)
-                                  ? Arrays.asList((String) null)
-                                  : Arrays.asList(String.join(File.pathSeparator, dexPaths));
+        List<String> classPaths = dexPaths != null
+                ? Arrays.<String>asList(String.join(File.pathSeparator, dexPaths)) : null;
         notifyDexLoad(testData, classLoaders, classPaths, loaderUserId);
     }
 
     private void notifyDexLoad(TestData testData, List<String> classLoaders,
             List<String> classPaths, int loaderUserId) {
+        String[] classLoaderContexts = computeClassLoaderContexts(classLoaders, classPaths);
         // We call the internal function so any exceptions thrown cause test failures.
-        mDexManager.notifyDexLoadInternal(testData.mPackageInfo.applicationInfo, classLoaders,
-                classPaths, testData.mLoaderIsa, loaderUserId);
+        List<String> dexPaths = classPaths != null
+                ? Arrays.asList(classPaths.get(0).split(File.pathSeparator)) : Arrays.asList();
+        notifyDexLoad(testData, dexPaths, classLoaderContexts, loaderUserId);
+    }
+
+    private void notifyDexLoad(TestData testData, List<String> dexPaths,
+            String[] classLoaderContexts, int loaderUserId) {
+        assertTrue(dexPaths.size() == classLoaderContexts.length);
+        HashMap<String, String> dexPathMapping = new HashMap<>(dexPaths.size());
+        for (int i = 0; i < dexPaths.size(); i++) {
+            dexPathMapping.put(dexPaths.get(i), classLoaderContexts != null
+                    ? classLoaderContexts[i] : PackageDexUsage.UNSUPPORTED_CLASS_LOADER_CONTEXT);
+        }
+        mDexManager.notifyDexLoadInternal(testData.mPackageInfo.applicationInfo, dexPathMapping,
+                testData.mLoaderIsa, loaderUserId);
+    }
+
+    private String[] computeClassLoaderContexts(List<String> classLoaders,
+            List<String> classPaths) {
+        if (classPaths == null) {
+            return new String[0];
+        }
+        String[] results = DexoptUtils.processContextForDexLoad(classLoaders, classPaths);
+        if (results == null) {
+            results = new String[classPaths.get(0).split(File.pathSeparator).length];
+            Arrays.fill(results, PackageDexUsage.UNSUPPORTED_CLASS_LOADER_CONTEXT);
+        }
+        return results;
     }
 
     private PackageUseInfo getPackageUseInfo(TestData testData) {
@@ -691,35 +822,16 @@ public class DexManagerTests {
         }
     }
 
-    private boolean shouldPackageRunOob(
-            boolean isDefaultEnabled, String defaultWhitelist, String overrideEnabled,
-            String overrideWhitelist, Collection<String> packageNamesInSameProcess) {
+    private boolean shouldPackageRunOob(boolean isDefaultEnabled, String whitelist,
+            Collection<String> packageNamesInSameProcess) {
         return DexManager.isPackageSelectedToRunOobInternal(
-                isDefaultEnabled, defaultWhitelist, overrideEnabled, overrideWhitelist,
-                packageNamesInSameProcess);
+                isDefaultEnabled, whitelist, packageNamesInSameProcess);
     }
 
     @Test
-    public void testOobPackageSelectionSwitch() {
+    public void testOobPackageSelectionDefault() {
         // Feature is off by default, not overriden
-        assertFalse(shouldPackageRunOob(false, "ALL", null, null, null));
-
-        // Feature is off by default, overriden
-        assertTrue(shouldPackageRunOob(false, "ALL", "true", "ALL", null));
-        assertFalse(shouldPackageRunOob(false, "ALL", "false", null, null));
-        assertFalse(shouldPackageRunOob(false, "ALL", "false", "ALL", null));
-        assertFalse(shouldPackageRunOob(false, "ALL", "false", null, null));
-
-        // Feature is on by default, not overriden
-        assertTrue(shouldPackageRunOob(true, "ALL", null, null, null));
-        assertTrue(shouldPackageRunOob(true, "ALL", null, null, null));
-        assertTrue(shouldPackageRunOob(true, "ALL", null, "ALL", null));
-
-        // Feature is on by default, overriden
-        assertTrue(shouldPackageRunOob(true, "ALL", "true", null, null));
-        assertTrue(shouldPackageRunOob(true, "ALL", "true", "ALL", null));
-        assertFalse(shouldPackageRunOob(true, "ALL", "false", null, null));
-        assertFalse(shouldPackageRunOob(true, "ALL", "false", "ALL", null));
+        assertFalse(shouldPackageRunOob(false, "ALL", null));
     }
 
     @Test
@@ -734,24 +846,19 @@ public class DexManagerTests {
         final Collection<String> runningPackages = Arrays.asList("com.priv.app1", "com.priv.app2");
 
         // Feature is off, whitelist does not matter
-        assertFalse(shouldPackageRunOob(false, kWhitelistApp0, null, null, runningPackages));
-        assertFalse(shouldPackageRunOob(false, kWhitelistApp1, null, null, runningPackages));
-        assertFalse(shouldPackageRunOob(false, "", null, kWhitelistApp1, runningPackages));
-        assertFalse(shouldPackageRunOob(false, "", null, "ALL", runningPackages));
-        assertFalse(shouldPackageRunOob(false, "ALL", null, "ALL", runningPackages));
-        assertFalse(shouldPackageRunOob(false, "ALL", null, "", runningPackages));
+        assertFalse(shouldPackageRunOob(false, kWhitelistApp0, runningPackages));
+        assertFalse(shouldPackageRunOob(false, kWhitelistApp1, runningPackages));
+        assertFalse(shouldPackageRunOob(false, "", runningPackages));
+        assertFalse(shouldPackageRunOob(false, "ALL", runningPackages));
 
-        // Feature is on, app not in default or overridden whitelist
-        assertFalse(shouldPackageRunOob(true, kWhitelistApp0, null, null, runningPackages));
-        assertFalse(shouldPackageRunOob(true, "", null, kWhitelistApp0, runningPackages));
-        assertFalse(shouldPackageRunOob(true, "ALL", null, kWhitelistApp0, runningPackages));
+        // Feature is on, app not in whitelist
+        assertFalse(shouldPackageRunOob(true, kWhitelistApp0, runningPackages));
+        assertFalse(shouldPackageRunOob(true, "", runningPackages));
 
-        // Feature is on, app in default or overridden whitelist
-        assertTrue(shouldPackageRunOob(true, kWhitelistApp1, null, null, runningPackages));
-        assertTrue(shouldPackageRunOob(true, kWhitelistApp2, null, null, runningPackages));
-        assertTrue(shouldPackageRunOob(true, kWhitelistApp1AndApp2, null, null, runningPackages));
-        assertTrue(shouldPackageRunOob(true, kWhitelistApp1, null, "ALL", runningPackages));
-        assertTrue(shouldPackageRunOob(true, "", null, kWhitelistApp1, runningPackages));
-        assertTrue(shouldPackageRunOob(true, "ALL", null, kWhitelistApp1, runningPackages));
+        // Feature is on, app in whitelist
+        assertTrue(shouldPackageRunOob(true, kWhitelistApp1, runningPackages));
+        assertTrue(shouldPackageRunOob(true, kWhitelistApp2, runningPackages));
+        assertTrue(shouldPackageRunOob(true, kWhitelistApp1AndApp2, runningPackages));
+        assertTrue(shouldPackageRunOob(true, "ALL", runningPackages));
     }
 }

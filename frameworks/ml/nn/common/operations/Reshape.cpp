@@ -18,11 +18,13 @@
 
 #define LOG_TAG "Operations"
 
+#include <vector>
+
 #include "CpuOperationUtils.h"
 #include "Operations.h"
 
-#include "tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h"
-#include "tensorflow/lite/kernels/internal/reference/reference_ops.h"
+#include <tensorflow/lite/kernels/internal/optimized/legacy_optimized_ops.h>
+#include <tensorflow/lite/kernels/internal/reference/reference_ops.h>
 
 #include "Tracing.h"
 
@@ -54,6 +56,9 @@ template bool depthToSpaceGeneric<_Float16>(const _Float16* inputData, const Sha
 template bool depthToSpaceGeneric<uint8_t>(const uint8_t* inputData, const Shape& inputShape,
                                            int32_t blockSize, uint8_t* outputData,
                                            const Shape& outputShape);
+template bool depthToSpaceGeneric<int8_t>(const int8_t* inputData, const Shape& inputShape,
+                                          int32_t blockSize, int8_t* outputData,
+                                          const Shape& outputShape);
 
 template <typename T>
 bool spaceToDepthGeneric(const T* inputData, const Shape& inputShape, int32_t blockSize,
@@ -72,6 +77,9 @@ template bool spaceToDepthGeneric<_Float16>(const _Float16* inputData, const Sha
 template bool spaceToDepthGeneric<uint8_t>(const uint8_t* inputData, const Shape& inputShape,
                                            int32_t blockSize, uint8_t* outputData,
                                            const Shape& outputShape);
+template bool spaceToDepthGeneric<int8_t>(const int8_t* inputData, const Shape& inputShape,
+                                          int32_t blockSize, int8_t* outputData,
+                                          const Shape& outputShape);
 
 template <typename T>
 bool padGeneric(const T* inputData, const Shape& inputShape, const int32_t* paddings, T padValue,
@@ -182,6 +190,9 @@ template bool padGeneric<_Float16>(const _Float16* inputData, const Shape& input
 template bool padGeneric<uint8_t>(const uint8_t* inputData, const Shape& inputShape,
                                   const int32_t* paddings, uint8_t padValue, uint8_t* outputData,
                                   const Shape& outputShape);
+template bool padGeneric<int8_t>(const int8_t* inputData, const Shape& inputShape,
+                                 const int32_t* paddings, int8_t padValue, int8_t* outputData,
+                                 const Shape& outputShape);
 
 template <typename T>
 bool batchToSpaceGeneric(const T* inputData, const Shape& inputShape, const int32_t* blockSize,
@@ -204,6 +215,9 @@ template bool batchToSpaceGeneric<_Float16>(const _Float16* inputData, const Sha
 template bool batchToSpaceGeneric<uint8_t>(const uint8_t* inputData, const Shape& inputShape,
                                            const int32_t* blockSize, uint8_t* outputData,
                                            const Shape& outputShape);
+template bool batchToSpaceGeneric<int8_t>(const int8_t* inputData, const Shape& inputShape,
+                                          const int32_t* blockSize, int8_t* outputData,
+                                          const Shape& outputShape);
 
 template <typename T>
 bool spaceToBatchGeneric(const T* inputData, const Shape& inputShape, const int32_t* blockSize,
@@ -230,6 +244,10 @@ template bool spaceToBatchGeneric<uint8_t>(const uint8_t* inputData, const Shape
                                            const int32_t* blockSize, const int32_t* padding,
                                            const Shape& paddingShape, uint8_t* outputData,
                                            const Shape& outputShape);
+template bool spaceToBatchGeneric<int8_t>(const int8_t* inputData, const Shape& inputShape,
+                                          const int32_t* blockSize, const int32_t* padding,
+                                          const Shape& paddingShape, int8_t* outputData,
+                                          const Shape& outputShape);
 
 }  // namespace nn
 }  // namespace android

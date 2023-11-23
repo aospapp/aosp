@@ -268,6 +268,10 @@ Sensor::Sensor(struct sensor_t const& hwSensor, const uuid_t& uuid, int halVersi
         mStringType = SENSOR_STRING_TYPE_ACCELEROMETER_UNCALIBRATED;
         mFlags |= SENSOR_FLAG_CONTINUOUS_MODE;
         break;
+    case SENSOR_TYPE_HINGE_ANGLE:
+        mStringType = SENSOR_STRING_TYPE_HINGE_ANGLE;
+        mFlags |= SENSOR_FLAG_ON_CHANGE_MODE;
+        break;
     default:
         // Only pipe the stringType, requiredPermission and flags for custom sensors.
         if (halVersion > SENSORS_DEVICE_API_VERSION_1_0 && hwSensor.stringType) {
@@ -577,7 +581,8 @@ void Sensor::flattenString8(void*& buffer, size_t& size,
     uint32_t len = static_cast<uint32_t>(string8.length());
     FlattenableUtils::write(buffer, size, len);
     memcpy(static_cast<char*>(buffer), string8.string(), len);
-    FlattenableUtils::advance(buffer, size, FlattenableUtils::align<4>(len));
+    FlattenableUtils::advance(buffer, size, len);
+    size -= FlattenableUtils::align<4>(buffer);
 }
 
 bool Sensor::unflattenString8(void const*& buffer, size_t& size, String8& outputString8) {

@@ -22,6 +22,8 @@ import android.net.wifi.WifiSsid;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -37,7 +39,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.HSOsuProvidersElement}.
  */
 @SmallTest
-public class HSOsuProvidersElementTest {
+public class HSOsuProvidersElementTest extends WifiBaseTest {
     private static final byte[] TEST_OSU_SSID_BYTES = "Test SSID".getBytes(StandardCharsets.UTF_8);
     private static final WifiSsid TEST_OSU_SSID =
             WifiSsid.createFromByteArray(TEST_OSU_SSID_BYTES);

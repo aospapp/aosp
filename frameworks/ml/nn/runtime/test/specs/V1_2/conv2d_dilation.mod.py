@@ -35,7 +35,7 @@ quant8 = DataTypeConverter().Identify({
 example = Example({
     i1: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0],
     o1: [.875, .875, .875, .875]
-}).AddNchw(i1, o1, layout).AddInput(f1, b1).AddVariations("relaxed", quant8, "float16")
+}).AddNchw(i1, o1, layout).AddVariations("relaxed", quant8, "float16")
 
 
 # TEST 2: dilation set to 3
@@ -65,7 +65,7 @@ example = Example({
          0, 0, 0, 0, 0, 0, 0, 0, 0,
          0, 0, 0, 0, 0, 0, 0, 0, 0],
     o2: [5, 5, 5, 5, 5, 5, 5, 5, 5]
-}).AddNchw(i2, o2, layout).AddInput(f2, b2).AddVariations("relaxed", quant8, "float16")
+}).AddNchw(i2, o2, layout).AddVariations("relaxed", quant8, "float16")
 
 # TEST 3: same as test 1 but with implicit VALID padding
 i1 = Input("op1", "TENSOR_FLOAT32", "{1, 3, 3, 1}")
@@ -86,7 +86,7 @@ quant8 = DataTypeConverter().Identify({
 example = Example({
     i1: [1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0],
     o1: [.875, .875, .875, .875]
-}, name="valid_padding").AddNchw(i1, o1, layout).AddInput(f1, b1).AddVariations("relaxed", quant8, "float16")
+}, name="valid_padding").AddNchw(i1, o1, layout).AddVariations("relaxed", quant8, "float16")
 
 
 # TEST 4: same as test 2 but with implicit VALID padding
@@ -116,7 +116,7 @@ example = Example({
          0, 0, 0, 0, 0, 0, 0, 0, 0,
          0, 0, 0, 0, 0, 0, 0, 0, 0],
     o2: [5, 5, 5, 5, 5, 5, 5, 5, 5]
-}, name="valid_padding").AddNchw(i2, o2, layout).AddInput(f2, b2).AddVariations("relaxed", quant8, "float16")
+}, name="valid_padding").AddNchw(i2, o2, layout).AddVariations("relaxed", quant8, "float16")
 
 
 # TEST 5: dilation set to 3, SAME padding
@@ -143,4 +143,24 @@ example = Example({
          0, 0, 0, 0, 0, 0,
          0, 0, 0, 0, 0, 0],
     o3: [16, 0, 9, 0, 0, 0, 4, 0, 1]
-}).AddNchw(i3, o3, layout).AddInput(f3, b3).AddVariations("relaxed", quant8, "float16")
+}).AddNchw(i3, o3, layout).AddVariations("relaxed", quant8, "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "conv2d_dilation_nhwc",
+                   "conv2d_dilation_nhwc_all_inputs_as_internal",
+                   "conv2d_dilation_nhwc_all_tensors_as_inputs",
+                   "conv2d_dilation_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_dilation_nhwc_quant8",
+                   "conv2d_dilation_nhwc_quant8_all_inputs_as_internal",
+                   "conv2d_dilation_nhwc_quant8_all_tensors_as_inputs",
+                   "conv2d_dilation_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_dilation_valid_padding_nhwc",
+                   "conv2d_dilation_valid_padding_nhwc_all_inputs_as_internal",
+                   "conv2d_dilation_valid_padding_nhwc_all_tensors_as_inputs",
+                   "conv2d_dilation_valid_padding_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "conv2d_dilation_valid_padding_nhwc_quant8",
+                   "conv2d_dilation_valid_padding_nhwc_quant8_all_inputs_as_internal",
+                   "conv2d_dilation_valid_padding_nhwc_quant8_all_tensors_as_inputs",
+                   "conv2d_dilation_valid_padding_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal")

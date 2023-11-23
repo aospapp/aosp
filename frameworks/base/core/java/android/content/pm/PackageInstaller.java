@@ -16,6 +16,10 @@
 
 package android.content.pm;
 
+import static android.app.AppOpsManager.MODE_ALLOWED;
+import static android.app.AppOpsManager.MODE_DEFAULT;
+import static android.app.AppOpsManager.MODE_IGNORED;
+
 import android.Manifest;
 import android.annotation.CurrentTimeMillisLong;
 import android.annotation.IntDef;
@@ -26,9 +30,9 @@ import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityManager;
 import android.app.AppGlobals;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager.DeleteFlags;
@@ -52,7 +56,6 @@ import android.util.ArraySet;
 import android.util.ExceptionUtils;
 
 import com.android.internal.util.IndentingPrintWriter;
-import com.android.internal.util.Preconditions;
 import com.android.internal.util.function.pooled.PooledLambda;
 
 import java.io.Closeable;
@@ -66,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -101,19 +105,6 @@ import java.util.concurrent.Executor;
  * <p>
  * The ApiDemos project contains examples of using this API:
  * <code>ApiDemos/src/com/example/android/apis/content/InstallApk*.java</code>.
- * <p>
- * On Android Q or above, an app installed notification will be posted
- * by system after a new app is installed.
- * To customize installer's notification icon, you should declare the following in the manifest
- * &lt;application> as follows: </p>
- * <pre>
- * &lt;meta-data android:name="com.android.packageinstaller.notification.smallIcon"
- * android:resource="@drawable/installer_notification_icon"/>
- * </pre>
- * <pre>
- * &lt;meta-data android:name="com.android.packageinstaller.notification.color"
- * android:resource="@color/installer_notification_color"/>
- * </pre>
  */
 public class PackageInstaller {
     private static final String TAG = "PackageInstaller";
@@ -234,6 +225,28 @@ public class PackageInstaller {
     public static final String EXTRA_CALLBACK = "android.content.pm.extra.CALLBACK";
 
     /**
+     * Type of DataLoader for this session. Will be one of
+     * {@link #DATA_LOADER_TYPE_NONE}, {@link #DATA_LOADER_TYPE_STREAMING},
+     * {@link #DATA_LOADER_TYPE_INCREMENTAL}.
+     * <p>
+     * See the individual types documentation for details.
+     *
+     * @see Intent#getIntExtra(String, int)
+     * {@hide}
+     */
+    @SystemApi
+    public static final String EXTRA_DATA_LOADER_TYPE = "android.content.pm.extra.DATA_LOADER_TYPE";
+
+    /**
+     * Streaming installation pending.
+     * Caller should make sure DataLoader is able to prepare image and reinitiate the operation.
+     *
+     * @see #EXTRA_SESSION_ID
+     * {@hide}
+     */
+    public static final int STATUS_PENDING_STREAMING = -2;
+
+    /**
      * User action is currently required to proceed. You can launch the intent
      * activity described by {@link Intent#EXTRA_INTENT} to involve the user and
      * continue.
@@ -328,6 +341,68 @@ public class PackageInstaller {
      */
     public static final int STATUS_FAILURE_INCOMPATIBLE = 7;
 
+    /**
+     * Default value, non-streaming installation session.
+     *
+     * @see #EXTRA_DATA_LOADER_TYPE
+     * {@hide}
+     */
+    @SystemApi
+    public static final int DATA_LOADER_TYPE_NONE = DataLoaderType.NONE;
+
+    /**
+     * Streaming installation using data loader.
+     *
+     * @see #EXTRA_DATA_LOADER_TYPE
+     * {@hide}
+     */
+    @SystemApi
+    public static final int DATA_LOADER_TYPE_STREAMING = DataLoaderType.STREAMING;
+
+    /**
+     * Streaming installation using Incremental FileSystem.
+     *
+     * @see #EXTRA_DATA_LOADER_TYPE
+     * {@hide}
+     */
+    @SystemApi
+    public static final int DATA_LOADER_TYPE_INCREMENTAL = DataLoaderType.INCREMENTAL;
+
+    /**
+     * Target location for the file in installation session is /data/app/<packageName>-<id>.
+     * This is the intended location for APKs.
+     * Requires permission to install packages.
+     * {@hide}
+     */
+    @SystemApi
+    public static final int LOCATION_DATA_APP = InstallationFileLocation.DATA_APP;
+
+    /**
+     * Target location for the file in installation session is
+     * /data/media/<userid>/Android/obb/<packageName>. This is the intended location for OBBs.
+     * {@hide}
+     */
+    @SystemApi
+    public static final int LOCATION_MEDIA_OBB = InstallationFileLocation.MEDIA_OBB;
+
+    /**
+     * Target location for the file in installation session is
+     * /data/media/<userid>/Android/data/<packageName>.
+     * This is the intended location for application data.
+     * Can only be used by an app itself running under specific user.
+     * {@hide}
+     */
+    @SystemApi
+    public static final int LOCATION_MEDIA_DATA = InstallationFileLocation.MEDIA_DATA;
+
+    /** @hide */
+    @IntDef(prefix = { "LOCATION_" }, value = {
+            LOCATION_DATA_APP,
+            LOCATION_MEDIA_OBB,
+            LOCATION_MEDIA_DATA})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface FileLocation{}
+
     private final IPackageInstaller mInstaller;
     private final int mUserId;
     private final String mInstallerPackageName;
@@ -362,14 +437,7 @@ public class PackageInstaller {
      */
     public int createSession(@NonNull SessionParams params) throws IOException {
         try {
-            final String installerPackage;
-            if (params.installerPackageName == null) {
-                installerPackage = mInstallerPackageName;
-            } else {
-                installerPackage = params.installerPackageName;
-            }
-
-            return mInstaller.createSession(params, installerPackage, mUserId);
+            return mInstaller.createSession(params, mInstallerPackageName, mUserId);
         } catch (RuntimeException e) {
             ExceptionUtils.maybeUnwrapIOException(e);
             throw e;
@@ -499,35 +567,36 @@ public class PackageInstaller {
     }
 
     /**
-     * Returns an active staged session, or {@code null} if there is none.
+     * Returns first active staged session, or {@code null} if there is none.
      *
-     * <p>Staged session is active iff:
-     * <ul>
-     *     <li>It is committed, i.e. {@link SessionInfo#isCommitted()} is {@code true}, and
-     *     <li>it is not applied, i.e. {@link SessionInfo#isStagedSessionApplied()} is {@code
-     *     false}, and
-     *     <li>it is not failed, i.e. {@link SessionInfo#isStagedSessionFailed()} is {@code false}.
-     * </ul>
+     * <p>For more information on what sessions are considered active see
+     * {@link SessionInfo#isStagedSessionActive()}.
      *
-     * <p>In case of a multi-apk session, reasoning above is applied to the parent session, since
-     * that is the one that should been {@link Session#commit committed}.
+     * @deprecated Use {@link #getActiveStagedSessions} as there can be more than one active staged
+     * session
      */
+    @Deprecated
     public @Nullable SessionInfo getActiveStagedSession() {
+        List<SessionInfo> activeSessions = getActiveStagedSessions();
+        return activeSessions.isEmpty() ? null : activeSessions.get(0);
+    }
+
+    /**
+     * Returns list of active staged sessions. Returns empty list if there is none.
+     *
+     * <p>For more information on what sessions are considered active see
+     *      * {@link SessionInfo#isStagedSessionActive()}.
+     */
+    public @NonNull List<SessionInfo> getActiveStagedSessions() {
+        final List<SessionInfo> activeStagedSessions = new ArrayList<>();
         final List<SessionInfo> stagedSessions = getStagedSessions();
-        for (SessionInfo s : stagedSessions) {
-            if (s.isStagedSessionApplied() || s.isStagedSessionFailed()) {
-                // Finalized session.
-                continue;
-            }
-            if (s.getParentSessionId() != SessionInfo.INVALID_ID) {
-                // Child session.
-                continue;
-            }
-            if (s.isCommitted()) {
-                return s;
+        for (int i = 0; i < stagedSessions.size(); i++) {
+            final SessionInfo sessionInfo = stagedSessions.get(i);
+            if (sessionInfo.isStagedSessionActive()) {
+                activeStagedSessions.add(sessionInfo);
             }
         }
-        return null;
+        return activeStagedSessions;
     }
 
     /**
@@ -614,7 +683,7 @@ public class PackageInstaller {
             Manifest.permission.REQUEST_DELETE_PACKAGES})
     public void uninstall(@NonNull VersionedPackage versionedPackage, @DeleteFlags int flags,
             @NonNull IntentSender statusReceiver) {
-        Preconditions.checkNotNull(versionedPackage, "versionedPackage cannot be null");
+        Objects.requireNonNull(versionedPackage, "versionedPackage cannot be null");
         try {
             mInstaller.uninstall(versionedPackage, mInstallerPackageName,
                     flags, statusReceiver, mUserId);
@@ -641,7 +710,7 @@ public class PackageInstaller {
     public void installExistingPackage(@NonNull String packageName,
             @InstallReason int installReason,
             @Nullable IntentSender statusReceiver) {
-        Preconditions.checkNotNull(packageName, "packageName cannot be null");
+        Objects.requireNonNull(packageName, "packageName cannot be null");
         try {
             mInstaller.installExistingPackage(packageName,
                     PackageManager.INSTALL_ALL_WHITELIST_RESTRICTED_PERMISSIONS, installReason,
@@ -651,6 +720,27 @@ public class PackageInstaller {
         }
     }
 
+    /**
+     * Uninstall the given package for the user for which this installer was created if the package
+     * will still exist for other users on the device.
+     *
+     * @param packageName The package to install.
+     * @param statusReceiver Where to deliver the result.
+     *
+     * {@hide}
+     */
+    @RequiresPermission(Manifest.permission.DELETE_PACKAGES)
+    public void uninstallExistingPackage(@NonNull String packageName,
+            @Nullable IntentSender statusReceiver) {
+        Objects.requireNonNull(packageName, "packageName cannot be null");
+        try {
+            mInstaller.uninstallExistingPackage(
+                    new VersionedPackage(packageName, PackageManager.VERSION_CODE_HIGHEST),
+                    mInstallerPackageName, statusReceiver, mUserId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
 
     /** {@hide} */
     @SystemApi
@@ -1047,12 +1137,93 @@ public class PackageInstaller {
         }
 
         /**
+         * @return data loader params or null if the session is not using one.
+         *
+         * WARNING: This is a system API to aid internal development.
+         * Use at your own risk. It will change or be removed without warning.
+         * {@hide}
+         */
+        @SystemApi
+        @RequiresPermission(android.Manifest.permission.USE_INSTALLER_V2)
+        public @Nullable DataLoaderParams getDataLoaderParams() {
+            try {
+                DataLoaderParamsParcel data = mSession.getDataLoaderParams();
+                if (data == null) {
+                    return null;
+                }
+                return new DataLoaderParams(data);
+            } catch (RemoteException e) {
+                throw e.rethrowFromSystemServer();
+            }
+        }
+
+        /**
+         * Adds a file to session. On commit this file will be pulled from dataLoader.
+         *
+         * @param location target location for the file. Possible values:
+         *            {@link #LOCATION_DATA_APP},
+         *            {@link #LOCATION_MEDIA_OBB},
+         *            {@link #LOCATION_MEDIA_DATA}.
+         * @param name arbitrary, unique name of your choosing to identify the
+         *            APK being written. You can open a file again for
+         *            additional writes (such as after a reboot) by using the
+         *            same name. This name is only meaningful within the context
+         *            of a single install session.
+         * @param lengthBytes total size of the file being written.
+         *            The system may clear various caches as needed to allocate
+         *            this space.
+         * @param metadata additional info use by dataLoader to pull data for the file.
+         * @param signature additional file signature, e.g.
+         *                  <a href="https://source.android.com/security/apksigning/v4.html">APK Signature Scheme v4</a>
+         * @throws SecurityException if called after the session has been
+         *             sealed or abandoned
+         * @throws IllegalStateException if called for non-callback session
+         *
+         * WARNING: This is a system API to aid internal development.
+         * Use at your own risk. It will change or be removed without warning.
+         * {@hide}
+         */
+        @SystemApi
+        @RequiresPermission(android.Manifest.permission.USE_INSTALLER_V2)
+        public void addFile(@FileLocation int location, @NonNull String name, long lengthBytes,
+                @NonNull byte[] metadata, @Nullable byte[] signature) {
+            try {
+                mSession.addFile(location, name, lengthBytes, metadata, signature);
+            } catch (RemoteException e) {
+                throw e.rethrowFromSystemServer();
+            }
+        }
+
+        /**
+         * Removes a file.
+         *
+         * @param location target location for the file. Possible values:
+         *            {@link #LOCATION_DATA_APP},
+         *            {@link #LOCATION_MEDIA_OBB},
+         *            {@link #LOCATION_MEDIA_DATA}.
+         * @param name name of a file, e.g. split.
+         * @throws SecurityException if called after the session has been
+         *             sealed or abandoned
+         * @throws IllegalStateException if called for non-callback session
+         * {@hide}
+         */
+        @SystemApi
+        @RequiresPermission(android.Manifest.permission.USE_INSTALLER_V2)
+        public void removeFile(@FileLocation int location, @NonNull String name) {
+            try {
+                mSession.removeFile(location, name);
+            } catch (RemoteException e) {
+                throw e.rethrowFromSystemServer();
+            }
+        }
+
+        /**
          * Attempt to commit everything staged in this session. This may require
          * user intervention, and so it may not happen immediately. The final
          * result of the commit will be reported through the given callback.
          * <p>
-         * Once this method is called, the session is sealed and no additional
-         * mutations may be performed on the session. If the device reboots
+         * Once this method is called, the session is sealed and no additional mutations may be
+         * performed on the session. In case of device reboot or data loader transient failure
          * before the session has been finalized, you may commit the session again.
          * <p>
          * If the installer is the device owner or the affiliated profile owner, there will be no
@@ -1126,7 +1297,7 @@ public class PackageInstaller {
          */
         public void transfer(@NonNull String packageName)
                 throws PackageManager.NameNotFoundException {
-            Preconditions.checkNotNull(packageName);
+            Objects.requireNonNull(packageName);
 
             try {
                 mSession.transfer(packageName);
@@ -1278,6 +1449,13 @@ public class PackageInstaller {
         /** {@hide} */
         public static final int UID_UNKNOWN = -1;
 
+        /**
+         * This value is derived from the maximum file name length. No package above this limit
+         * can ever be successfully installed on the device.
+         * @hide
+         */
+        public static final int MAX_PACKAGE_NAME_LENGTH = 255;
+
         /** {@hide} */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public int mode = MODE_INVALID;
@@ -1318,6 +1496,8 @@ public class PackageInstaller {
         /** {@hide} */
         public List<String> whitelistedRestrictedPermissions;
         /** {@hide} */
+        public int autoRevokePermissionsMode = MODE_DEFAULT;
+        /** {@hide} */
         public String installerPackageName;
         /** {@hide} */
         public boolean isMultiPackage;
@@ -1325,6 +1505,12 @@ public class PackageInstaller {
         public boolean isStaged;
         /** {@hide} */
         public long requiredInstalledVersionCode = PackageManager.VERSION_CODE_HIGHEST;
+        /** {@hide} */
+        public DataLoaderParams dataLoaderParams;
+        /** {@hide} */
+        public int rollbackDataPolicy = PackageManager.RollbackDataPolicy.RESTORE;
+        /** {@hide} */
+        public boolean forceQueryableOverride;
 
         /**
          * Construct parameters for a new package install session.
@@ -1354,10 +1540,18 @@ public class PackageInstaller {
             volumeUuid = source.readString();
             grantedRuntimePermissions = source.readStringArray();
             whitelistedRestrictedPermissions = source.createStringArrayList();
+            autoRevokePermissionsMode = source.readInt();
             installerPackageName = source.readString();
             isMultiPackage = source.readBoolean();
             isStaged = source.readBoolean();
+            forceQueryableOverride = source.readBoolean();
             requiredInstalledVersionCode = source.readLong();
+            DataLoaderParamsParcel dataLoaderParamsParcel = source.readParcelable(
+                    DataLoaderParamsParcel.class.getClassLoader());
+            if (dataLoaderParamsParcel != null) {
+                dataLoaderParams = new DataLoaderParams(dataLoaderParamsParcel);
+            }
+            rollbackDataPolicy = source.readInt();
         }
 
         /** {@hide} */
@@ -1377,10 +1571,14 @@ public class PackageInstaller {
             ret.volumeUuid = volumeUuid;
             ret.grantedRuntimePermissions = grantedRuntimePermissions;
             ret.whitelistedRestrictedPermissions = whitelistedRestrictedPermissions;
+            ret.autoRevokePermissionsMode = autoRevokePermissionsMode;
             ret.installerPackageName = installerPackageName;
             ret.isMultiPackage = isMultiPackage;
             ret.isStaged = isStaged;
+            ret.forceQueryableOverride = forceQueryableOverride;
             ret.requiredInstalledVersionCode = requiredInstalledVersionCode;
+            ret.dataLoaderParams = dataLoaderParams;
+            ret.rollbackDataPolicy = rollbackDataPolicy;
             return ret;
         }
 
@@ -1451,6 +1649,8 @@ public class PackageInstaller {
 
         /**
          * Optionally set a label representing the app being installed.
+         *
+         * This value will be trimmed to the first 1000 characters.
          */
         public void setAppLabel(@Nullable CharSequence appLabel) {
             this.appLabel = (appLabel != null) ? appLabel.toString() : null;
@@ -1520,7 +1720,8 @@ public class PackageInstaller {
          *
          * <p>Initially, all restricted permissions are whitelisted but you can change
          * which ones are whitelisted by calling this method or the corresponding ones
-         * on the {@link PackageManager}.
+         * on the {@link PackageManager}. Only soft or hard restricted permissions on the current
+         * Android version are supported and any invalid entries will be removed.
          *
          * @see PackageManager#addWhitelistedRestrictedPermission(String, String, int)
          * @see PackageManager#removeWhitelistedRestrictedPermission(String, String, int)
@@ -1537,12 +1738,30 @@ public class PackageInstaller {
         }
 
         /**
-         * Request that rollbacks be enabled or disabled for the given upgrade.
+         * Sets whether permissions should be auto-revoked if this package is unused for an
+         * extended periodd of time.
+         *
+         * It's disabled by default but generally the installer should enable it for most packages,
+         * excluding only those where doing so might cause breakage that cannot be easily addressed
+         * by simply re-requesting the permission(s).
+         *
+         * If user explicitly enabled or disabled it via settings, this call is ignored.
+         *
+         * @param shouldAutoRevoke whether permissions should be auto-revoked.
+         */
+        public void setAutoRevokePermissionsMode(boolean shouldAutoRevoke) {
+            autoRevokePermissionsMode = shouldAutoRevoke ? MODE_ALLOWED : MODE_IGNORED;
+        }
+
+        /**
+         * Request that rollbacks be enabled or disabled for the given upgrade with rollback data
+         * policy set to RESTORE.
          *
          * <p>If the parent session is staged or has rollback enabled, all children sessions
          * must have the same properties.
          *
          * @param enable set to {@code true} to enable, {@code false} to disable
+         * @see SessionParams#setEnableRollback(boolean, int)
          * @hide
          */
         @SystemApi @TestApi
@@ -1552,7 +1771,34 @@ public class PackageInstaller {
             } else {
                 installFlags &= ~PackageManager.INSTALL_ENABLE_ROLLBACK;
             }
+            rollbackDataPolicy = PackageManager.RollbackDataPolicy.RESTORE;
         }
+
+        /**
+         * Request that rollbacks be enabled or disabled for the given upgrade.
+         *
+         * <p>If the parent session is staged or has rollback enabled, all children sessions
+         * must have the same properties.
+         *
+         * <p> For a multi-package install, this method must be called on each child session to
+         * specify rollback data policies explicitly. Note each child session is allowed to have
+         * different policies.
+         *
+         * @param enable set to {@code true} to enable, {@code false} to disable
+         * @param dataPolicy the rollback data policy for this session
+         * @hide
+         */
+        @SystemApi @TestApi
+        public void setEnableRollback(boolean enable,
+                @PackageManager.RollbackDataPolicy int dataPolicy) {
+            if (enable) {
+                installFlags |= PackageManager.INSTALL_ENABLE_ROLLBACK;
+            } else {
+                installFlags &= ~PackageManager.INSTALL_ENABLE_ROLLBACK;
+            }
+            rollbackDataPolicy = dataPolicy;
+        }
+
 
         /**
          * @deprecated use {@link #setRequestDowngrade(boolean)}.
@@ -1565,7 +1811,7 @@ public class PackageInstaller {
         }
 
         /** {@hide} */
-        @SystemApi
+        @SystemApi @TestApi
         public void setRequestDowngrade(boolean requestDowngrade) {
             if (requestDowngrade) {
                 installFlags |= PackageManager.INSTALL_REQUEST_DOWNGRADE;
@@ -1659,7 +1905,8 @@ public class PackageInstaller {
          * @param installerPackageName name of the installer package
          * {@hide}
          */
-        public void setInstallerPackageName(String installerPackageName) {
+        @TestApi
+        public void setInstallerPackageName(@Nullable String installerPackageName) {
             this.installerPackageName = installerPackageName;
         }
 
@@ -1709,6 +1956,31 @@ public class PackageInstaller {
             return (installFlags & PackageManager.INSTALL_ENABLE_ROLLBACK) != 0;
         }
 
+        /**
+         * Set the data loader params for the session.
+         * This also switches installation into data provider mode and disallow direct writes into
+         * staging folder.
+         *
+         * WARNING: This is a system API to aid internal development.
+         * Use at your own risk. It will change or be removed without warning.
+         * {@hide}
+         */
+        @SystemApi
+        @RequiresPermission(allOf = {
+                Manifest.permission.INSTALL_PACKAGES,
+                Manifest.permission.USE_INSTALLER_V2})
+        public void setDataLoaderParams(@NonNull DataLoaderParams dataLoaderParams) {
+            this.dataLoaderParams = dataLoaderParams;
+        }
+
+        /**
+         *
+         * {@hide}
+         */
+        public void setForceQueryable() {
+            this.forceQueryableOverride = true;
+        }
+
         /** {@hide} */
         public void dump(IndentingPrintWriter pw) {
             pw.printPair("mode", mode);
@@ -1725,10 +1997,14 @@ public class PackageInstaller {
             pw.printPair("volumeUuid", volumeUuid);
             pw.printPair("grantedRuntimePermissions", grantedRuntimePermissions);
             pw.printPair("whitelistedRestrictedPermissions", whitelistedRestrictedPermissions);
+            pw.printPair("autoRevokePermissions", autoRevokePermissionsMode);
             pw.printPair("installerPackageName", installerPackageName);
             pw.printPair("isMultiPackage", isMultiPackage);
             pw.printPair("isStaged", isStaged);
+            pw.printPair("forceQueryable", forceQueryableOverride);
             pw.printPair("requiredInstalledVersionCode", requiredInstalledVersionCode);
+            pw.printPair("dataLoaderParams", dataLoaderParams);
+            pw.printPair("rollbackDataPolicy", rollbackDataPolicy);
             pw.println();
         }
 
@@ -1754,10 +2030,18 @@ public class PackageInstaller {
             dest.writeString(volumeUuid);
             dest.writeStringArray(grantedRuntimePermissions);
             dest.writeStringList(whitelistedRestrictedPermissions);
+            dest.writeInt(autoRevokePermissionsMode);
             dest.writeString(installerPackageName);
             dest.writeBoolean(isMultiPackage);
             dest.writeBoolean(isStaged);
+            dest.writeBoolean(forceQueryableOverride);
             dest.writeLong(requiredInstalledVersionCode);
+            if (dataLoaderParams != null) {
+                dest.writeParcelable(dataLoaderParams.getData(), flags);
+            } else {
+                dest.writeParcelable(null, flags);
+            }
+            dest.writeInt(rollbackDataPolicy);
         }
 
         public static final Parcelable.Creator<SessionParams>
@@ -1868,12 +2152,16 @@ public class PackageInstaller {
         public String[] grantedRuntimePermissions;
         /** {@hide}*/
         public List<String> whitelistedRestrictedPermissions;
+        /** {@hide}*/
+        public int autoRevokePermissionsMode = MODE_DEFAULT;
         /** {@hide} */
         public int installFlags;
         /** {@hide} */
         public boolean isMultiPackage;
         /** {@hide} */
         public boolean isStaged;
+        /** {@hide} */
+        public boolean forceQueryable;
         /** {@hide} */
         public int parentSessionId = INVALID_ID;
         /** {@hide} */
@@ -1892,7 +2180,13 @@ public class PackageInstaller {
         public boolean isCommitted;
 
         /** {@hide} */
+        public long createdMillis;
+
+        /** {@hide} */
         public long updatedMillis;
+
+        /** {@hide} */
+        public int rollbackDataPolicy;
 
         /** {@hide} */
         @UnsupportedAppUsage
@@ -1922,10 +2216,12 @@ public class PackageInstaller {
             referrerUri = source.readParcelable(null);
             grantedRuntimePermissions = source.readStringArray();
             whitelistedRestrictedPermissions = source.createStringArrayList();
+            autoRevokePermissionsMode = source.readInt();
 
             installFlags = source.readInt();
             isMultiPackage = source.readBoolean();
             isStaged = source.readBoolean();
+            forceQueryable = source.readBoolean();
             parentSessionId = source.readInt();
             childSessionIds = source.createIntArray();
             if (childSessionIds == null) {
@@ -1937,6 +2233,8 @@ public class PackageInstaller {
             mStagedSessionErrorCode = source.readInt();
             mStagedSessionErrorMessage = source.readString();
             isCommitted = source.readBoolean();
+            rollbackDataPolicy = source.readInt();
+            createdMillis = source.readLong();
         }
 
         /**
@@ -2095,6 +2393,7 @@ public class PackageInstaller {
 
         /**
          * Get the value set in {@link SessionParams#setOriginatingUri(Uri)}.
+         * Note: This value will only be non-null for the owner of the session.
          */
         public @Nullable Uri getOriginatingUri() {
             return originatingUri;
@@ -2109,6 +2408,7 @@ public class PackageInstaller {
 
         /**
          * Get the value set in {@link SessionParams#setReferrerUri(Uri)}
+         * Note: This value will only be non-null for the owner of the session.
          */
         public @Nullable Uri getReferrerUri() {
             return referrerUri;
@@ -2141,6 +2441,24 @@ public class PackageInstaller {
                 return new ArraySet<>(whitelistedRestrictedPermissions);
             }
             return Collections.emptySet();
+        }
+
+        /**
+         * Get the status of whether permission auto-revocation should be allowed, ignored, or
+         * deferred to manifest data.
+         *
+         * @see android.app.AppOpsManager#MODE_ALLOWED
+         * @see android.app.AppOpsManager#MODE_IGNORED
+         * @see android.app.AppOpsManager#MODE_DEFAULT
+         *
+         * @return the status of auto-revoke for this package
+         *
+         * @hide
+         */
+        @TestApi
+        @SystemApi
+        public int getAutoRevokePermissionsMode() {
+            return autoRevokePermissionsMode;
         }
 
         /**
@@ -2247,10 +2565,52 @@ public class PackageInstaller {
         }
 
         /**
-         * Returns true if this session is a staged session which will be applied at next reboot.
+         * Returns true if this session is a staged session.
          */
         public boolean isStaged() {
             return isStaged;
+        }
+
+        /**
+         * Return the data policy associated with the rollback for the given upgrade.
+         *
+         * @hide
+         */
+        @SystemApi @TestApi
+        @PackageManager.RollbackDataPolicy
+        public int getRollbackDataPolicy() {
+            return rollbackDataPolicy;
+        }
+
+        /**
+         * Returns true if this session is marked as forceQueryable
+         * {@hide}
+         */
+        public boolean isForceQueryable() {
+            return forceQueryable;
+        }
+
+        /**
+         * Returns {@code true} if this session is an active staged session.
+         *
+         * We consider a session active if it has been committed and it is either pending
+         * verification, or will be applied at next reboot.
+         *
+         * <p>Staged session is active iff:
+         * <ul>
+         *     <li>It is committed, i.e. {@link SessionInfo#isCommitted()} is {@code true}, and
+         *     <li>it is not applied, i.e. {@link SessionInfo#isStagedSessionApplied()} is {@code
+         *     false}, and
+         *     <li>it is not failed, i.e. {@link SessionInfo#isStagedSessionFailed()} is
+         *     {@code false}.
+         * </ul>
+         *
+         * <p>In case of a multi-package session, reasoning above is applied to the parent session,
+         * since that is the one that should have been {@link Session#commit committed}.
+         */
+        public boolean isStagedSessionActive() {
+            return isStaged && isCommitted && !isStagedSessionApplied && !isStagedSessionFailed
+                    && !hasParentSessionId();
         }
 
         /**
@@ -2259,6 +2619,13 @@ public class PackageInstaller {
          */
         public int getParentSessionId() {
             return parentSessionId;
+        }
+
+        /**
+         * Returns true if session has a valid parent session, otherwise false.
+         */
+        public boolean hasParentSessionId() {
+            return parentSessionId != INVALID_ID;
         }
 
         /**
@@ -2338,6 +2705,13 @@ public class PackageInstaller {
         }
 
         /**
+         * The timestamp of the initial creation of the session.
+         */
+        public long getCreatedMillis() {
+            return createdMillis;
+        }
+
+        /**
          * The timestamp of the last update that occurred to the session, including changing of
          * states in case of staged sessions.
          */
@@ -2374,9 +2748,11 @@ public class PackageInstaller {
             dest.writeParcelable(referrerUri, flags);
             dest.writeStringArray(grantedRuntimePermissions);
             dest.writeStringList(whitelistedRestrictedPermissions);
+            dest.writeInt(autoRevokePermissionsMode);
             dest.writeInt(installFlags);
             dest.writeBoolean(isMultiPackage);
             dest.writeBoolean(isStaged);
+            dest.writeBoolean(forceQueryable);
             dest.writeInt(parentSessionId);
             dest.writeIntArray(childSessionIds);
             dest.writeBoolean(isStagedSessionApplied);
@@ -2385,6 +2761,8 @@ public class PackageInstaller {
             dest.writeInt(mStagedSessionErrorCode);
             dest.writeString(mStagedSessionErrorMessage);
             dest.writeBoolean(isCommitted);
+            dest.writeInt(rollbackDataPolicy);
+            dest.writeLong(createdMillis);
         }
 
         public static final Parcelable.Creator<SessionInfo>

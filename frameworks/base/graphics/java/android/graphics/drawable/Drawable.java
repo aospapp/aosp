@@ -22,7 +22,7 @@ import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.pm.ActivityInfo.Config;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -617,7 +617,7 @@ public abstract class Drawable {
      * {@link #setTintList(ColorStateList) tint}.
      * </p>
      *
-     * @see {@link #setColorFilter(ColorFilter)} }
+     * @see #setColorFilter(ColorFilter)
      * @deprecated use {@link #setColorFilter(ColorFilter)} with an instance
      * of {@link android.graphics.BlendModeColorFilter}
      */

@@ -18,54 +18,61 @@ package com.android.internal.telephony;
 
 import static com.android.internal.telephony.CommandsInterface.CF_ACTION_ENABLE;
 import static com.android.internal.telephony.CommandsInterface.CF_REASON_UNCONDITIONAL;
+import static com.android.internal.telephony.Phone.EVENT_ICC_CHANGED;
+import static com.android.internal.telephony.Phone.EVENT_SRVCC_STATE_CHANGED;
+import static com.android.internal.telephony.Phone.EVENT_UICC_APPS_ENABLEMENT_STATUS_CHANGED;
 import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.nullable;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.app.Activity;
-import android.app.IApplicationThread;
-import android.content.IIntentReceiver;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncResult;
-import android.os.Bundle;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Message;
 import android.os.Process;
 import android.os.WorkSource;
 import android.preference.PreferenceManager;
+import android.telecom.VideoProfile;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.CarrierConfigManager;
-import android.telephony.CellLocation;
+import android.telephony.CellIdentity;
+import android.telephony.CellIdentityCdma;
+import android.telephony.CellIdentityGsm;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.telephony.cdma.CdmaCellLocation;
-import android.telephony.gsm.GsmCellLocation;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.testing.AndroidTestingRunner;
+import android.testing.TestableLooper;
 
 import androidx.test.filters.FlakyTest;
 
 import com.android.internal.telephony.test.SimulatedCommands;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus;
-import com.android.internal.telephony.uicc.IccException;
+import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.IccRecords;
+import com.android.internal.telephony.uicc.IccVmNotSupportedException;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.uicc.UiccProfile;
 import com.android.internal.telephony.uicc.UiccSlot;
@@ -74,44 +81,36 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
 import java.util.List;
 
+@RunWith(AndroidTestingRunner.class)
+@TestableLooper.RunWithLooper
 public class GsmCdmaPhoneTest extends TelephonyTest {
     @Mock
     private Handler mTestHandler;
+    @Mock
+    private UiccSlot mUiccSlot;
+    @Mock
+    private CommandsInterface mMockCi;
 
     //mPhoneUnderTest
     private GsmCdmaPhone mPhoneUT;
-    private GsmCdmaPhoneTestHandler mGsmCdmaPhoneTestHandler;
 
     private static final int EVENT_EMERGENCY_CALLBACK_MODE_EXIT = 1;
     private static final int EVENT_EMERGENCY_CALL_TOGGLE = 2;
     private static final int EVENT_SET_ICC_LOCK_ENABLED = 3;
 
-    private class GsmCdmaPhoneTestHandler extends HandlerThread {
-
-        private GsmCdmaPhoneTestHandler(String name) {
-            super(name);
-        }
-
-        @Override
-        public void onLooperPrepared() {
-            mPhoneUT = new GsmCdmaPhone(mContext, mSimulatedCommands, mNotifier, true, 0,
-                    PhoneConstants.PHONE_TYPE_GSM, mTelephonyComponentFactory);
-            setReady(true);
-        }
-    }
-
     private void switchToGsm() {
         mSimulatedCommands.setVoiceRadioTech(ServiceState.RIL_RADIO_TECHNOLOGY_GSM);
         mPhoneUT.sendMessage(mPhoneUT.obtainMessage(GsmCdmaPhone.EVENT_VOICE_RADIO_TECH_CHANGED,
                 new AsyncResult(null, new int[]{ServiceState.RIL_RADIO_TECHNOLOGY_GSM}, null)));
-        //wait for voice RAT to be updated
-        waitForMs(50);
+        processAllMessages();
         assertEquals(PhoneConstants.PHONE_TYPE_GSM, mPhoneUT.getPhoneType());
     }
 
@@ -119,8 +118,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         mSimulatedCommands.setVoiceRadioTech(ServiceState.RIL_RADIO_TECHNOLOGY_IS95A);
         mPhoneUT.sendMessage(mPhoneUT.obtainMessage(GsmCdmaPhone.EVENT_VOICE_RADIO_TECH_CHANGED,
                 new AsyncResult(null, new int[]{ServiceState.RIL_RADIO_TECHNOLOGY_IS95A}, null)));
-        //wait for voice RAT to be updated
-        waitForMs(100);
+        processAllMessages();
         assertEquals(PhoneConstants.PHONE_TYPE_CDMA, mPhoneUT.getPhoneType());
     }
 
@@ -130,24 +128,22 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
         doReturn(false).when(mSST).isDeviceShuttingDown();
 
-        mGsmCdmaPhoneTestHandler = new GsmCdmaPhoneTestHandler(TAG);
-        mGsmCdmaPhoneTestHandler.start();
-        waitUntilReady();
+        mPhoneUT = new GsmCdmaPhone(mContext, mSimulatedCommands, mNotifier, true, 0,
+            PhoneConstants.PHONE_TYPE_GSM, mTelephonyComponentFactory);
+        mPhoneUT.setVoiceCallSessionStats(mVoiceCallSessionStats);
         ArgumentCaptor<Integer> integerArgumentCaptor = ArgumentCaptor.forClass(Integer.class);
         verify(mUiccController).registerForIccChanged(eq(mPhoneUT), integerArgumentCaptor.capture(),
                 nullable(Object.class));
         Message msg = Message.obtain();
         msg.what = integerArgumentCaptor.getValue();
         mPhoneUT.sendMessage(msg);
-        waitForMs(50);
+        processAllMessages();
     }
 
     @After
     public void tearDown() throws Exception {
         mPhoneUT.removeCallbacksAndMessages(null);
         mPhoneUT = null;
-        mGsmCdmaPhoneTestHandler.quit();
-        mGsmCdmaPhoneTestHandler.join();
         super.tearDown();
     }
 
@@ -165,6 +161,164 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         ServiceState serviceState = new ServiceState();
         mSST.mSS = serviceState;
         assertEquals(serviceState, mPhoneUT.getServiceState());
+    }
+
+    @Test
+    @SmallTest
+    public void testGetMergedServiceState() throws Exception {
+        ServiceState imsServiceState = new ServiceState();
+
+        NetworkRegistrationInfo imsPsWwanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .build();
+
+        NetworkRegistrationInfo imsPsWlanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .build();
+
+        // Only PS states are tracked for IMS.
+        imsServiceState.addNetworkRegistrationInfo(imsPsWwanRegInfo);
+        imsServiceState.addNetworkRegistrationInfo(imsPsWlanRegInfo);
+
+        // Voice reg state in this case is whether or not IMS is registered.
+        imsServiceState.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
+        imsServiceState.setDataRegState(ServiceState.STATE_IN_SERVICE);
+        imsServiceState.setIwlanPreferred(true);
+        doReturn(imsServiceState).when(mImsPhone).getServiceState();
+
+        replaceInstance(Phone.class, "mImsPhone", mPhoneUT, mImsPhone);
+
+        ServiceState serviceState = new ServiceState();
+
+        NetworkRegistrationInfo csWwanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_CS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .build();
+
+        NetworkRegistrationInfo psWwanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .build();
+
+        NetworkRegistrationInfo psWlanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .build();
+
+        serviceState.addNetworkRegistrationInfo(csWwanRegInfo);
+        serviceState.addNetworkRegistrationInfo(psWwanRegInfo);
+        serviceState.addNetworkRegistrationInfo(psWlanRegInfo);
+        serviceState.setVoiceRegState(ServiceState.STATE_OUT_OF_SERVICE);
+        serviceState.setDataRegState(ServiceState.STATE_IN_SERVICE);
+        serviceState.setIwlanPreferred(true);
+
+        mSST.mSS = serviceState;
+        mPhoneUT.mSST = mSST;
+
+        ServiceState mergedServiceState = mPhoneUT.getServiceState();
+
+        assertEquals(ServiceState.STATE_IN_SERVICE, mergedServiceState.getState());
+        assertEquals(ServiceState.STATE_IN_SERVICE, mergedServiceState.getDataRegistrationState());
+        assertEquals(TelephonyManager.NETWORK_TYPE_IWLAN, mergedServiceState.getDataNetworkType());
+    }
+
+    /**
+     * Some vendors do not provide a voice registration for LTE when attached to LTE only (no CSFB
+     * available). In this case, we should still get IN_SERVICE for voice service state, since
+     * IMS is registered.
+     */
+    @Test
+    @SmallTest
+    public void testGetMergedServiceStateNoCsfb() throws Exception {
+        ServiceState imsServiceState = new ServiceState();
+
+        NetworkRegistrationInfo imsPsWwanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .build();
+
+        NetworkRegistrationInfo imsPsWlanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .build();
+
+        // Only PS states are tracked for IMS.
+        imsServiceState.addNetworkRegistrationInfo(imsPsWwanRegInfo);
+        imsServiceState.addNetworkRegistrationInfo(imsPsWlanRegInfo);
+
+        // Voice reg state in this case is whether or not IMS is registered.
+        imsServiceState.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
+        imsServiceState.setDataRegState(ServiceState.STATE_IN_SERVICE);
+        imsServiceState.setIwlanPreferred(true);
+        doReturn(imsServiceState).when(mImsPhone).getServiceState();
+
+        replaceInstance(Phone.class, "mImsPhone", mPhoneUT, mImsPhone);
+
+        ServiceState serviceState = new ServiceState();
+
+        NetworkRegistrationInfo csWwanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_CS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .build();
+
+        NetworkRegistrationInfo psWwanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .build();
+
+        NetworkRegistrationInfo psWlanRegInfo = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .build();
+
+        serviceState.addNetworkRegistrationInfo(csWwanRegInfo);
+        serviceState.addNetworkRegistrationInfo(psWwanRegInfo);
+        serviceState.addNetworkRegistrationInfo(psWlanRegInfo);
+        // No CSFB, voice is OOS for LTE only attach
+        serviceState.setVoiceRegState(ServiceState.STATE_OUT_OF_SERVICE);
+        serviceState.setDataRegState(ServiceState.STATE_IN_SERVICE);
+        serviceState.setIwlanPreferred(true);
+
+        mSST.mSS = serviceState;
+        mPhoneUT.mSST = mSST;
+
+        ServiceState mergedServiceState = mPhoneUT.getServiceState();
+
+        assertEquals(ServiceState.STATE_IN_SERVICE, mergedServiceState.getState());
+        assertEquals(ServiceState.STATE_IN_SERVICE, mergedServiceState.getDataRegistrationState());
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mergedServiceState.getDataNetworkType());
     }
 
     @Test
@@ -222,20 +376,20 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
     @SmallTest
     public void testGetCellLocation() {
         // GSM
-        CellLocation cellLocation = new GsmCellLocation();
+        CellIdentity cellLocation = new CellIdentityGsm();
         WorkSource workSource = new WorkSource(Process.myUid(),
             mContext.getPackageName());
-        doReturn(cellLocation).when(mSST).getCellLocation();
-        assertEquals(cellLocation, mPhoneUT.getCellLocation());
+        doReturn(cellLocation).when(mSST).getCellIdentity();
+        assertEquals(cellLocation, mPhoneUT.getCellIdentity());
 
         // Switch to CDMA
         switchToCdma();
 
-        CdmaCellLocation cdmaCellLocation = new CdmaCellLocation();
-        doReturn(cdmaCellLocation).when(mSST).getCellLocation();
+        CellIdentityCdma cdmaCellLocation = new CellIdentityCdma();
+        doReturn(cdmaCellLocation).when(mSST).getCellIdentity();
 
-        CdmaCellLocation actualCellLocation =
-                (CdmaCellLocation) mPhoneUT.getCellLocation();
+        CellIdentityCdma actualCellLocation =
+                (CellIdentityCdma) mPhoneUT.getCellIdentity();
 
         assertEquals(actualCellLocation, cdmaCellLocation);
     }
@@ -318,7 +472,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testDial() {
+    public void testDial() throws Exception {
         try {
             mSST.mSS = mServiceState;
             doReturn(ServiceState.STATE_IN_SERVICE).when(mServiceState).getState();
@@ -327,6 +481,8 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
             mCT.mBackgroundCall = mGsmCdmaCall;
             mCT.mRingingCall = mGsmCdmaCall;
             doReturn(GsmCdmaCall.State.IDLE).when(mGsmCdmaCall).getState();
+
+            replaceInstance(Phone.class, "mImsPhone", mPhoneUT, mImsPhone);
 
             Connection connection = mPhoneUT.dial("1234567890",
                     new PhoneInternalInterface.DialArgs.Builder().build());
@@ -347,25 +503,28 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
     public void testEmergencySmsMode() {
         String emergencyNumber = "111";
         String nonEmergencyNumber = "222";
+        int timeout = 200;
         mContextFixture.getCarrierConfigBundle().putInt(
-                CarrierConfigManager.KEY_EMERGENCY_SMS_MODE_TIMER_MS_INT, 200);
+                CarrierConfigManager.KEY_EMERGENCY_SMS_MODE_TIMER_MS_INT, timeout);
         doReturn(true).when(mTelephonyManager).isEmergencyNumber(emergencyNumber);
 
         mPhoneUT.notifySmsSent(nonEmergencyNumber);
-        waitForMs(50);
+        processAllMessages();
         assertFalse(mPhoneUT.isInEmergencySmsMode());
 
         mPhoneUT.notifySmsSent(emergencyNumber);
-        waitForMs(50);
+        processAllMessages();
         assertTrue(mPhoneUT.isInEmergencySmsMode());
-        waitForMs(200);
+        // mTimeLastEmergencySmsSentMs uses System.currentTimeMillis()
+        waitForMs(timeout + 5);
+        processAllMessages();
         assertFalse(mPhoneUT.isInEmergencySmsMode());
 
         // Feature not supported
         mContextFixture.getCarrierConfigBundle().putInt(
                 CarrierConfigManager.KEY_EMERGENCY_SMS_MODE_TIMER_MS_INT, 0);
         mPhoneUT.notifySmsSent(emergencyNumber);
-        waitForMs(50);
+        processAllMessages();
         assertFalse(mPhoneUT.isInEmergencySmsMode());
     }
 
@@ -427,11 +586,25 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         mContextFixture.getCarrierConfigBundle()
                 .putString(CarrierConfigManager.KEY_DEFAULT_VM_NUMBER_ROAMING_STRING,
                         voiceMailNumberForRoaming);
+
+        // voicemail number from config for roaming network and ims unregistered
+        String voiceMailNumberForImsRoamingAndUnregistered = "1234567893";
+        mContextFixture.getCarrierConfigBundle().putString(
+                CarrierConfigManager.KEY_DEFAULT_VM_NUMBER_ROAMING_AND_IMS_UNREGISTERED_STRING,
+                        voiceMailNumberForImsRoamingAndUnregistered);
+
         //Verify voicemail number for home
         doReturn(false).when(mSST.mSS).getRoaming();
+        doReturn(true).when(mSST).isImsRegistered();
+        assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
+        //Move to ims condition, verify voicemail number for ims unregistered
+        doReturn(false).when(mSST).isImsRegistered();
         assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
         //Move to roaming condition, verify voicemail number for roaming
         doReturn(true).when(mSST.mSS).getRoaming();
+        assertEquals(voiceMailNumberForImsRoamingAndUnregistered, mPhoneUT.getVoiceMailNumber());
+        //Move to ims condition, verify voicemail number for roaming
+        doReturn(true).when(mSST).isImsRegistered();
         assertEquals(voiceMailNumberForRoaming, mPhoneUT.getVoiceMailNumber());
         //Move to home condition, verify voicemail number for home
         doReturn(false).when(mSST.mSS).getRoaming();
@@ -471,27 +644,62 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         mContextFixture.getCarrierConfigBundle()
                 .putString(CarrierConfigManager.KEY_DEFAULT_VM_NUMBER_ROAMING_STRING,
                         voiceMailNumberForRoaming);
+
+        // voicemail number from config for roaming network and ims unregistered
+        String voiceMailNumberForImsRoamingAndUnregistered = "1234567893";
+        mContextFixture.getCarrierConfigBundle().putString(
+                CarrierConfigManager.KEY_DEFAULT_VM_NUMBER_ROAMING_AND_IMS_UNREGISTERED_STRING,
+                        voiceMailNumberForImsRoamingAndUnregistered);
+
         //Verify voicemail number for home
         doReturn(false).when(mSST.mSS).getRoaming();
+        doReturn(true).when(mSST).isImsRegistered();
+        assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
+        //Move to ims condition, verify voicemail number for ims unregistered
+        doReturn(false).when(mSST).isImsRegistered();
         assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
         //Move to roaming condition, verify voicemail number for roaming
         doReturn(true).when(mSST.mSS).getRoaming();
+        assertEquals(voiceMailNumberForImsRoamingAndUnregistered, mPhoneUT.getVoiceMailNumber());
+        //Move to ims condition, verify voicemail number for roaming
+        doReturn(true).when(mSST).isImsRegistered();
         assertEquals(voiceMailNumberForRoaming, mPhoneUT.getVoiceMailNumber());
         //Move to home condition, verify voicemail number for home
         doReturn(false).when(mSST.mSS).getRoaming();
         assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
 
         // voicemail number from sharedPreference
+        voiceMailNumber = "1234567893";
         mPhoneUT.setVoiceMailNumber("alphaTag", voiceMailNumber, null);
         ArgumentCaptor<Message> messageArgumentCaptor = ArgumentCaptor.forClass(Message.class);
-        verify(mSimRecords).setVoiceMailNumber(eq("alphaTag"), eq(voiceMailNumber),
+        InOrder inOrder = inOrder(mSimRecords);
+        inOrder.verify(mSimRecords).setVoiceMailNumber(eq("alphaTag"), eq(voiceMailNumber),
                 messageArgumentCaptor.capture());
 
+        // SIM does not support voicemail number (IccVmNotSupportedException) so should be saved in
+        // shared pref
         Message msg = messageArgumentCaptor.getValue();
         AsyncResult.forMessage(msg).exception =
-                new IccException("setVoiceMailNumber not implemented");
+                new IccVmNotSupportedException("setVoiceMailNumber not implemented");
         msg.sendToTarget();
-        waitForMs(50);
+        processAllMessages();
+
+        assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
+
+        // voicemail number from SIM
+        voiceMailNumber = "1234567894";
+        mPhoneUT.setVoiceMailNumber("alphaTag", voiceMailNumber, null);
+        messageArgumentCaptor = ArgumentCaptor.forClass(Message.class);
+        inOrder.verify(mSimRecords).setVoiceMailNumber(eq("alphaTag"), eq(voiceMailNumber),
+                messageArgumentCaptor.capture());
+
+        // successfully saved on SIM
+        msg = messageArgumentCaptor.getValue();
+        AsyncResult.forMessage(msg);
+        msg.sendToTarget();
+        processAllMessages();
+
+        doReturn(voiceMailNumber).when(mSimRecords).getVoiceMailNumber();
 
         assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
     }
@@ -563,7 +771,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         verify(mSimulatedCommandsVerifier).queryCallForwardStatus(
                 eq(CF_REASON_UNCONDITIONAL), eq(CommandsInterface.SERVICE_CLASS_VOICE),
                 nullable(String.class), nullable(Message.class));
-        waitForMs(50);
+        processAllMessages();
         verify(mSimRecords).setVoiceCallForwardingFlag(anyInt(), anyBoolean(),
                 nullable(String.class));
 
@@ -597,7 +805,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         verify(mSimulatedCommandsVerifier).setCallForward(eq(CF_ACTION_ENABLE),
                 eq(CF_REASON_UNCONDITIONAL), anyInt(), eq(cfNumber), eq(0),
                 nullable(Message.class));
-        waitForMs(50);
+        processAllMessages();
         verify(mSimRecords).setVoiceCallForwardingFlag(anyInt(), anyBoolean(), eq(cfNumber));
     }
 
@@ -662,7 +870,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testEmergencyCallbackMessages() {
+    public void testEmergencyCallbackMessages() throws Exception {
         verify(mSimulatedCommandsVerifier).setEmergencyCallbackMode(eq(mPhoneUT), anyInt(),
                 nullable(Object.class));
         verify(mSimulatedCommandsVerifier).registerForExitEmergencyCallbackMode(eq(mPhoneUT),
@@ -670,66 +878,23 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
         // verify handling of emergency callback mode
         mSimulatedCommands.notifyEmergencyCallbackMode();
-        waitForMs(50);
+        processAllMessages();
 
-        // verify ACTION_EMERGENCY_CALLBACK_MODE_CHANGED
-        ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
-        try {
-            verify(mIActivityManager, atLeast(1)).broadcastIntent(eq((IApplicationThread) null),
-                    intentArgumentCaptor.capture(),
-                    eq((String) null),
-                    eq((IIntentReceiver) null),
-                    eq(Activity.RESULT_OK),
-                    eq((String) null),
-                    eq((Bundle) null),
-                    eq((String[]) null),
-                    anyInt(),
-                    eq((Bundle) null),
-                    eq(false),
-                    eq(true),
-                    anyInt());
-        } catch(Exception e) {
-            fail("Unexpected exception: " + e.getStackTrace());
-        }
-
-        Intent intent = intentArgumentCaptor.getValue();
-        assertEquals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, intent.getAction());
-        assertEquals(true, intent.getBooleanExtra(PhoneConstants.PHONE_IN_ECM_STATE, false));
-        assertEquals(true, mPhoneUT.isInEcm());
+        verifyEcbmIntentSent(1 /*times*/, true /*isInEcm*/);
+        assertTrue(mPhoneUT.isInEcm());
 
         // verify that wakeLock is acquired in ECM
-        assertEquals(true, mPhoneUT.getWakeLock().isHeld());
+        assertTrue(mPhoneUT.getWakeLock().isHeld());
 
         mPhoneUT.setOnEcbModeExitResponse(mTestHandler, EVENT_EMERGENCY_CALLBACK_MODE_EXIT, null);
         mPhoneUT.registerForEmergencyCallToggle(mTestHandler, EVENT_EMERGENCY_CALL_TOGGLE, null);
 
         // verify handling of emergency callback mode exit
         mSimulatedCommands.notifyExitEmergencyCallbackMode();
-        waitForMs(50);
+        processAllMessages();
 
-        // verify ACTION_EMERGENCY_CALLBACK_MODE_CHANGED
-        try {
-            verify(mIActivityManager, atLeast(2)).broadcastIntent(eq((IApplicationThread) null),
-                    intentArgumentCaptor.capture(),
-                    eq((String) null),
-                    eq((IIntentReceiver) null),
-                    eq(Activity.RESULT_OK),
-                    eq((String) null),
-                    eq((Bundle) null),
-                    eq((String[]) null),
-                    anyInt(),
-                    eq((Bundle) null),
-                    eq(false),
-                    eq(true),
-                    anyInt());
-        } catch(Exception e) {
-            fail("Unexpected exception: " + e.getStackTrace());
-        }
-
-        intent = intentArgumentCaptor.getValue();
-        assertEquals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, intent.getAction());
-        assertEquals(false, intent.getBooleanExtra(PhoneConstants.PHONE_IN_ECM_STATE, true));
-        assertEquals(false, mPhoneUT.isInEcm());
+        verifyEcbmIntentSent(2 /*times*/, false /*isInEcm*/);
+        assertFalse(mPhoneUT.isInEcm());
 
         ArgumentCaptor<Message> messageArgumentCaptor = ArgumentCaptor.forClass(Message.class);
 
@@ -744,7 +909,39 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         verify(mDataEnabledSettings).setInternalDataEnabled(true);
 
         // verify wakeLock released
-        assertEquals(false, mPhoneUT.getWakeLock().isHeld());
+        assertFalse(mPhoneUT.getWakeLock().isHeld());
+    }
+
+    private void verifyEcbmIntentSent(int times, boolean isInEcm) throws Exception {
+        ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mContext, atLeast(times)).sendStickyBroadcastAsUser(intentArgumentCaptor.capture(),
+                any());
+        Intent intent = intentArgumentCaptor.getValue();
+        assertEquals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, intent.getAction());
+        assertEquals(isInEcm, intent.getBooleanExtra(
+                TelephonyManager.EXTRA_PHONE_IN_ECM_STATE, false));
+    }
+
+    @Test
+    @SmallTest
+    public void testEcmCancelledPreservedThroughSrvcc() throws Exception {
+        replaceInstance(Phone.class, "mImsPhone", mPhoneUT, mImsPhone);
+        assertFalse(mPhoneUT.isEcmCanceledForEmergency());
+        // Set ECM cancelled state on ImsPhone to be transferred via migrateFrom
+        doReturn(true).when(mImsPhone).isEcmCanceledForEmergency();
+        verify(mSimulatedCommandsVerifier).registerForSrvccStateChanged(any(),
+                eq(EVENT_SRVCC_STATE_CHANGED), any());
+
+        // Start SRVCC
+        Message msg = Message.obtain();
+        msg.what = EVENT_SRVCC_STATE_CHANGED;
+        msg.obj = new AsyncResult(null, new int[]{TelephonyManager.SRVCC_STATE_HANDOVER_STARTED},
+                null);
+        mPhoneUT.sendMessage(msg);
+        processAllMessages();
+
+        // verify ECM cancelled is transferred correctly.
+        assertTrue(mPhoneUT.isEcmCanceledForEmergency());
     }
 
     @Test
@@ -758,31 +955,21 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         switchToCdma();
         // verify handling of emergency callback mode
         mSimulatedCommands.notifyEmergencyCallbackMode();
-        waitForMs(50);
+        processAllMessages();
 
         // verify ACTION_EMERGENCY_CALLBACK_MODE_CHANGED
         ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
         try {
-            verify(mIActivityManager, atLeast(1)).broadcastIntent(eq((IApplicationThread) null),
-                    intentArgumentCaptor.capture(),
-                    eq((String) null),
-                    eq((IIntentReceiver) null),
-                    eq(Activity.RESULT_OK),
-                    eq((String) null),
-                    eq((Bundle) null),
-                    eq((String[]) null),
-                    anyInt(),
-                    eq((Bundle) null),
-                    eq(false),
-                    eq(true),
-                    anyInt());
+            verify(mContext, atLeast(1)).sendStickyBroadcastAsUser(intentArgumentCaptor.capture(),
+                    any());
         } catch (Exception e) {
             fail("Unexpected exception: " + e.getStackTrace());
         }
 
         Intent intent = intentArgumentCaptor.getValue();
         assertEquals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, intent.getAction());
-        assertEquals(true, intent.getBooleanExtra(PhoneConstants.PHONE_IN_ECM_STATE, false));
+        assertEquals(true, intent.getBooleanExtra(
+                TelephonyManager.EXTRA_PHONE_IN_ECM_STATE, false));
         assertEquals(true, mPhoneUT.isInEcm());
 
         // verify that wakeLock is acquired in ECM
@@ -793,30 +980,20 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
         // verify handling of emergency callback mode exit when modem resets
         mSimulatedCommands.notifyModemReset();
-        waitForMs(50);
+        processAllMessages();
 
         // verify ACTION_EMERGENCY_CALLBACK_MODE_CHANGED
         try {
-            verify(mIActivityManager, atLeast(2)).broadcastIntent(eq((IApplicationThread) null),
-                    intentArgumentCaptor.capture(),
-                    eq((String) null),
-                    eq((IIntentReceiver) null),
-                    eq(Activity.RESULT_OK),
-                    eq((String) null),
-                    eq((Bundle) null),
-                    eq((String[]) null),
-                    anyInt(),
-                    eq((Bundle) null),
-                    eq(false),
-                    eq(true),
-                    anyInt());
+            verify(mContext, atLeast(2)).sendStickyBroadcastAsUser(intentArgumentCaptor.capture(),
+                    any());
         } catch (Exception e) {
             fail("Unexpected exception: " + e.getStackTrace());
         }
 
         intent = intentArgumentCaptor.getValue();
         assertEquals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED, intent.getAction());
-        assertEquals(false, intent.getBooleanExtra(PhoneConstants.PHONE_IN_ECM_STATE, true));
+        assertEquals(false, intent.getBooleanExtra(
+                TelephonyManager.EXTRA_PHONE_IN_ECM_STATE, true));
         assertEquals(false, mPhoneUT.isInEcm());
 
         ArgumentCaptor<Message> messageArgumentCaptor = ArgumentCaptor.forClass(Message.class);
@@ -933,7 +1110,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         Message onComplete = mTestHandler.obtainMessage(EVENT_SET_ICC_LOCK_ENABLED);
         iccCard.setIccLockEnabled(true, "password", onComplete);
 
-        waitForMs(100);
+        processAllMessages();
 
         ArgumentCaptor<Message> messageArgumentCaptor = ArgumentCaptor.forClass(Message.class);
         // Verify that message is sent back with exception.
@@ -1000,5 +1177,202 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         mContextFixture.getCarrierConfigBundle().putBoolean(
                 CarrierConfigManager.KEY_USE_USIM_BOOL, true);
         assertEquals(msisdn, mPhoneUT.getLine1Number());
+    }
+
+    @Test
+    @SmallTest
+    public void testEnableUiccApplications() throws Exception {
+        mPhoneUT.mCi = mMockCi;
+        // UiccSlot is null. Doing nothing.
+        mPhoneUT.enableUiccApplications(true, null);
+        verify(mMockCi, never()).enableUiccApplications(anyBoolean(), any());
+
+        // Card state is not PRESENT. Doing nothing.
+        doReturn(mUiccSlot).when(mUiccController).getUiccSlotForPhone(anyInt());
+        doReturn(IccCardStatus.CardState.CARDSTATE_ABSENT).when(mUiccSlot).getCardState();
+        mPhoneUT.enableUiccApplications(true, null);
+        verify(mMockCi, never()).enableUiccApplications(anyBoolean(), any());
+
+        doReturn(IccCardStatus.CardState.CARDSTATE_PRESENT).when(mUiccSlot).getCardState();
+        Message message = Message.obtain();
+        mPhoneUT.enableUiccApplications(true, message);
+        verify(mMockCi).enableUiccApplications(eq(true), eq(message));
+    }
+
+    @Test
+    @SmallTest
+    public void testReapplyUiccApplicationEnablementNotNeeded() throws Exception {
+        mPhoneUT.mCi = mMockCi;
+        // UiccSlot is null, or not present, or mUiccApplicationsEnabled is not available, or IccId
+        // is not available, Doing nothing.
+        doReturn(mUiccSlot).when(mUiccController).getUiccSlotForPhone(anyInt());
+        Message.obtain(mPhoneUT, EVENT_ICC_CHANGED, null).sendToTarget();
+        processAllMessages();
+        doReturn(IccCardStatus.CardState.CARDSTATE_ABSENT).when(mUiccSlot).getCardState();
+        Message.obtain(mPhoneUT, EVENT_ICC_CHANGED, null).sendToTarget();
+        processAllMessages();
+        doReturn(IccCardStatus.CardState.CARDSTATE_PRESENT).when(mUiccSlot).getCardState();
+        Message.obtain(mPhoneUT, EVENT_ICC_CHANGED, null).sendToTarget();
+        Message.obtain(mPhoneUT, EVENT_UICC_APPS_ENABLEMENT_STATUS_CHANGED,
+                new AsyncResult(null, true, null)).sendToTarget();
+        processAllMessages();
+        verify(mSubscriptionController, never()).getSubInfoForIccId(any());
+
+        // Have IccId defined. But expected value and current value are the same. So no RIL command
+        // should be sent.
+        String iccId = "Fake iccId";
+        doReturn(iccId).when(mUiccSlot).getIccId();
+        Message.obtain(mPhoneUT, EVENT_ICC_CHANGED, null).sendToTarget();
+        processAllMessages();
+        verify(mSubscriptionController).getSubInfoForIccId(iccId);
+        verify(mMockCi, never()).enableUiccApplications(anyBoolean(), any());
+    }
+
+    @Test
+    @SmallTest
+    public void testReapplyUiccApplicationEnablementSuccess() throws Exception {
+        mPhoneUT.mCi = mMockCi;
+        // Set SIM to be present, with a fake iccId, and notify enablement being false.
+        doReturn(mUiccSlot).when(mUiccController).getUiccSlotForPhone(anyInt());
+        doReturn(IccCardStatus.CardState.CARDSTATE_PRESENT).when(mUiccSlot).getCardState();
+        String iccId = "Fake iccId";
+        doReturn(iccId).when(mUiccSlot).getIccId();
+        Message.obtain(mPhoneUT, EVENT_UICC_APPS_ENABLEMENT_STATUS_CHANGED,
+                new AsyncResult(null, false, null)).sendToTarget();
+        processAllMessages();
+
+        // Should try to enable uicc applications as by default hey are expected to be true.
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mMockCi, times(1)).enableUiccApplications(eq(true), messageCaptor.capture());
+        // Send message back with no exception.
+        AsyncResult.forMessage(messageCaptor.getValue(), null, null);
+        messageCaptor.getValue().sendToTarget();
+        processAllMessages();
+
+        // There shouldn't be any retry message.
+        moveTimeForward(5000);
+        processAllMessages();
+        verify(mMockCi, times(1)).enableUiccApplications(eq(true), any());
+    }
+
+    @Test
+    @SmallTest
+    public void testSetRadioPower() throws Exception {
+        mPhoneUT.setRadioPower(false);
+        verify(mSST).setRadioPower(false, false, false, false);
+
+        // Turn on radio for emergency call.
+        mPhoneUT.setRadioPower(true, true, false, true);
+        verify(mSST).setRadioPower(true, true, false, true);
+    }
+
+    @Test
+    @SmallTest
+    public void testReapplyUiccApplicationEnablementRetry() throws Exception {
+        mPhoneUT.mCi = mMockCi;
+        // Set SIM to be present, with a fake iccId, and notify enablement being false.
+        doReturn(mUiccSlot).when(mUiccController).getUiccSlotForPhone(anyInt());
+        doReturn(IccCardStatus.CardState.CARDSTATE_PRESENT).when(mUiccSlot).getCardState();
+        String iccId = "Fake iccId";
+        doReturn(iccId).when(mUiccSlot).getIccId();
+        Message.obtain(mPhoneUT, EVENT_UICC_APPS_ENABLEMENT_STATUS_CHANGED,
+                new AsyncResult(null, false, null)).sendToTarget();
+        processAllMessages();
+
+        // Should try to enable uicc applications as by default hey are expected to be true.
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mMockCi).enableUiccApplications(eq(true), messageCaptor.capture());
+        clearInvocations(mMockCi);
+        for (int i = 0; i < GsmCdmaPhone.ENABLE_UICC_APPS_MAX_RETRIES; i++) {
+            // Send message back with SIM_BUSY exception. Should retry.
+            AsyncResult.forMessage(messageCaptor.getValue(), null, new CommandException(
+                    CommandException.Error.SIM_BUSY));
+            messageCaptor.getValue().sendToTarget();
+            processAllMessages();
+            // There should be a retry message.
+            moveTimeForward(5000);
+            processAllMessages();
+            verify(mMockCi).enableUiccApplications(eq(true), messageCaptor.capture());
+            clearInvocations(mMockCi);
+        }
+
+        // Reaches max retries. Should NOT retry.
+        AsyncResult.forMessage(messageCaptor.getValue(), null, new CommandException(
+                CommandException.Error.SIM_BUSY));
+        messageCaptor.getValue().sendToTarget();
+        processAllMessages();
+        // There should NOT be a retry message.
+        moveTimeForward(5000);
+        processAllMessages();
+        verify(mMockCi, never()).enableUiccApplications(eq(true), messageCaptor.capture());
+        clearInvocations(mMockCi);
+    }
+
+    @Test
+    @SmallTest
+    public void testSendUssdInService() throws Exception {
+        PhoneInternalInterface.DialArgs dialArgs = new PhoneInternalInterface.DialArgs
+                .Builder().setVideoState(VideoProfile.STATE_AUDIO_ONLY).build();
+
+        setupTestSendUssd(dialArgs);
+
+        // ServiceState is in service.
+        doReturn(ServiceState.STATE_IN_SERVICE).when(mSST.mSS).getState();
+        mPhoneUT.dial("*135#", dialArgs);
+        verify(mMockCi).sendUSSD(eq("*135#"), any());
+    }
+
+    @Test
+    @SmallTest
+    public void testSendUssdInOutOfService() throws Exception {
+        PhoneInternalInterface.DialArgs dialArgs = new PhoneInternalInterface.DialArgs
+                .Builder().setVideoState(VideoProfile.STATE_AUDIO_ONLY).build();
+
+        setupTestSendUssd(dialArgs);
+
+        // ServiceState is out of service
+        doReturn(ServiceState.STATE_OUT_OF_SERVICE).when(mSST.mSS)
+                .getState(); /* CS out of service */
+        doReturn(ServiceState.STATE_IN_SERVICE).when(mSST.mSS).getDataRegState();
+        doReturn(ServiceState.RIL_RADIO_TECHNOLOGY_GSM).when(mSST.mSS)
+                .getRilDataRadioTechnology(); /* PS not in LTE */
+        mPhoneUT.dial("*135#", dialArgs);
+        verify(mMockCi).sendUSSD(eq("*135#"), any());
+    }
+
+    @Test
+    @SmallTest
+    public void testSendUssdInAirplaneMode() throws Exception {
+        PhoneInternalInterface.DialArgs dialArgs = new PhoneInternalInterface.DialArgs
+                .Builder().setVideoState(VideoProfile.STATE_AUDIO_ONLY).build();
+
+        setupTestSendUssd(dialArgs);
+
+        // ServiceState is airplane mode.
+        doReturn(ServiceState.STATE_POWER_OFF).when(mSST.mSS).getState(); /* CS POWER_OFF */
+        mPhoneUT.dial("*135#", dialArgs);
+        verify(mMockCi).sendUSSD(eq("*135#"), any());
+    }
+
+    private void setupTestSendUssd(PhoneInternalInterface.DialArgs dialArgs) throws Exception {
+        mPhoneUT.mCi = mMockCi;
+        ServiceState mImsServiceState = Mockito.mock(ServiceState.class);
+        CallStateException callStateException = Mockito.mock(CallStateException.class);
+
+        // Enable VoWiFi
+        doReturn(true).when(mImsManager).isVolteEnabledByPlatform();
+        doReturn(true).when(mImsManager).isEnhanced4gLteModeSettingEnabledByUser();
+        doReturn(mImsServiceState).when(mImsPhone).getServiceState();
+        doReturn(ServiceState.STATE_IN_SERVICE).when(mImsServiceState).getState();
+        doReturn(true).when(mImsPhone).isWifiCallingEnabled();
+
+        // Disable UT/XCAP
+        doReturn(false).when(mImsPhone).isUtEnabled();
+
+        // Throw CallStateException(Phone.CS_FALLBACK) from ImsPhone.dial().
+        doReturn(Phone.CS_FALLBACK).when(callStateException).getMessage();
+        doThrow(callStateException).when(mImsPhone).dial("*135#", dialArgs);
+
+        replaceInstance(Phone.class, "mImsPhone", mPhoneUT, mImsPhone);
     }
 }

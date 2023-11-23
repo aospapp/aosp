@@ -1,4 +1,5 @@
-# Copyright (C) 2011 The Android Open Source Project
+# -*- mode: makefile -*-
+#  Copyright (C) 2019 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+#
 # If you don't need to do a full clean build but would like to touch
 # a file or delete some intermediate files, add a clean step to the end
 # of the list.  These steps will only be run once, if they haven't been
@@ -20,7 +21,7 @@
 #
 # E.g.:
 #     $(call add-clean-step, touch -c external/sqlite/sqlite3.h)
-#     $(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/STATIC_LIBRARIES/libz_intermediates)
+#     $(call add-clean-step, rm -rf $(OUT_DIR)/obj/STATIC_LIBRARIES/libz_intermediates)
 #
 # Always use "touch -c" and "rm -f" or "rm -rf" to gracefully deal with
 # files that are missing or have been moved.
@@ -37,9 +38,24 @@
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************
+#
+# For example:
+#$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/APPS/AndroidTests_intermediates)
+#$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/core_intermediates)
+#$(call add-clean-step, find $(OUT_DIR) -type f -name "IGTalkSession*" -print0 | xargs -0 rm -f)
+#$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/*)
+#$(call add-clean-step, rm -rf $(OUT_DIR)/obj/SHARED_LIBRARIES/libdvm*)
 
-$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/wifi-service_intermediates)
-
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/init/wifi.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/WifiStack)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/init/wifi_inprocess.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/InProcessWifiStack)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/framework/wifi-service.jar)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/wifi-service-resources)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/libwifi-jni.so)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/libwifi-jni.so)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex/com.android.wifi.apex)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/apex/com.android.wifi)
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

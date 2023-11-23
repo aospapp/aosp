@@ -29,7 +29,6 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
-import com.android.internal.telephony.PhoneConstants;
 
 /**
  * This util class provides common logic for carrier actions
@@ -102,7 +101,7 @@ public class CarrierActionUtils {
     }
 
     private static void onDisableAllMeteredApns(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onDisableAllMeteredApns subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
@@ -110,7 +109,7 @@ public class CarrierActionUtils {
     }
 
     private static void onEnableAllMeteredApns(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onEnableAllMeteredApns subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
@@ -134,35 +133,35 @@ public class CarrierActionUtils {
     }
 
     private static void onRegisterDefaultNetworkAvail(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onRegisterDefaultNetworkAvail subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
-        telephonyMgr.carrierActionReportDefaultNetworkStatus(subId, true);
+        telephonyMgr.createForSubscriptionId(subId).reportDefaultNetworkStatus(true);
     }
 
     private static void onDeregisterDefaultNetworkAvail(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onDeregisterDefaultNetworkAvail subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
-        telephonyMgr.carrierActionReportDefaultNetworkStatus(subId, false);
+        telephonyMgr.createForSubscriptionId(subId).reportDefaultNetworkStatus(false);
     }
 
     private static void onDisableRadio(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onDisableRadio subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
-        telephonyMgr.carrierActionSetRadioEnabled(subId, !ENABLE);
+        telephonyMgr.createForSubscriptionId(subId).setRadioEnabled(!ENABLE);
     }
 
     private static void onEnableRadio(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onEnableRadio subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
-        telephonyMgr.carrierActionSetRadioEnabled(subId, ENABLE);
+        telephonyMgr.createForSubscriptionId(subId).setRadioEnabled(ENABLE);
     }
 
     private static void onShowCaptivePortalNotification(Intent intent, Context context) {
@@ -201,11 +200,11 @@ public class CarrierActionUtils {
     }
 
     private static void onResetAllCarrierActions(Intent intent, Context context) {
-        int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+        int subId = intent.getIntExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX,
                 SubscriptionManager.getDefaultVoiceSubscriptionId());
         logd("onResetAllCarrierActions subId: " + subId);
         final TelephonyManager telephonyMgr = context.getSystemService(TelephonyManager.class);
-        telephonyMgr.carrierActionResetAll(subId);
+        telephonyMgr.createForSubscriptionId(subId).resetAllCarrierActions();
     }
 
     private static Notification getNotification(Context context, int titleId, int textId,

@@ -442,18 +442,11 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
             // loop. So we can be sure that scriptRunEnd > scriptRunStart.
 
             double letterSpace = 0.0;
-            double letterSpaceHalfLeft = 0.0;
-            double letterSpaceHalfRight = 0.0;
+            double letterSpaceHalf = 0.0;
 
             if (paint.letterSpacing != 0.0 && isScriptOkForLetterspacing(script)) {
                 letterSpace = paint.letterSpacing * size * scaleX;
-                if ((paint.fontFlags & LinearMetrics_Flag) == 0) {
-                    letterSpace = round(letterSpace);
-                    letterSpaceHalfLeft = floor(letterSpace * 0.5);
-                } else {
-                    letterSpaceHalfLeft = letterSpace * 0.5;
-                }
-                letterSpaceHalfRight = letterSpace - letterSpaceHalfLeft;
+                letterSpaceHalf = letterSpace * 0.5;
             }
 
             hb_buffer_clear_contents(buffer.get());
@@ -490,14 +483,14 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
             const ssize_t clusterOffset = clusterStart - scriptRunStart;
 
             if (numGlyphs) {
-                mAdvances[info[0].cluster - clusterOffset] += letterSpaceHalfLeft;
-                x += letterSpaceHalfLeft;
+                mAdvances[info[0].cluster - clusterOffset] += letterSpaceHalf;
+                x += letterSpaceHalf;
             }
             for (unsigned int i = 0; i < numGlyphs; i++) {
                 const size_t clusterBaseIndex = info[i].cluster - clusterOffset;
                 if (i > 0 && info[i - 1].cluster != info[i].cluster) {
-                    mAdvances[info[i - 1].cluster - clusterOffset] += letterSpaceHalfRight;
-                    mAdvances[clusterBaseIndex] += letterSpaceHalfLeft;
+                    mAdvances[info[i - 1].cluster - clusterOffset] += letterSpaceHalf;
+                    mAdvances[clusterBaseIndex] += letterSpaceHalf;
                     x += letterSpace;
                 }
 
@@ -509,9 +502,6 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
                 mGlyphIds.push_back(glyph_ix);
                 mPoints.emplace_back(x + xoff, y + yoff);
                 float xAdvance = HBFixedToFloat(positions[i].x_advance);
-                if ((paint.fontFlags & LinearMetrics_Flag) == 0) {
-                    xAdvance = roundf(xAdvance);
-                }
                 MinikinRect glyphBounds;
                 hb_glyph_extents_t extents = {};
                 if (is_color_bitmap_font &&
@@ -541,8 +531,8 @@ LayoutPiece::LayoutPiece(const U16StringPiece& textBuf, const Range& range, bool
                 x += xAdvance;
             }
             if (numGlyphs) {
-                mAdvances[info[numGlyphs - 1].cluster - clusterOffset] += letterSpaceHalfRight;
-                x += letterSpaceHalfRight;
+                mAdvances[info[numGlyphs - 1].cluster - clusterOffset] += letterSpaceHalf;
+                x += letterSpaceHalf;
             }
         }
     }

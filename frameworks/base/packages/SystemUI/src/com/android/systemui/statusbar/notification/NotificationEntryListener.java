@@ -20,9 +20,10 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.NotificationListenerService.RankingMap;
 import android.service.notification.StatusBarNotification;
 
+import androidx.annotation.NonNull;
+
 import com.android.internal.statusbar.NotificationVisibility;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
-import com.android.systemui.statusbar.notification.row.NotificationContentInflater.InflationFlag;
 
 /**
  * Listener interface for changes sent by NotificationEntryManager.
@@ -35,17 +36,10 @@ public interface NotificationEntryListener {
     default void onPendingEntryAdded(NotificationEntry entry) {
     }
 
-    // TODO: Combine this with onPreEntryUpdated into "onBeforeEntryFiltered" or similar
-    /**
-     * Called when a new entry is created but before it has been filtered or displayed to the user.
-     */
-    default void onBeforeNotificationAdded(NotificationEntry entry) {
-    }
-
     /**
      * Called when a new entry is created.
      */
-    default void onNotificationAdded(NotificationEntry entry) {
+    default void onNotificationAdded(@NonNull NotificationEntry entry) {
     }
 
     /**
@@ -61,13 +55,13 @@ public interface NotificationEntryListener {
     /**
      * Called when a notification was updated, after any filtering of notifications have occurred.
      */
-    default void onPostEntryUpdated(NotificationEntry entry) {
+    default void onPostEntryUpdated(@NonNull NotificationEntry entry) {
     }
 
     /**
      * Called when a notification's views are inflated for the first time.
      */
-    default void onEntryInflated(NotificationEntry entry, @InflationFlag int inflatedFlags) {
+    default void onEntryInflated(NotificationEntry entry) {
     }
 
     /**
@@ -96,15 +90,17 @@ public interface NotificationEntryListener {
      * @param removedByUser true if the notification was removed by a user action
      */
     default void onEntryRemoved(
-            NotificationEntry entry,
+            @NonNull NotificationEntry entry,
             @Nullable NotificationVisibility visibility,
-            boolean removedByUser) {
+            boolean removedByUser,
+            int reason) {
     }
 
     /**
      * Called whenever notification ranking changes, in response to
      * {@link NotificationListenerService#onNotificationRankingUpdate}. This is called after
-     * NotificationData has processed the update and notifications have been re-sorted and filtered.
+     * NotificationEntryManager has processed the update and notifications have been re-sorted
+     * and filtered.
      *
      * @param rankingMap provides access to ranking information on currently active notifications
      */

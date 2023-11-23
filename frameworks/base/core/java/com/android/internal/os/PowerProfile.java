@@ -17,7 +17,7 @@
 package com.android.internal.os;
 
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
@@ -393,6 +393,9 @@ public class PowerProfile {
     }
 
     public int getNumCoresInCpuCluster(int cluster) {
+        if (cluster < 0 || cluster >= mCpuClusters.length) {
+            return 0; // index out of bound
+        }
         return mCpuClusters[cluster].numCpus;
     }
 
@@ -506,7 +509,7 @@ public class PowerProfile {
     /**
      * Dump power constants into PowerProfileProto
      */
-    public void writeToProto(ProtoOutputStream proto) {
+    public void dumpDebug(ProtoOutputStream proto) {
         // cpu.suspend
         writePowerConstantToProto(proto, POWER_CPU_SUSPEND, PowerProfileProto.CPU_SUSPEND);
 

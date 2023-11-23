@@ -53,7 +53,8 @@ class ServiceManagerMock : public IServiceManager {
     MOCK_CONST_METHOD1(checkService, sp<IBinder>(const String16&));
     MOCK_METHOD4(addService, status_t(const String16&, const sp<IBinder>&, bool, int));
     MOCK_METHOD1(listServices, Vector<String16>(int));
-
+    MOCK_METHOD1(waitForService, sp<IBinder>(const String16&));
+    MOCK_METHOD1(isDeclared, bool(const String16&));
   protected:
     MOCK_METHOD0(onAsBinder, IBinder*());
 };
@@ -194,7 +195,7 @@ class DumpsysTest : public Test {
         CaptureStdout();
         CaptureStderr();
         dump_.setServiceArgs(args, supportsProto, priorityFlags);
-        status_t status = dump_.startDumpThread(serviceName, args);
+        status_t status = dump_.startDumpThread(Dumpsys::Type::DUMP, serviceName, args);
         EXPECT_THAT(status, Eq(0));
         status = dump_.writeDump(STDOUT_FILENO, serviceName, std::chrono::milliseconds(500), false,
                                  elapsedDuration, bytesWritten);
@@ -537,6 +538,27 @@ TEST_F(DumpsysTest, DumpWithPriorityHighAndProto) {
     AssertRunningServices({"runninghigh1", "runninghigh2"});
     AssertDumpedWithPriority("runninghigh1", "dump1", PriorityDumper::PRIORITY_ARG_HIGH);
     AssertDumpedWithPriority("runninghigh2", "dump2", PriorityDumper::PRIORITY_ARG_HIGH);
+}
+
+// Tests 'dumpsys --pid'
+TEST_F(DumpsysTest, ListAllServicesWithPid) {
+    ExpectListServices({"Locksmith", "Valet"});
+    ExpectCheckService("Locksmith");
+    ExpectCheckService("Valet");
+
+    CallMain({"--pid"});
+
+    AssertRunningServices({"Locksmith", "Valet"});
+    AssertOutputContains(std::to_string(getpid()));
+}
+
+// Tests 'dumpsys --pid service_name'
+TEST_F(DumpsysTest, ListServiceWithPid) {
+    ExpectCheckService("Locksmith");
+
+    CallMain({"--pid", "Locksmith"});
+
+    AssertOutput(std::to_string(getpid()) + "\n");
 }
 
 TEST_F(DumpsysTest, GetBytesWritten) {

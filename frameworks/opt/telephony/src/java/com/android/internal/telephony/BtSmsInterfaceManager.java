@@ -17,12 +17,10 @@
 
 package com.android.internal.telephony;
 
-import android.app.ActivityThread;
 import android.app.PendingIntent;
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothMapClient;
 import android.bluetooth.BluetoothProfile;
+import android.content.Context;
 import android.net.Uri;
 import android.telecom.PhoneAccount;
 import android.telephony.SmsManager;
@@ -40,23 +38,29 @@ public class BtSmsInterfaceManager {
     /**
      * Sends text through connected Bluetooth device
      */
-    public void sendText(String destAddr, String text, PendingIntent sentIntent,
+    public void sendText(Context context, String destAddr, String text, PendingIntent sentIntent,
             PendingIntent deliveryIntent, SubscriptionInfo info) {
+        /*
+        This is to remove the usage of hidden constant MAP_CLIENT and hidden API
+        BluetoothMapClient.sendMessage(). This code is currently not functional anyway; it will be
+        re-enabled in a later release.
         BluetoothAdapter btAdapter = BluetoothAdapter.getDefaultAdapter();
         if (btAdapter == null) {
             // No bluetooth service on this platform?
-            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_NO_SERVICE);
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_NO_BLUETOOTH_SERVICE);
             return;
         }
         BluetoothDevice device = btAdapter.getRemoteDevice(info.getIccId());
         if (device == null) {
             Log.d(LOG_TAG, "Bluetooth device addr invalid: " + info.getIccId());
-            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_NO_SERVICE);
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_INVALID_BLUETOOTH_ADDRESS);
             return;
         }
-        btAdapter.getProfileProxy(ActivityThread.currentApplication().getApplicationContext(),
+        btAdapter.getProfileProxy(context.getApplicationContext(),
                 new MapMessageSender(destAddr, text, device, sentIntent, deliveryIntent),
                 BluetoothProfile.MAP_CLIENT);
+        */
+        throw new RuntimeException("Can't send message through BluetoothMapClient");
     }
 
     private void sendErrorInPendingIntent(PendingIntent intent, int errorCode) {
@@ -96,6 +100,7 @@ public class BtSmsInterfaceManager {
         @Override
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
             Log.d(LOG_TAG, "Service connected");
+            /*
             if (profile != BluetoothProfile.MAP_CLIENT) {
                 return;
             }
@@ -107,13 +112,15 @@ public class BtSmsInterfaceManager {
             }
             BluetoothAdapter.getDefaultAdapter()
                     .closeProfileProxy(BluetoothProfile.MAP_CLIENT, mapProfile);
+            */
+            throw new RuntimeException("Can't send message through BluetoothMapClient");
         }
 
         @Override
         public void onServiceDisconnected(int profile) {
             if (mMessage != null) {
                 Log.d(LOG_TAG, "Bluetooth disconnected before sending the message");
-                sendErrorInPendingIntent(mSentIntent, SmsManager.RESULT_ERROR_NO_SERVICE);
+                sendErrorInPendingIntent(mSentIntent, SmsManager.RESULT_BLUETOOTH_DISCONNECTED);
                 mMessage = null;
             }
         }

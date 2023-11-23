@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "NeuralNetworksTest"
+
+#include "LogTestCaseToLogcat.h"
 #include "TestNeuralNetworksWrapper.h"
 
 #ifndef NNTEST_ONLY_PUBLIC_API
@@ -23,9 +26,13 @@
 
 #include <android-base/logging.h>
 #include <gtest/gtest.h>
+
 #include <cctype>
 #include <iostream>
+#include <sstream>
 #include <string>
+
+namespace {
 
 using namespace android::nn::test_wrapper;
 
@@ -49,6 +56,11 @@ static uint64_t allowedPasses = ~uint64_t(0);
 // true, and if we are asked to set it to false, we return 0 ("success") without
 // running tests.
 static int test(bool useCpuOnly, Execution::ComputeMode computeMode, bool allowSyncExecHal = true) {
+    // NOTE: The test mapping configuration (frameworks/ml/nn/TEST_MAPPING) uses
+    // the value of 1024 to only run pass 10 of the test, corresponding to
+    // "useCpuOnly = 0, computeMode = ComputeMode::ASYNC, allowSyncExecHal = 1".
+    // If you change the bit representation here, also make the corresponding
+    // change to the TEST_MAPPING file to run the equivalent pass of the test.
     uint32_t passIndex =
             (useCpuOnly << 0) + (static_cast<uint32_t>(computeMode) << 1) + (allowSyncExecHal << 3);
 
@@ -71,16 +83,19 @@ static int test(bool useCpuOnly, Execution::ComputeMode computeMode, bool allowS
                 return "ComputeMode::ASYNC";
             case Execution::ComputeMode::BURST:
                 return "ComputeMode::BURST";
+            case Execution::ComputeMode::FENCED:
+                return "ComputeMode::FENCED";
         }
         return "<unknown ComputeMode>";
     };
 
-    LOG(INFO) << "test(useCpuOnly = " << useCpuOnly << ", computeMode = " << computeModeText()
-              << ", allowSyncExecHal = " << allowSyncExecHal << ")  // pass " << passIndex;
-    std::cout << "[**********] useCpuOnly = " << useCpuOnly
-              << ", computeMode = " << computeModeText()
-              << ", allowSyncExecHal = " << allowSyncExecHal << "  // pass " << passIndex
-              << std::endl;
+    std::stringstream stream;
+    stream << "useCpuOnly = " << useCpuOnly << ", computeMode = " << computeModeText()
+           << ", allowSyncExecHal = " << allowSyncExecHal << "  // pass " << passIndex;
+    const std::string message = stream.str();
+    LOG(INFO) << message;
+    std::cout << "[**********] " << message << std::endl;
+    SCOPED_TRACE(message);
 
     if (!((uint64_t(1) << passIndex) & allowedPasses)) {
         LOG(INFO) << "SKIPPED PASS";
@@ -98,8 +113,11 @@ void checkArgs(int argc, char** argv, int nextArg) {
     }
 }
 
+}  // namespace
+
 int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
+    testing::InitGoogleTest(&argc, argv);
+    testing::UnitTest::GetInstance()->listeners().Append(new android::nn::LogTestCaseToLogcat());
 
     if ((argc > 1) && std::isdigit(argv[1][0])) {
         allowedPasses = std::stoull(argv[1]);

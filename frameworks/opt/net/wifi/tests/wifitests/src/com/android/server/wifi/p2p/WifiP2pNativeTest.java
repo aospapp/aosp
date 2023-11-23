@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.net.wifi.WifiManager;
+import android.net.wifi.nl80211.WifiNl80211Manager;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pGroup;
@@ -43,6 +44,9 @@ import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.HalDeviceManager;
 import com.android.server.wifi.PropertyService;
+import com.android.server.wifi.WifiBaseTest;
+import com.android.server.wifi.WifiInjector;
+import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.WifiVendorHal;
 
 import org.junit.Before;
@@ -51,11 +55,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Unit tests for {@link com.android.server.wifi.WifiP2pMonitor}.
  */
 @SmallTest
-public class WifiP2pNativeTest {
+public class WifiP2pNativeTest extends WifiBaseTest {
 
     private static final String TEST_DEVICE_NAME = "Android_HelloWorld";
     private static final String TEST_IFACE = "p2p-p2p0-1";
@@ -76,6 +83,9 @@ public class WifiP2pNativeTest {
     private static final String TEST_NFC_SELECT_MSG = "select";
     private static final String TEST_CLIENT_LIST = "aa:bb:cc:dd:ee:ff 11:22:33:44:55:66";
 
+    @Mock private WifiInjector mWifiInjector;
+    @Mock private WifiNl80211Manager mWifiCondManager;
+    @Mock private WifiNative mWifiNative;
     @Mock private WifiVendorHal mWifiVendorHalMock;
     @Mock private SupplicantP2pIfaceHal mSupplicantP2pIfaceHalMock;
     @Mock private HalDeviceManager mHalDeviceManagerMock;
@@ -84,6 +94,7 @@ public class WifiP2pNativeTest {
 
     private WifiP2pNative mWifiP2pNative;
     private WifiP2pGroupList mWifiP2pGroupList = new WifiP2pGroupList();
+    private Set<String> mWifiClientInterfaceNames = new HashSet<String>();
 
     private WifiP2pGroup createP2pGroup(
             int networkId, String networkName, String passphrase, boolean isGo, String goAddr) {
@@ -99,11 +110,21 @@ public class WifiP2pNativeTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
+
+        mWifiClientInterfaceNames.add("wlan0");
+        mWifiClientInterfaceNames.add("wlan1");
+
         mWifiP2pNative = new WifiP2pNative(
+                mWifiInjector,
                 mWifiVendorHalMock,
                 mSupplicantP2pIfaceHalMock,
                 mHalDeviceManagerMock,
                 mPropertyServiceMock);
+
+        when(mWifiInjector.getWifiCondManager()).thenReturn(mWifiCondManager);
+        when(mWifiInjector.getWifiNative()).thenReturn(mWifiNative);
+
+        when(mWifiNative.getClientInterfaceNames()).thenReturn(mWifiClientInterfaceNames);
 
         mWifiP2pGroupList.add(
                 createP2pGroup(1, "testGroup1", "passphrase", true, "aa:bb:cc:dd:ee:f0"));
@@ -421,6 +442,10 @@ public class WifiP2pNativeTest {
                 .setGroupOperatingFrequency(TEST_GROUP_FREQ)
                 .build();
         assertTrue(mWifiP2pNative.p2pGroupAdd(config, true));
+
+        for (String intf: mWifiClientInterfaceNames) {
+            verify(mWifiCondManager).abortScan(eq(intf));
+        }
 
         verify(mSupplicantP2pIfaceHalMock).groupAdd(
                 eq(TEST_NETWORK_NAME),

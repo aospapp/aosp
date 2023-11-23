@@ -16,7 +16,7 @@
 
 package com.android.server;
 
-import static android.net.NetworkScoreManager.CACHE_FILTER_NONE;
+import static android.net.NetworkScoreManager.SCORE_FILTER_NONE;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
@@ -29,6 +29,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -43,7 +44,6 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManagerInternal;
 import android.content.res.Resources;
 import android.net.INetworkRecommendationProvider;
 import android.net.INetworkScoreCache;
@@ -56,7 +56,7 @@ import android.net.WifiKey;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiSsid;
+import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -72,6 +72,7 @@ import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.server.devicepolicy.MockUtils;
+import com.android.server.pm.permission.PermissionManagerServiceInternal;
 
 import com.google.android.collect.Lists;
 
@@ -132,9 +133,10 @@ public class NetworkScoreServiceTest {
     @Mock private UnaryOperator<List<ScoredNetwork>> mScanResultsFilter;
     @Mock private WifiInfo mWifiInfo;
     @Mock private NetworkScoreService.ScoringServiceConnection mServiceConnection;
-    @Mock private PackageManagerInternal mPackageManagerInternal;
+    @Mock private PermissionManagerServiceInternal mPermissionManagerInternal;
     @Captor private ArgumentCaptor<List<ScoredNetwork>> mScoredNetworkCaptor;
-    @Captor private ArgumentCaptor<PackageManagerInternal.PackagesProvider> mPackagesProviderCaptor;
+    @Captor private
+    ArgumentCaptor<PermissionManagerServiceInternal.PackagesProvider> mPackagesProviderCaptor;
 
     private ContentResolver mContentResolver;
     private NetworkScoreService mNetworkScoreService;
@@ -162,7 +164,8 @@ public class NetworkScoreServiceTest {
         when(mNetworkScorerAppManager.getActiveScorer()).thenReturn(NEW_SCORER);
         mHandlerThread = new HandlerThread("NetworkScoreServiceTest");
         mHandlerThread.start();
-        LocalServices.addService(PackageManagerInternal.class, mPackageManagerInternal);
+        LocalServices.addService(
+                PermissionManagerServiceInternal.class, mPermissionManagerInternal);
         mNetworkScoreService = new NetworkScoreService(mContext, mNetworkScorerAppManager,
                 networkScorerAppData -> mServiceConnection, mHandlerThread.getLooper());
         WifiConfiguration configuration = new WifiConfiguration();
@@ -179,8 +182,8 @@ public class NetworkScoreServiceTest {
     }
 
     private ScanResult createScanResult(String ssid, String bssid) {
-        ScanResult result = new ScanResult();
-        result.wifiSsid = WifiSsid.createFromAsciiEncoded(ssid);
+        ScanResult result = mock(ScanResult.class);
+        result.SSID = ssid;
         result.BSSID = bssid;
         return result;
     }
@@ -188,7 +191,7 @@ public class NetworkScoreServiceTest {
     @After
     public void tearDown() throws Exception {
         mHandlerThread.quitSafely();
-        LocalServices.removeServiceForTest(PackageManagerInternal.class);
+        LocalServices.removeServiceForTest(PermissionManagerServiceInternal.class);
     }
 
     @Test
@@ -196,7 +199,7 @@ public class NetworkScoreServiceTest {
         Settings.Global.putString(mContentResolver,
                 Settings.Global.USE_OPEN_WIFI_PACKAGE, "com.some.app");
 
-        verify(mPackageManagerInternal)
+        verify(mPermissionManagerInternal)
                 .setUseOpenWifiAppPackagesProvider(mPackagesProviderCaptor.capture());
 
         String[] packages = mPackagesProviderCaptor.getValue().getPackages(0);
@@ -209,7 +212,7 @@ public class NetworkScoreServiceTest {
         Settings.Global.putString(mContentResolver,
                 Settings.Global.USE_OPEN_WIFI_PACKAGE, "com.some.other.app");
 
-        verify(mPackageManagerInternal, timeout(500))
+        verify(mPermissionManagerInternal, timeout(500))
                 .grantDefaultPermissionsToDefaultUseOpenWifiApp("com.some.other.app", 0);
     }
 
@@ -303,7 +306,7 @@ public class NetworkScoreServiceTest {
         bindToScorer(true /*callerIsScorer*/);
 
         mNetworkScoreService.registerNetworkScoreCache(NetworkKey.TYPE_WIFI,
-                mNetworkScoreCache, CACHE_FILTER_NONE);
+                mNetworkScoreCache, SCORE_FILTER_NONE);
 
         mNetworkScoreService.updateScores(new ScoredNetwork[]{SCORED_NETWORK});
 
@@ -318,9 +321,9 @@ public class NetworkScoreServiceTest {
         bindToScorer(true /*callerIsScorer*/);
 
         mNetworkScoreService.registerNetworkScoreCache(NetworkKey.TYPE_WIFI,
-                mNetworkScoreCache, CACHE_FILTER_NONE);
+                mNetworkScoreCache, SCORE_FILTER_NONE);
         mNetworkScoreService.registerNetworkScoreCache(
-                NetworkKey.TYPE_WIFI, mNetworkScoreCache2, CACHE_FILTER_NONE);
+                NetworkKey.TYPE_WIFI, mNetworkScoreCache2, SCORE_FILTER_NONE);
 
         // updateScores should update both caches
         mNetworkScoreService.updateScores(new ScoredNetwork[]{SCORED_NETWORK});
@@ -375,7 +378,7 @@ public class NetworkScoreServiceTest {
         bindToScorer(true /*callerIsScorer*/);
 
         mNetworkScoreService.registerNetworkScoreCache(NetworkKey.TYPE_WIFI, mNetworkScoreCache,
-                CACHE_FILTER_NONE);
+                SCORE_FILTER_NONE);
         mNetworkScoreService.clearScores();
 
         verify(mNetworkScoreCache).clearScores();
@@ -389,7 +392,7 @@ public class NetworkScoreServiceTest {
                 .thenReturn(PackageManager.PERMISSION_GRANTED);
 
         mNetworkScoreService.registerNetworkScoreCache(NetworkKey.TYPE_WIFI, mNetworkScoreCache,
-                CACHE_FILTER_NONE);
+                SCORE_FILTER_NONE);
         mNetworkScoreService.clearScores();
 
         verify(mNetworkScoreCache).clearScores();
@@ -469,7 +472,7 @@ public class NetworkScoreServiceTest {
 
         try {
             mNetworkScoreService.registerNetworkScoreCache(
-                NetworkKey.TYPE_WIFI, mNetworkScoreCache, CACHE_FILTER_NONE);
+                    NetworkKey.TYPE_WIFI, mNetworkScoreCache, SCORE_FILTER_NONE);
             fail("SecurityException expected");
         } catch (SecurityException e) {
             // expected
@@ -612,7 +615,7 @@ public class NetworkScoreServiceTest {
                 new ArrayList<>(scoredNetworkList),
                 NetworkKey.TYPE_WIFI, mCurrentNetworkFilter, mScanResultsFilter);
 
-        consumer.accept(mNetworkScoreCache, NetworkScoreManager.CACHE_FILTER_NONE);
+        consumer.accept(mNetworkScoreCache, NetworkScoreManager.SCORE_FILTER_NONE);
 
         verify(mNetworkScoreCache).updateScores(scoredNetworkList);
         verifyZeroInteractions(mCurrentNetworkFilter, mScanResultsFilter);
@@ -653,7 +656,7 @@ public class NetworkScoreServiceTest {
                 Collections.emptyList(),
                 NetworkKey.TYPE_WIFI, mCurrentNetworkFilter, mScanResultsFilter);
 
-        consumer.accept(mNetworkScoreCache, NetworkScoreManager.CACHE_FILTER_NONE);
+        consumer.accept(mNetworkScoreCache, NetworkScoreManager.SCORE_FILTER_NONE);
 
         verifyZeroInteractions(mNetworkScoreCache, mCurrentNetworkFilter, mScanResultsFilter);
     }
@@ -670,7 +673,7 @@ public class NetworkScoreServiceTest {
         List<ScoredNetwork> filteredList = new ArrayList<>(scoredNetworkList);
         filteredList.remove(SCORED_NETWORK);
         when(mCurrentNetworkFilter.apply(scoredNetworkList)).thenReturn(filteredList);
-        consumer.accept(mNetworkScoreCache, NetworkScoreManager.CACHE_FILTER_CURRENT_NETWORK);
+        consumer.accept(mNetworkScoreCache, NetworkScoreManager.SCORE_FILTER_CURRENT_NETWORK);
 
         verify(mNetworkScoreCache).updateScores(filteredList);
         verifyZeroInteractions(mScanResultsFilter);
@@ -688,7 +691,7 @@ public class NetworkScoreServiceTest {
         List<ScoredNetwork> filteredList = new ArrayList<>(scoredNetworkList);
         filteredList.remove(SCORED_NETWORK);
         when(mScanResultsFilter.apply(scoredNetworkList)).thenReturn(filteredList);
-        consumer.accept(mNetworkScoreCache, NetworkScoreManager.CACHE_FILTER_SCAN_RESULTS);
+        consumer.accept(mNetworkScoreCache, NetworkScoreManager.SCORE_FILTER_SCAN_RESULTS);
 
         verify(mNetworkScoreCache).updateScores(filteredList);
         verifyZeroInteractions(mCurrentNetworkFilter);
@@ -719,7 +722,7 @@ public class NetworkScoreServiceTest {
 
     @Test
     public void testCurrentNetworkScoreCacheFilter_invalidWifiInfo_noneSsid() throws Exception {
-        when(mWifiInfo.getSSID()).thenReturn(WifiSsid.NONE);
+        when(mWifiInfo.getSSID()).thenReturn(WifiManager.UNKNOWN_SSID);
         NetworkScoreService.CurrentNetworkScoreCacheFilter cacheFilter =
                 new NetworkScoreService.CurrentNetworkScoreCacheFilter(() -> mWifiInfo);
 
@@ -791,9 +794,9 @@ public class NetworkScoreServiceTest {
     @Test
     public void testScanResultsScoreCacheFilter_invalidScanResults() throws Exception {
         List<ScanResult> invalidScanResults = Lists.newArrayList(
-                new ScanResult(),
+                mock(ScanResult.class),
                 createScanResult("", SCORED_NETWORK.networkKey.wifiKey.bssid),
-                createScanResult(WifiSsid.NONE, SCORED_NETWORK.networkKey.wifiKey.bssid),
+                createScanResult(WifiManager.UNKNOWN_SSID, SCORED_NETWORK.networkKey.wifiKey.bssid),
                 createScanResult(SSID, null),
                 createScanResult(SSID, INVALID_BSSID)
         );

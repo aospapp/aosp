@@ -42,6 +42,7 @@ There are currently 10 operand types supported by the test generator.
     * Float32Scalar, shorthand for parameter with type FLOAT32
     * Int32Vector, shorthand for 1-D TENSOR_INT32 parameter
     * Float32Vector, shorthand for 1-D TENSOR_FLOAT32 parameter
+    * SubgraphReference, shortcut for a SUBGRAPH parameter
 - Internal, for model with multiple operations
 
 ### Specifying Models
@@ -109,15 +110,15 @@ Example((input1, output1), example2_values, model=model, name="example_name")
 
 ### Specifying Variations
 
-You can add variations to the example so that the test generator can automatically create multiple tests. Currently, 6 types of variation are supported:
+You can add variations to the example so that the test generator can automatically create multiple tests. The following variations are supported:
 
 - DefaultVariation, i.e. no variation
 - DataTypeConverter
 - DataLayoutConverter
 - AxisConverter
 - RelaxedModeConverter
-- ParameterAsInputConverter
 - ActivationConverter
+- AllOutputsAsInternalCoverter
 
 #### DataTypeConverter
 
@@ -183,16 +184,6 @@ Convert the model to enable/disable relaxed computation.
 converter = RelaxedModeConverter(is_relaxed, name="variation_name")
 ```
 
-#### ParameterAsInputConverter
-
-Convert a certain parameter to model input, e.g. weight in CONV_2D. The caller need to provide a list of target operands to convert.
-
-```Python
-converter = ParameterAsInputConverter(name="variation_name").Identify(
-    [op1, op2, ...]
-)
-```
-
 #### ActivationConverter
 
 Convert the output by certain activation, the original activation is assumed to be NONE. The caller need to provide a list of target operands to transform,  and also the activation parameter to set.
@@ -202,6 +193,10 @@ converter = ActivationConverter(name="variation_name").Identify(
     [op1, op2, ..., act_parameter]
 )
 ```
+
+#### AllOutputsAsInternalCoverter
+
+Add a dummy ADD operation after each model output to make it as an internal operand. Will skip if the model does not have any output tensor that is compatible with the ADD operation or if the model has more than one operation.
 
 #### Add variation to example
 
@@ -228,6 +223,34 @@ example.AddVariations(nchw, includeDefault=False).AddVariations(relaxed, quant8)
 ```
 
 The example above will result in 3 examples: `[nchw, default], [nchw, relaxed], [nchw, quant8]`.
+
+#### Default variations
+
+By default, the test generator will apply the following variations automatically.
+
+- **AllTensorsAsInputsConverter:** Convert all constant tensors in the model to model inputs. Will skip if the model does not have any constant tensor, or if the model has more than one operations. If not explicitly disabled, this variation will be automatically applied to all tests.
+
+- **AllInputsAsInternalCoverter:** Add a dummy ADD operation before each model input to make it as an internal operand. Will skip if the model does not have any input tensor that is compatible to the ADD operation, or if the model has more than one operations. If not explicitly disabled, this variation will be automatically applied to all tests.
+
+- **DynamicOutputShapeConverter:** Convert the model to enable dynamic output shape test. If not explicitly disabled, this variation will be automatically applied to all tests introduce in HAL version 1.2 or later.
+
+You can opt-out by invoking the corresponding methods on examples.
+
+```Python
+# Disable AllTensorsAsInputsConverter and AllInputsAsInternalCoverter.
+example.DisableLifeTimeVariation()
+
+# Disable DynamicOutputShapeConverter.
+example.DisableDynamicOutputShapeVariation()
+```
+
+You may also specify a certain operand to be input/const-only that `AllInputsAsInternalCoverter` will skip converting this operand.
+
+```Python
+# "hash" will be converted to a model input when applying AllTensorsAsInputsConverter,
+# but will be skipped when further applying AllInputsAsInternalCoverter.
+hash = Parameter("hash", "TENSOR_FLOAT32", "{1, 1}", [0.123]).ShouldNeverBeInternal()
+```
 
 #### Some helper functions
 
@@ -285,11 +308,6 @@ example.AddVariations(*[
     ], includeDefault=False)
 example.AddAllDimsAndAxis(dims, *op_list)
 
-# ParameterAsInputConverter
-example.AddVariations(ParameterAsInputConverter().Identify(op_list))
-example.AddVariations(("as_input", op_list))
-example.AddInput(*op_list)
-
 # RelaxedModeConverter
 example.Addvariations(RelaxedModeConverter(True))
 example.AddVariations("relaxed")
@@ -309,6 +327,20 @@ example.AddVariations(
     ("relu1", op_list),
     ("relu6", op_list))
 example.AddAllActivations(*op_list)
+```
+
+#### Specifying SUBGRAPH conversions
+
+Converters that support nested control flow models accept the following syntax:
+
+```
+converter = DataTypeConverter().Identify({
+    ...
+    subgraphOperand: DataTypeConverter().Identify({
+        ...
+    }),
+    ...
+})
 ```
 
 ### Specifying the Model Version
@@ -336,15 +368,63 @@ Example.SetVersion(<version>, testName0, testName1, ...)
 
 This is useful when only a subset of variations has a different version.
 
+### Specifying model inputs and outputs
+
+Use `Model.IdentifyInputs` and `Model.IdentifyOutputs` to explicitly specify
+model inputs and outputs. This is particularly useful for models referenced by
+IF and WHILE operations.
+
+```Python
+DataType = ["TENSOR_INT32", [1]]
+BoolType = ["TENSOR_BOOL8", [1]]
+
+def MakeConditionModel():
+  a = Input("a", DataType)
+  b = Input("b", DataType)
+  out = Output("out", BoolType)
+  model = Model()
+  model.IdentifyInputs(a, b)  # "a" is unused by the model.
+  model.IdentifyOutputs(out)
+  model.Operation("LESS", b, [10]).To(out)
+  return model
+
+def MakeBodyModel():
+  a = Input("a", DataType)
+  b = Input("b", DataType)
+  a_out = Output("a_out", DataType)
+  b_out = Output("b_out", DataType)
+  model = Model()
+  model.IdentifyInputs(a, b)  # The order is the same as in the WHILE operation.
+  model.IdentifyOutputs(a_out, b_out)
+  model.Operation("SUB", b, a, 0).To(a_out)
+  model.Operation("ADD", b, [1], 0).To(b_out)
+  return model
+
+a = Input("a", DataType)
+a_out = Output("a_out", DataType)
+cond = MakeConditionModel()
+body = MakeBodyModel()
+b_init = [1]
+Model().Operation("WHILE", cond, body, a, b_init).To(a_out)
+```
+
+### Creating negative tests
+
+Negative test, also known as validation test, is a testing method that supplies invalid model or request, and expects the target framework or driver to fail gracefully. You can use `ExpectFailure` to tag a example as invalid.
+
+```Python
+Example.ExpectFailure()
+```
+
 ### A Complete Example
 
 ```Python
 # Declare input, output, and parameters
-i1 = Input("op1", "TENSOR_FLOAT32", "{1, 3, 4, 1}")
-f1 = Parameter("op2", "TENSOR_FLOAT32", "{1, 3, 3, 1}", [1, 4, 7, 2, 5, 8, 3, 6, 9])
-b1 = Parameter("op3", "TENSOR_FLOAT32", "{1}", [-200])
+i1 = Input("op1", ("TENSOR_FLOAT32", [1, 3, 4, 1]))
+f1 = Parameter("op2", ("TENSOR_FLOAT32", [1, 3, 3, 1]), [1, 4, 7, 2, 5, 8, 3, 6, 9])
+b1 = Parameter("op3", ("TENSOR_FLOAT32", [1]), [-200])
 act = Int32Scalar("act", 0)
-o1 = Output("op4", "TENSOR_FLOAT32", "{1, 3, 4, 1}")
+o1 = Output("op4", ("TENSOR_FLOAT32", [1, 3, 4, 1]))
 
 # Instantiate a model and add CONV_2D operation
 # Use implicit parameter for implicit padding and strides
@@ -369,29 +449,25 @@ example.AddNchw(i1, f1, o1, layout, includeDefault=False)
 
 # Add two more groups of variations
 example.AddInput(f1, b1).AddVariations("relaxed", quant8).AddAllActivations(o1, act)
+
+# The following variations are added implicitly.
+# example.AddVariations(AllTensorsAsInputsConverter())
+# example.AddVariations(AllInputsAsInternalCoverter())
+
+# The following variation is added implicitly if this test is introduced in v1.2 or later.
+# example.AddVariations(DynamicOutputShapeConverter())
 ```
 
-The spec above will result in 24 tests.
+The spec above will result in 96 tests if introduced in v1.0 or v1.1, and 192 tests if introduced in v1.2 or later.
 
 ## Generate Tests
 
 Once you have your model ready, run
 
 ```
-$ANDROID_BUILD_TOP/frameworks/ml/nn/runtime/test/specs/generate_test.sh
-$ANDROID_BUILD_TOP/frameworks/ml/nn/runtime/test/specs/generate_vts_test.sh
+$ANDROID_BUILD_TOP/frameworks/ml/nn/runtime/test/specs/generate_all_tests.sh
 ```
 
-It will read and generate all CTS/VTS unit tests based on spec files in `nn/runtime/test/specs/V1_*/*` if needed. CTS test generator is able to identify which spec files are modified since last generation and only regenerate those files to reduce compilation time. To force a regeneration, use `-f` flag.
+It will update all CTS and VTS tests based on spec files in `nn/runtime/test/specs/V1_*/*`.
 
-```
-$ANDROID_BUILD_TOP/frameworks/ml/nn/runtime/test/specs/generate_test.sh -f
-```
-
-If you only want to regenerate a certain set of files, simply append the file names to the end of the command, and optionally, use `-f` flag.
-
-```
-$ANDROID_BUILD_TOP/frameworks/ml/nn/runtime/test/specs/generate_test.sh -f file1.mod.py file2.mod.py ...
-```
-
-Rebuild with mm afterwards.
+Rebuild with mma afterwards.

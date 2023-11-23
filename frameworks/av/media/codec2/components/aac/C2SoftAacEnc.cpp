@@ -155,11 +155,10 @@ C2SoftAacEnc::C2SoftAacEnc(
       mNumBytesPerInputFrame(0u),
       mOutBufferSize(0u),
       mSentCodecSpecificData(false),
-      mInputTimeSet(false),
       mInputSize(0),
-      mInputTimeUs(0),
       mSignalledError(false),
-      mOutIndex(0u) {
+      mOutIndex(0u),
+      mRemainderLen(0u) {
 }
 
 C2SoftAacEnc::~C2SoftAacEnc() {
@@ -181,10 +180,11 @@ status_t C2SoftAacEnc::initEncoder() {
 
 c2_status_t C2SoftAacEnc::onStop() {
     mSentCodecSpecificData = false;
-    mInputTimeSet = false;
     mInputSize = 0u;
-    mInputTimeUs = 0;
+    mNextFrameTimestampUs.reset();
+    mLastFrameEndTimestampUs.reset();
     mSignalledError = false;
+    mRemainderLen = 0;
     return C2_OK;
 }
 
@@ -199,9 +199,9 @@ void C2SoftAacEnc::onRelease() {
 
 c2_status_t C2SoftAacEnc::onFlush_sm() {
     mSentCodecSpecificData = false;
-    mInputTimeSet = false;
     mInputSize = 0u;
-    mInputTimeUs = 0;
+    mNextFrameTimestampUs.reset();
+    mLastFrameEndTimestampUs.reset();
     return C2_OK;
 }
 
@@ -293,6 +293,30 @@ status_t C2SoftAacEnc::setAudioParams() {
     return OK;
 }
 
+static void MaybeLogTimestampWarning(
+        long long lastFrameEndTimestampUs, long long inputTimestampUs) {
+    using Clock = std::chrono::steady_clock;
+    thread_local Clock::time_point sLastLogTimestamp{};
+    thread_local int32_t sOverlapCount = -1;
+    if (Clock::now() - sLastLogTimestamp > std::chrono::minutes(1) || sOverlapCount < 0) {
+        AString countMessage = "";
+        if (sOverlapCount > 0) {
+            countMessage = AStringPrintf(
+                    "(%d overlapping timestamp detected since last log)", sOverlapCount);
+        }
+        ALOGI("Correcting overlapping timestamp: last frame ended at %lldus but "
+                "current frame is starting at %lldus. Using the last frame's end timestamp %s",
+                lastFrameEndTimestampUs, inputTimestampUs, countMessage.c_str());
+        sLastLogTimestamp = Clock::now();
+        sOverlapCount = 0;
+    } else {
+        ALOGV("Correcting overlapping timestamp: last frame ended at %lldus but "
+                "current frame is starting at %lldus. Using the last frame's end timestamp",
+                lastFrameEndTimestampUs, inputTimestampUs);
+        ++sOverlapCount;
+    }
+}
+
 void C2SoftAacEnc::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
@@ -364,22 +388,33 @@ void C2SoftAacEnc::process(
         data = view.data();
         capacity = view.capacity();
     }
-    if (!mInputTimeSet && capacity > 0) {
-        mInputTimeUs = work->input.ordinal.timestamp;
-        mInputTimeSet = true;
+    c2_cntr64_t inputTimestampUs = work->input.ordinal.timestamp;
+    if (inputTimestampUs < mLastFrameEndTimestampUs.value_or(inputTimestampUs)) {
+        MaybeLogTimestampWarning(mLastFrameEndTimestampUs->peekll(), inputTimestampUs.peekll());
+        inputTimestampUs = *mLastFrameEndTimestampUs;
+    }
+    if (capacity > 0) {
+        if (!mNextFrameTimestampUs) {
+            mNextFrameTimestampUs = work->input.ordinal.timestamp;
+        }
+        mLastFrameEndTimestampUs = inputTimestampUs
+                + (capacity / sizeof(int16_t) * 1000000ll / channelCount / sampleRate);
     }
 
-    size_t numFrames = (capacity + mInputSize + (eos ? mNumBytesPerInputFrame - 1 : 0))
-            / mNumBytesPerInputFrame;
-    ALOGV("capacity = %zu; mInputSize = %zu; numFrames = %zu mNumBytesPerInputFrame = %u",
-          capacity, mInputSize, numFrames, mNumBytesPerInputFrame);
+    size_t numFrames =
+        (mRemainderLen + capacity + mInputSize + (eos ? mNumBytesPerInputFrame - 1 : 0))
+        / mNumBytesPerInputFrame;
+    ALOGV("capacity = %zu; mInputSize = %zu; numFrames = %zu "
+          "mNumBytesPerInputFrame = %u inputTS = %lld remaining = %zu",
+          capacity, mInputSize, numFrames, mNumBytesPerInputFrame, inputTimestampUs.peekll(),
+          mRemainderLen);
 
     std::shared_ptr<C2LinearBlock> block;
-    std::shared_ptr<C2Buffer> buffer;
     std::unique_ptr<C2WriteView> wView;
     uint8_t *outPtr = temp;
     size_t outAvailable = 0u;
     uint64_t inputIndex = work->input.ordinal.frameIndex.peeku();
+    size_t bytesPerSample = channelCount * sizeof(int16_t);
 
     AACENC_InArgs inargs;
     AACENC_OutArgs outargs;
@@ -442,9 +477,31 @@ void C2SoftAacEnc::process(
         const std::shared_ptr<C2Buffer> mBuffer;
     };
 
-    C2WorkOrdinalStruct outOrdinal = work->input.ordinal;
+    struct OutputBuffer {
+        std::shared_ptr<C2Buffer> buffer;
+        c2_cntr64_t timestampUs;
+    };
+    std::list<OutputBuffer> outputBuffers;
 
-    while (encoderErr == AACENC_OK && inargs.numInSamples > 0) {
+    if (mRemainderLen > 0) {
+        size_t offset = 0;
+        for (; mRemainderLen < bytesPerSample && offset < capacity; ++offset) {
+            mRemainder[mRemainderLen++] = data[offset];
+        }
+        data += offset;
+        capacity -= offset;
+        if (mRemainderLen == bytesPerSample) {
+            inBuffer[0] = mRemainder;
+            inBufferSize[0] = bytesPerSample;
+            inargs.numInSamples = channelCount;
+            mRemainderLen = 0;
+            ALOGV("Processing remainder");
+        } else {
+            // We have exhausted the input already
+            inargs.numInSamples = 0;
+        }
+    }
+    while (encoderErr == AACENC_OK && inargs.numInSamples >= channelCount) {
         if (numFrames && !block) {
             C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
             // TODO: error handling, proper usage, etc.
@@ -473,43 +530,42 @@ void C2SoftAacEnc::process(
                                   &outargs);
 
         if (encoderErr == AACENC_OK) {
-            if (buffer) {
-                outOrdinal.frameIndex = mOutIndex++;
-                outOrdinal.timestamp = mInputTimeUs;
-                cloneAndSend(
-                        inputIndex,
-                        work,
-                        FillWork(C2FrameData::FLAG_INCOMPLETE, outOrdinal, buffer));
-                buffer.reset();
-            }
-
             if (outargs.numOutBytes > 0) {
                 mInputSize = 0;
                 int consumed = (capacity / sizeof(int16_t)) - inargs.numInSamples
                         + outargs.numInSamples;
-                mInputTimeUs = work->input.ordinal.timestamp
+                ALOGV("consumed = %d, capacity = %zu, inSamples = %d, outSamples = %d",
+                      consumed, capacity, inargs.numInSamples, outargs.numInSamples);
+                c2_cntr64_t currentFrameTimestampUs = *mNextFrameTimestampUs;
+                mNextFrameTimestampUs = inputTimestampUs
                         + (consumed * 1000000ll / channelCount / sampleRate);
-                buffer = createLinearBuffer(block, 0, outargs.numOutBytes);
-#if defined(LOG_NDEBUG) && !LOG_NDEBUG
+                std::shared_ptr<C2Buffer> buffer = createLinearBuffer(block, 0, outargs.numOutBytes);
+#if 0
                 hexdump(outPtr, std::min(outargs.numOutBytes, 256));
 #endif
                 outPtr = temp;
                 outAvailable = 0;
                 block.reset();
+
+                outputBuffers.push_back({buffer, currentFrameTimestampUs});
             } else {
                 mInputSize += outargs.numInSamples * sizeof(int16_t);
             }
 
-            if (outargs.numInSamples > 0) {
+            if (inBuffer[0] == mRemainder) {
+                inBuffer[0] = const_cast<uint8_t *>(data);
+                inBufferSize[0] = capacity;
+                inargs.numInSamples = capacity / sizeof(int16_t);
+            } else if (outargs.numInSamples > 0) {
                 inBuffer[0] = (int16_t *)inBuffer[0] + outargs.numInSamples;
                 inBufferSize[0] -= outargs.numInSamples * sizeof(int16_t);
                 inargs.numInSamples -= outargs.numInSamples;
             }
         }
-        ALOGV("encoderErr = %d mInputSize = %zu inargs.numInSamples = %d, mInputTimeUs = %lld",
-              encoderErr, mInputSize, inargs.numInSamples, mInputTimeUs.peekll());
+        ALOGV("encoderErr = %d mInputSize = %zu "
+              "inargs.numInSamples = %d, mNextFrameTimestampUs = %lld",
+              encoderErr, mInputSize, inargs.numInSamples, mNextFrameTimestampUs->peekll());
     }
-
     if (eos && inBufferSize[0] > 0) {
         if (numFrames && !block) {
             C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
@@ -540,12 +596,37 @@ void C2SoftAacEnc::process(
                            &outBufDesc,
                            &inargs,
                            &outargs);
+        inBufferSize[0] = 0;
     }
 
-    outOrdinal.frameIndex = mOutIndex++;
-    outOrdinal.timestamp = mInputTimeUs;
+    if (inBufferSize[0] > 0) {
+        for (size_t i = 0; i < inBufferSize[0]; ++i) {
+            mRemainder[i] = static_cast<uint8_t *>(inBuffer[0])[i];
+        }
+        mRemainderLen = inBufferSize[0];
+    }
+
+    while (outputBuffers.size() > 1) {
+        const OutputBuffer& front = outputBuffers.front();
+        C2WorkOrdinalStruct ordinal = work->input.ordinal;
+        ordinal.frameIndex = mOutIndex++;
+        ordinal.timestamp = front.timestampUs;
+        cloneAndSend(
+                inputIndex,
+                work,
+                FillWork(C2FrameData::FLAG_INCOMPLETE, ordinal, front.buffer));
+        outputBuffers.pop_front();
+    }
+    std::shared_ptr<C2Buffer> buffer;
+    C2WorkOrdinalStruct ordinal = work->input.ordinal;
+    ordinal.frameIndex = mOutIndex++;
+    if (!outputBuffers.empty()) {
+        ordinal.timestamp = outputBuffers.front().timestampUs;
+        buffer = outputBuffers.front().buffer;
+    }
+    // Mark the end of frame
     FillWork((C2FrameData::flags_t)(eos ? C2FrameData::FLAG_END_OF_STREAM : 0),
-             outOrdinal, buffer)(work);
+             ordinal, buffer)(work);
 }
 
 c2_status_t C2SoftAacEnc::drain(
@@ -567,9 +648,9 @@ c2_status_t C2SoftAacEnc::drain(
 
     (void)pool;
     mSentCodecSpecificData = false;
-    mInputTimeSet = false;
     mInputSize = 0u;
-    mInputTimeUs = 0;
+    mNextFrameTimestampUs.reset();
+    mLastFrameEndTimestampUs.reset();
 
     // TODO: we don't have any pending work at this time to drain.
     return C2_OK;

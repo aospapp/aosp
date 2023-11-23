@@ -56,5 +56,12 @@ Example({
 })
 
 # SUB of data type TENSOR_FLOAT32 is introduced in V1_1.
-Example.SetVersion("V1_1", "sub_v1_2_broadcast_none", "sub_v1_2_broadcast_relu", \
-                           "sub_v1_2_broadcast_relu1", "sub_v1_2_broadcast_relu6")
+Example.SetVersion("V1_1",
+                   "sub_v1_2_broadcast_none",
+                   "sub_v1_2_broadcast_none_all_inputs_as_internal",
+                   "sub_v1_2_broadcast_relu",
+                   "sub_v1_2_broadcast_relu_all_inputs_as_internal",
+                   "sub_v1_2_broadcast_relu1",
+                   "sub_v1_2_broadcast_relu1_all_inputs_as_internal",
+                   "sub_v1_2_broadcast_relu6",
+                   "sub_v1_2_broadcast_relu6_all_inputs_as_internal")

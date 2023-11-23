@@ -25,12 +25,19 @@ interface IUiModeManager {
      * Enables the car mode. Only the system can do this.
      * @hide
      */
-    void enableCarMode(int flags);
+    void enableCarMode(int flags, int priority, String callingPackage);
 
     /**
      * Disables the car mode.
      */
+    @UnsupportedAppUsage(maxTargetSdk = 28)
     void disableCarMode(int flags);
+
+    /**
+     * Disables car mode (the original version is marked unsupported app usage so cannot be changed
+     * for the time being).
+     */
+    void disableCarModeByCallingPackage(int flags, String callingPackage);
 
     /**
      * Return the current running mode.
@@ -61,4 +68,29 @@ interface IUiModeManager {
      * Tells if Night mode is locked or not.
      */
     boolean isNightModeLocked();
+
+    /**
+    * [De]Activates night mode
+    */
+    boolean setNightModeActivated(boolean active);
+
+    /**
+    * Returns custom start clock time
+    */
+    long getCustomNightModeStart();
+
+    /**
+    * Sets custom start clock time
+    */
+    void setCustomNightModeStart(long time);
+
+    /**
+    * Returns custom end clock time
+    */
+    long getCustomNightModeEnd();
+
+    /**
+    * Sets custom end clock time
+    */
+    void setCustomNightModeEnd(long time);
 }

@@ -16,6 +16,11 @@
 
 #define LOG_TAG "Operations"
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
+#include "HalInterfaces.h"
 #include "OperationResolver.h"
 #include "RNN.h"
 
@@ -33,9 +38,13 @@ constexpr uint32_t kActivationParam = 5;
 constexpr uint32_t kTimeMajorParam = 6;
 
 constexpr uint32_t kNumOutputs = 1;
+constexpr uint32_t kNumOutputsWithState = 2;
 constexpr uint32_t kOutputTensor = 0;
+constexpr uint32_t kStateOutputTensor = 1;
 
 namespace {
+
+using namespace hal;
 
 template <typename T>
 void transposeFirstTwoDims(const T* input, const Shape& inputShape, T* output) {
@@ -108,6 +117,12 @@ bool executeTyped(IOperationExecutionContext* context) {
         transposeFirstTwoDims(outputTransposed.data(), outputShape,
                               context->getOutputBuffer<T>(kOutputTensor));
     }
+
+    if (context->getNumOutputs() == kNumOutputsWithState) {
+        // We checked that the state output is not omitted during preparation.
+        T* stateOutput = context->getOutputBuffer<T>(kStateOutputTensor);
+        std::copy(hiddenState, hiddenState + batchSize * numUnits, stateOutput);
+    }
     return true;
 }
 
@@ -115,7 +130,8 @@ bool executeTyped(IOperationExecutionContext* context) {
 
 bool validate(const IOperationValidationContext* context) {
     NN_RET_CHECK_EQ(context->getNumInputs(), kNumInputs);
-    NN_RET_CHECK_EQ(context->getNumOutputs(), kNumOutputs);
+    const int numOutputs = context->getNumOutputs();
+    NN_RET_CHECK(numOutputs == kNumOutputs || numOutputs == kNumOutputsWithState);
     OperandType inputType = context->getInputType(kInputTensor);
     if (inputType != OperandType::TENSOR_FLOAT16 && inputType != OperandType::TENSOR_FLOAT32) {
         LOG(ERROR) << "Unsupported input operand type for UNIDIRECTIONAL_SEQUENCE_RNN op: "
@@ -124,8 +140,14 @@ bool validate(const IOperationValidationContext* context) {
     }
     NN_RET_CHECK(validateInputTypes(context, {inputType, inputType, inputType, inputType, inputType,
                                               OperandType::INT32, OperandType::INT32}));
-    NN_RET_CHECK(validateOutputTypes(context, {inputType}));
-    return validateHalVersion(context, HalVersion::V1_2);
+    std::vector<OperandType> outputTypes = {inputType};
+    HalVersion minHalVersionSupported = HalVersion::V1_2;
+    if (numOutputs == kNumOutputsWithState) {
+        minHalVersionSupported = HalVersion::V1_3;
+        outputTypes.push_back(inputType);
+    }
+    NN_RET_CHECK(validateOutputTypes(context, outputTypes));
+    return validateHalVersion(context, minHalVersionSupported);
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -158,9 +180,19 @@ bool prepare(IOperationExecutionContext* context) {
     NN_RET_CHECK_EQ(numUnits, getSizeOfDimension(hiddenState, 1));
 
     Shape output = context->getOutputShape(kOutputTensor);
+    output.dimensions.resize(3);
     output.dimensions[0] = timeMajor ? maxTime : batchSize;
     output.dimensions[1] = timeMajor ? batchSize : maxTime;
     output.dimensions[2] = numUnits;
+
+    if (context->getNumOutputs() == kNumOutputsWithState) {
+        NN_RET_CHECK(!context->isOmittedOutput(kStateOutputTensor));
+        Shape outputStateShape = context->getInputShape(kHiddenStateTensor);
+        outputStateShape.dimensions.resize(2);
+        outputStateShape.dimensions[0] = batchSize;
+        outputStateShape.dimensions[1] = numUnits;
+        NN_RET_CHECK(context->setOutputShape(kStateOutputTensor, outputStateShape));
+    }
 
     return context->setOutputShape(kOutputTensor, output);
 }

@@ -16,10 +16,12 @@
 
 package com.android.server.wifi;
 
+import android.annotation.Nullable;
 import android.net.MacAddress;
 import android.util.Log;
 
 import com.android.server.wifi.WifiNetworkFactory.AccessPoint;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtil;
 import com.android.server.wifi.util.XmlUtil.WifiConfigurationXmlUtil;
 
@@ -29,7 +31,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -87,13 +89,16 @@ public class NetworkRequestStoreData implements WifiConfigStore.StoreData {
     }
 
     @Override
-    public void serializeData(XmlSerializer out)
+    public void serializeData(XmlSerializer out,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         serializeApprovedAccessPointsMap(out, mDataSource.toSerialize());
     }
 
     @Override
-    public void deserializeData(XmlPullParser in, int outerTagDepth)
+    public void deserializeData(XmlPullParser in, int outerTagDepth,
+            @WifiConfigStore.Version int version,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         // Ignore empty reads.
         if (in == null) {
@@ -213,7 +218,7 @@ public class NetworkRequestStoreData implements WifiConfigStore.StoreData {
      */
     private Set<AccessPoint> parseApprovedAccessPoints(XmlPullParser in, int outerTagDepth)
             throws XmlPullParserException, IOException {
-        Set<AccessPoint> approvedAccessPoints = new HashSet<>();
+        Set<AccessPoint> approvedAccessPoints = new LinkedHashSet<>();
         while (XmlUtil.gotoNextSectionWithNameOrEnd(
                 in, XML_TAG_SECTION_HEADER_ACCESS_POINT, outerTagDepth)) {
             // Try/catch only runtime exceptions (like illegal args), any XML/IO exceptions are
@@ -260,8 +265,8 @@ public class NetworkRequestStoreData implements WifiConfigStore.StoreData {
                     networkType = (int) value;
                     break;
                 default:
-                    throw new XmlPullParserException(
-                            "Unknown value name found: " + valueName[0]);
+                    Log.w(TAG, "Ignoring unknown value name found: " + valueName[0]);
+                    break;
             }
         }
         if (ssid == null) {

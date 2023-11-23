@@ -19,11 +19,12 @@ package android.net;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.net.util.MacAddressUtils;
+import android.net.wifi.WifiInfo;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import com.android.internal.util.BitUtils;
 import com.android.internal.util.Preconditions;
 
 import java.lang.annotation.Retention;
@@ -32,13 +33,14 @@ import java.net.Inet6Address;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Random;
 
 /**
  * Representation of a MAC address.
  *
  * This class only supports 48 bits long addresses and does not support 64 bits long addresses.
- * Instances of this class are immutable.
+ * Instances of this class are immutable. This class provides implementations of hashCode()
+ * and equals() that make it suitable for use as keys in standard implementations of
+ * {@link java.util.Map}.
  */
 public final class MacAddress implements Parcelable {
 
@@ -84,6 +86,9 @@ public final class MacAddress implements Parcelable {
     private static final long OUI_MASK = MacAddress.fromString("ff:ff:ff:0:0:0").mAddr;
     private static final long NIC_MASK = MacAddress.fromString("0:0:0:ff:ff:ff").mAddr;
     private static final MacAddress BASE_GOOGLE_MAC = MacAddress.fromString("da:a1:19:0:0:0");
+    /** Default wifi MAC address used for a special purpose **/
+    private static final MacAddress DEFAULT_MAC_ADDRESS =
+            MacAddress.fromString(WifiInfo.DEFAULT_MAC_ADDRESS);
 
     // Internal representation of the MAC address as a single 8 byte long.
     // The encoding scheme sets the two most significant bytes to 0. The 6 bytes of the
@@ -105,18 +110,10 @@ public final class MacAddress implements Parcelable {
         if (equals(BROADCAST_ADDRESS)) {
             return TYPE_BROADCAST;
         }
-        if (isMulticastAddress()) {
+        if ((mAddr & MULTICAST_MASK) != 0) {
             return TYPE_MULTICAST;
         }
         return TYPE_UNICAST;
-    }
-
-    /**
-     * @return true if this MacAddress is a multicast address.
-     * @hide
-     */
-    public boolean isMulticastAddress() {
-        return (mAddr & MULTICAST_MASK) != 0;
     }
 
     /**
@@ -127,12 +124,22 @@ public final class MacAddress implements Parcelable {
     }
 
     /**
+     * Convert this MacAddress to a byte array.
+     *
+     * The returned array is in network order. For example, if this MacAddress is 1:2:3:4:5:6,
+     * the returned array is [1, 2, 3, 4, 5, 6].
+     *
      * @return a byte array representation of this MacAddress.
      */
     public @NonNull byte[] toByteArray() {
         return byteAddrFromLongAddr(mAddr);
     }
 
+    /**
+     * Returns a human-readable representation of this MacAddress.
+     * The exact format is implementation-dependent and should not be assumed to have any
+     * particular format.
+     */
     @Override
     public @NonNull String toString() {
         return stringAddrFromLongAddr(mAddr);
@@ -188,7 +195,7 @@ public final class MacAddress implements Parcelable {
      * @hide
      */
     public static boolean isMacAddress(byte[] addr) {
-        return addr != null && addr.length == ETHER_ADDR_LEN;
+        return MacAddressUtils.isMacAddress(addr);
     }
 
     /**
@@ -257,26 +264,11 @@ public final class MacAddress implements Parcelable {
     }
 
     private static byte[] byteAddrFromLongAddr(long addr) {
-        byte[] bytes = new byte[ETHER_ADDR_LEN];
-        int index = ETHER_ADDR_LEN;
-        while (index-- > 0) {
-            bytes[index] = (byte) addr;
-            addr = addr >> 8;
-        }
-        return bytes;
+        return MacAddressUtils.byteAddrFromLongAddr(addr);
     }
 
     private static long longAddrFromByteAddr(byte[] addr) {
-        Preconditions.checkNotNull(addr);
-        if (!isMacAddress(addr)) {
-            throw new IllegalArgumentException(
-                    Arrays.toString(addr) + " was not a valid MAC address");
-        }
-        long longAddr = 0;
-        for (byte b : addr) {
-            longAddr = (longAddr << 8) + BitUtils.uint8(b);
-        }
-        return longAddr;
+        return MacAddressUtils.longAddrFromByteAddr(addr);
     }
 
     // Internal conversion function equivalent to longAddrFromByteAddr(byteAddrFromStringAddr(addr))
@@ -346,44 +338,7 @@ public final class MacAddress implements Parcelable {
      * @hide
      */
     public static @NonNull MacAddress createRandomUnicastAddressWithGoogleBase() {
-        return createRandomUnicastAddress(BASE_GOOGLE_MAC, new SecureRandom());
-    }
-
-    /**
-     * Returns a generated MAC address whose 46 bits, excluding the locally assigned bit and the
-     * unicast bit, are randomly selected.
-     *
-     * The locally assigned bit is always set to 1. The multicast bit is always set to 0.
-     *
-     * @return a random locally assigned, unicast MacAddress.
-     *
-     * @hide
-     */
-    public static @NonNull MacAddress createRandomUnicastAddress() {
-        SecureRandom r = new SecureRandom();
-        long addr = r.nextLong() & VALID_LONG_MASK;
-        addr |= LOCALLY_ASSIGNED_MASK;
-        addr &= ~MULTICAST_MASK;
-        return new MacAddress(addr);
-    }
-
-    /**
-     * Returns a randomly generated MAC address using the given Random object and the same
-     * OUI values as the given MacAddress.
-     *
-     * The locally assigned bit is always set to 1. The multicast bit is always set to 0.
-     *
-     * @param base a base MacAddress whose OUI is used for generating the random address.
-     * @param r a standard Java Random object used for generating the random address.
-     * @return a random locally assigned MacAddress.
-     *
-     * @hide
-     */
-    public static @NonNull MacAddress createRandomUnicastAddress(MacAddress base, Random r) {
-        long addr = (base.mAddr & OUI_MASK) | (NIC_MASK & r.nextLong());
-        addr |= LOCALLY_ASSIGNED_MASK;
-        addr &= ~MULTICAST_MASK;
-        return new MacAddress(addr);
+        return MacAddressUtils.createRandomUnicastAddress(BASE_GOOGLE_MAC, new SecureRandom());
     }
 
     // Convenience function for working around the lack of byte literals.
@@ -406,7 +361,6 @@ public final class MacAddress implements Parcelable {
      * @param mask MacAddress representing the mask to use during comparison.
      * @return true if this MAC Address matches the given range.
      *
-     * @hide
      */
     public boolean matches(@NonNull MacAddress baseAddress, @NonNull MacAddress mask) {
         Preconditions.checkNotNull(baseAddress);
@@ -420,7 +374,6 @@ public final class MacAddress implements Parcelable {
      * IPv6 address per RFC 4862.
      *
      * @return A link-local Inet6Address constructed from the MAC address.
-     * @hide
      */
     public @Nullable Inet6Address getLinkLocalIpv6FromEui48Mac() {
         byte[] macEui48Bytes = toByteArray();

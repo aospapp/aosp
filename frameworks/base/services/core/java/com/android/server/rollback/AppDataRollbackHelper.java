@@ -16,24 +16,21 @@
 
 package com.android.server.rollback;
 
+import android.content.pm.PackageManager;
 import android.content.rollback.PackageRollbackInfo;
 import android.content.rollback.PackageRollbackInfo.RestoreInfo;
 import android.os.storage.StorageManager;
 import android.util.IntArray;
-import android.util.Log;
+import android.util.Slog;
 import android.util.SparseLongArray;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.pm.ApexManager;
 import com.android.server.pm.Installer;
 import com.android.server.pm.Installer.InstallerException;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Encapsulates the logic for initiating userdata snapshots and rollbacks via installd.
@@ -46,39 +43,41 @@ public class AppDataRollbackHelper {
     private static final String TAG = "RollbackManager";
 
     private final Installer mInstaller;
+    private final ApexManager mApexManager;
 
     public AppDataRollbackHelper(Installer installer) {
         mInstaller = installer;
+        mApexManager = ApexManager.getInstance();
+    }
+
+    @VisibleForTesting
+    AppDataRollbackHelper(Installer installer, ApexManager apexManager) {
+        mInstaller = installer;
+        mApexManager = apexManager;
     }
 
     /**
-     * Creates an app data snapshot for a specified {@code packageRollbackInfo}. Updates said {@code
-     * packageRollbackInfo} with the inodes of the CE user data snapshot folders.
+     * Creates an app data snapshot for a specified {@code packageRollbackInfo} and the specified
+     * {@code userIds}. Updates said {@code packageRollbackInfo} with the inodes of the CE user data
+     * snapshot folders.
      */
-    public void snapshotAppData(int snapshotId, PackageRollbackInfo packageRollbackInfo) {
-        final int[] installedUsers = packageRollbackInfo.getInstalledUsers().toArray();
-        for (int user : installedUsers) {
+    @GuardedBy("rollback.mLock")
+    // TODO(b/136241838): Move into Rollback and synchronize there.
+    public void snapshotAppData(
+            int rollbackId, PackageRollbackInfo packageRollbackInfo, int[] userIds) {
+        for (int user : userIds) {
             final int storageFlags;
             if (isUserCredentialLocked(user)) {
                 // We've encountered a user that hasn't unlocked on a FBE device, so we can't copy
                 // across app user data until the user unlocks their device.
-                Log.v(TAG, "User: " + user + " isn't unlocked, skipping CE userdata backup.");
+                Slog.v(TAG, "User: " + user + " isn't unlocked, skipping CE userdata backup.");
                 storageFlags = Installer.FLAG_STORAGE_DE;
                 packageRollbackInfo.addPendingBackup(user);
             } else {
                 storageFlags = Installer.FLAG_STORAGE_CE | Installer.FLAG_STORAGE_DE;
             }
 
-            try {
-                long ceSnapshotInode = mInstaller.snapshotAppData(
-                        packageRollbackInfo.getPackageName(), user, snapshotId, storageFlags);
-                if ((storageFlags & Installer.FLAG_STORAGE_CE) != 0) {
-                    packageRollbackInfo.putCeSnapshotInode(user, ceSnapshotInode);
-                }
-            } catch (InstallerException ie) {
-                Log.e(TAG, "Unable to create app data snapshot for: "
-                        + packageRollbackInfo.getPackageName() + ", userId: " + user, ie);
-            }
+            doSnapshot(packageRollbackInfo, user, rollbackId, storageFlags);
         }
     }
 
@@ -90,20 +89,22 @@ public class AppDataRollbackHelper {
      *         to {@code packageRollbackInfo} are restricted to the removal or addition of {@code
      *         userId} to the list of pending backups or restores.
      */
+    @GuardedBy("rollback.mLock")
+    // TODO(b/136241838): Move into Rollback and synchronize there.
     public boolean restoreAppData(int rollbackId, PackageRollbackInfo packageRollbackInfo,
             int userId, int appId, String seInfo) {
         int storageFlags = Installer.FLAG_STORAGE_DE;
 
         final IntArray pendingBackups = packageRollbackInfo.getPendingBackups();
         final List<RestoreInfo> pendingRestores = packageRollbackInfo.getPendingRestores();
-        boolean changedRollbackData = false;
+        boolean changedRollback = false;
 
         // If we still have a userdata backup pending for this user, it implies that the user
         // hasn't unlocked their device between the point of backup and the point of restore,
         // so the data cannot have changed. We simply skip restoring CE data in this case.
         if (pendingBackups != null && pendingBackups.indexOf(userId) != -1) {
             pendingBackups.remove(pendingBackups.indexOf(userId));
-            changedRollbackData = true;
+            changedRollback = true;
         } else {
             // There's no pending CE backup for this user, which means that we successfully
             // managed to backup data for the user, which means we seek to restore it
@@ -111,28 +112,97 @@ public class AppDataRollbackHelper {
                 // We've encountered a user that hasn't unlocked on a FBE device, so we can't
                 // copy across app user data until the user unlocks their device.
                 pendingRestores.add(new RestoreInfo(userId, appId, seInfo));
-                changedRollbackData = true;
+                changedRollback = true;
             } else {
                 // This user has unlocked, we can proceed to restore both CE and DE data.
                 storageFlags = storageFlags | Installer.FLAG_STORAGE_CE;
             }
         }
 
-        try {
-            mInstaller.restoreAppDataSnapshot(packageRollbackInfo.getPackageName(), appId, seInfo,
-                    userId, rollbackId, storageFlags);
-        } catch (InstallerException ie) {
-            Log.e(TAG, "Unable to restore app data snapshot: "
-                        + packageRollbackInfo.getPackageName(), ie);
-        }
+        doRestoreOrWipe(packageRollbackInfo, userId, rollbackId, appId, seInfo, storageFlags);
 
-        return changedRollbackData;
+        return changedRollback;
+    }
+
+    private boolean doSnapshot(
+            PackageRollbackInfo packageRollbackInfo, int userId, int rollbackId, int flags) {
+        if (packageRollbackInfo.isApex()) {
+            // For APEX, only snapshot CE here
+            if ((flags & Installer.FLAG_STORAGE_CE) != 0) {
+                long ceSnapshotInode = mApexManager.snapshotCeData(
+                        userId, rollbackId, packageRollbackInfo.getPackageName());
+                if (ceSnapshotInode > 0) {
+                    packageRollbackInfo.putCeSnapshotInode(userId, ceSnapshotInode);
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            // APK
+            try {
+                long ceSnapshotInode = mInstaller.snapshotAppData(
+                        packageRollbackInfo.getPackageName(), userId, rollbackId, flags);
+                if ((flags & Installer.FLAG_STORAGE_CE) != 0) {
+                    packageRollbackInfo.putCeSnapshotInode(userId, ceSnapshotInode);
+                }
+            } catch (InstallerException ie) {
+                Slog.e(TAG, "Unable to create app data snapshot for: "
+                        + packageRollbackInfo.getPackageName() + ", userId: " + userId, ie);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean doRestoreOrWipe(PackageRollbackInfo packageRollbackInfo, int userId,
+            int rollbackId, int appId, String seInfo, int flags) {
+        if (packageRollbackInfo.isApex()) {
+            switch (packageRollbackInfo.getRollbackDataPolicy()) {
+                case PackageManager.RollbackDataPolicy.WIPE:
+                    // TODO: Implement WIPE for apex CE data
+                    break;
+                case PackageManager.RollbackDataPolicy.RESTORE:
+                    // For APEX, only restore of CE may be done here.
+                    if ((flags & Installer.FLAG_STORAGE_CE) != 0) {
+                        mApexManager.restoreCeData(
+                                userId, rollbackId, packageRollbackInfo.getPackageName());
+                    }
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            // APK
+            try {
+                switch (packageRollbackInfo.getRollbackDataPolicy()) {
+                    case PackageManager.RollbackDataPolicy.WIPE:
+                        mInstaller.clearAppData(null, packageRollbackInfo.getPackageName(),
+                                userId, flags, 0);
+                        break;
+                    case PackageManager.RollbackDataPolicy.RESTORE:
+
+                        mInstaller.restoreAppDataSnapshot(packageRollbackInfo.getPackageName(),
+                                appId, seInfo, userId, rollbackId, flags);
+                        break;
+                    default:
+                        break;
+                }
+            } catch (InstallerException ie) {
+                Slog.e(TAG, "Unable to restore/wipe app data: "
+                        + packageRollbackInfo.getPackageName() + " policy="
+                        + packageRollbackInfo.getRollbackDataPolicy(), ie);
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
      * Deletes an app data snapshot with a given {@code rollbackId} for a specified package
      * {@code packageName} for a given {@code user}.
      */
+    @GuardedBy("rollback.mLock")
+    // TODO(b/136241838): Move into Rollback and synchronize there.
     public void destroyAppDataSnapshot(int rollbackId, PackageRollbackInfo packageRollbackInfo,
             int user) {
         int storageFlags = Installer.FLAG_STORAGE_DE;
@@ -148,146 +218,67 @@ public class AppDataRollbackHelper {
                 ceSnapshotInodes.delete(user);
             }
         } catch (InstallerException ie) {
-            Log.e(TAG, "Unable to delete app data snapshot for "
+            Slog.e(TAG, "Unable to delete app data snapshot for "
                         + packageRollbackInfo.getPackageName(), ie);
         }
     }
 
     /**
-     * Computes the list of pending backups for {@code userId} given lists of rollbacks.
-     * Packages pending backup for the given user are added to {@code pendingBackupPackages} along
-     * with their corresponding {@code PackageRollbackInfo}.
-     *
-     * @return the list of {@code RollbackData} that has pending backups. Note that some of the
-     *         backups won't be performed, because they might be counteracted by pending restores.
+     * Deletes all device-encrypted apex data snapshots for the given rollback id.
      */
-    private static List<RollbackData> computePendingBackups(int userId,
-            Map<String, PackageRollbackInfo> pendingBackupPackages,
-            List<RollbackData> rollbacks) {
-        List<RollbackData> rd = new ArrayList<>();
-
-        for (RollbackData data : rollbacks) {
-            for (PackageRollbackInfo info : data.info.getPackages()) {
-                final IntArray pendingBackupUsers = info.getPendingBackups();
-                if (pendingBackupUsers != null) {
-                    final int idx = pendingBackupUsers.indexOf(userId);
-                    if (idx != -1) {
-                        pendingBackupPackages.put(info.getPackageName(), info);
-                        if (rd.indexOf(data) == -1) {
-                            rd.add(data);
-                        }
-                    }
-                }
-            }
-        }
-        return rd;
+    public void destroyApexDeSnapshots(int rollbackId) {
+        mApexManager.destroyDeSnapshots(rollbackId);
     }
 
     /**
-     * Computes the list of pending restores for {@code userId} given lists of rollbacks.
-     * Packages pending restore are added to {@code pendingRestores} along with their corresponding
-     * {@code PackageRollbackInfo}.
+     * Commits the pending backups and restores for a given {@code userId} and {@code rollback}. If
+     * the rollback has a pending backup, it is updated with a mapping from {@code userId} to inode
+     * of the CE user data snapshot.
      *
-     * @return the list of {@code RollbackData} that has pending restores. Note that some of the
-     *         restores won't be performed, because they might be counteracted by pending backups.
+     * @return true if any backups or restores were found for the userId
      */
-    private static List<RollbackData> computePendingRestores(int userId,
-            Map<String, PackageRollbackInfo> pendingRestorePackages,
-            List<RollbackData> rollbacks) {
-        List<RollbackData> rd = new ArrayList<>();
-
-        for (RollbackData data : rollbacks) {
-            for (PackageRollbackInfo info : data.info.getPackages()) {
-                final RestoreInfo ri = info.getRestoreInfo(userId);
-                if (ri != null) {
-                    pendingRestorePackages.put(info.getPackageName(), info);
-                    if (rd.indexOf(data) == -1) {
-                        rd.add(data);
-                    }
+    @GuardedBy("rollback.mLock")
+    boolean commitPendingBackupAndRestoreForUser(int userId, Rollback rollback) {
+        boolean foundBackupOrRestore = false;
+        for (PackageRollbackInfo info : rollback.info.getPackages()) {
+            boolean hasPendingBackup = false;
+            boolean hasPendingRestore = false;
+            final IntArray pendingBackupUsers = info.getPendingBackups();
+            if (pendingBackupUsers != null) {
+                if (pendingBackupUsers.indexOf(userId) != -1) {
+                    hasPendingBackup = true;
+                    foundBackupOrRestore = true;
                 }
             }
-        }
 
-        return rd;
-    }
-
-    /**
-     * Commits the list of pending backups and restores for a given {@code userId}. For the pending
-     * backups updates corresponding {@code changedRollbackData} with a mapping from {@code userId}
-     * to a inode of theirs CE user data snapshot.
-     *
-     * @return the set of {@code RollbackData} that have been changed and should be stored on disk.
-     */
-    public Set<RollbackData> commitPendingBackupAndRestoreForUser(int userId,
-            List<RollbackData> rollbacks) {
-
-        final Map<String, PackageRollbackInfo> pendingBackupPackages = new HashMap<>();
-        final List<RollbackData> pendingBackups = computePendingBackups(userId,
-                pendingBackupPackages, rollbacks);
-
-        final Map<String, PackageRollbackInfo> pendingRestorePackages = new HashMap<>();
-        final List<RollbackData> pendingRestores = computePendingRestores(userId,
-                pendingRestorePackages, rollbacks);
-
-        // First remove unnecessary backups, i.e. when user did not unlock their phone between the
-        // request to backup data and the request to restore it.
-        Iterator<Map.Entry<String, PackageRollbackInfo>> iter =
-                pendingBackupPackages.entrySet().iterator();
-        while (iter.hasNext()) {
-            PackageRollbackInfo backupPackage = iter.next().getValue();
-            PackageRollbackInfo restorePackage =
-                    pendingRestorePackages.get(backupPackage.getPackageName());
-            if (restorePackage != null) {
-                backupPackage.removePendingBackup(userId);
-                backupPackage.removePendingRestoreInfo(userId);
-                iter.remove();
-                pendingRestorePackages.remove(backupPackage.getPackageName());
+            RestoreInfo ri = info.getRestoreInfo(userId);
+            if (ri != null) {
+                hasPendingRestore = true;
+                foundBackupOrRestore = true;
             }
-        }
 
-        if (!pendingBackupPackages.isEmpty()) {
-            for (RollbackData data : pendingBackups) {
-                for (PackageRollbackInfo info : data.info.getPackages()) {
-                    final IntArray pendingBackupUsers = info.getPendingBackups();
-                    final int idx = pendingBackupUsers.indexOf(userId);
-                    if (idx != -1) {
-                        try {
-                            long ceSnapshotInode = mInstaller.snapshotAppData(info.getPackageName(),
-                                    userId, data.info.getRollbackId(), Installer.FLAG_STORAGE_CE);
-                            info.putCeSnapshotInode(userId, ceSnapshotInode);
-                            pendingBackupUsers.remove(idx);
-                        } catch (InstallerException ie) {
-                            Log.e(TAG,
-                                    "Unable to create app data snapshot for: "
-                                    + info.getPackageName() + ", userId: " + userId, ie);
-                        }
-                    }
+            if (hasPendingBackup && hasPendingRestore) {
+                // Remove unnecessary backup, i.e. when user did not unlock their phone between the
+                // request to backup data and the request to restore it.
+                info.removePendingBackup(userId);
+                info.removePendingRestoreInfo(userId);
+                continue;
+            }
+
+            if (hasPendingBackup) {
+                int idx = pendingBackupUsers.indexOf(userId);
+                if (doSnapshot(
+                        info, userId, rollback.info.getRollbackId(), Installer.FLAG_STORAGE_CE)) {
+                    pendingBackupUsers.remove(idx);
                 }
             }
-        }
 
-        if (!pendingRestorePackages.isEmpty()) {
-            for (RollbackData data : pendingRestores) {
-                for (PackageRollbackInfo info : data.info.getPackages()) {
-                    final RestoreInfo ri = info.getRestoreInfo(userId);
-                    if (ri != null) {
-                        try {
-                            mInstaller.restoreAppDataSnapshot(info.getPackageName(), ri.appId,
-                                    ri.seInfo, userId, data.info.getRollbackId(),
-                                    Installer.FLAG_STORAGE_CE);
-                            info.removeRestoreInfo(ri);
-                        } catch (InstallerException ie) {
-                            Log.e(TAG, "Unable to restore app data snapshot for: "
-                                    + info.getPackageName(), ie);
-                        }
-                    }
-                }
+            if (hasPendingRestore && doRestoreOrWipe(info, userId, rollback.info.getRollbackId(),
+                    ri.appId, ri.seInfo, Installer.FLAG_STORAGE_CE)) {
+                info.removeRestoreInfo(ri);
             }
         }
-
-        final Set<RollbackData> changed = new HashSet<>(pendingBackups);
-        changed.addAll(pendingRestores);
-        return changed;
+        return foundBackupOrRestore;
     }
 
     /**

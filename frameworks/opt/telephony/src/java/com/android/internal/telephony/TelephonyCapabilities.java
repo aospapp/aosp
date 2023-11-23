@@ -16,10 +16,9 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
-import android.telephony.Rlog;
+import android.compat.annotation.UnsupportedAppUsage;
 
-import com.android.internal.telephony.Phone;
+import com.android.telephony.Rlog;
 
 /**
  * Utilities that check if the phone supports specified capabilities.

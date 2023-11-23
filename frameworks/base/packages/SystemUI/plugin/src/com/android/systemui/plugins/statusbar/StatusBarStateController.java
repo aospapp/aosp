@@ -18,7 +18,6 @@ package com.android.systemui.plugins.statusbar;
 
 import com.android.systemui.plugins.annotations.DependsOn;
 import com.android.systemui.plugins.annotations.ProvidesInterface;
-import com.android.systemui.plugins.statusbar.StatusBarStateController.StateListener;
 
 
 /**
@@ -35,9 +34,15 @@ public interface StatusBarStateController {
     int getState();
 
     /**
-     * Is device dozing
+     * Is device dozing. Dozing is when the screen is in AOD or asleep given that
+     * {@link com.android.systemui.doze.DozeService} is configured.
      */
     boolean isDozing();
+
+    /**
+     * Is device pulsing.
+     */
+    boolean isPulsing();
 
     /**
      * Adds a state listener
@@ -94,5 +99,18 @@ public interface StatusBarStateController {
          * performance regressions.
          */
         default void onDozeAmountChanged(float linear, float eased) {}
+
+        /**
+         * Callback to be notified when the fullscreen or immersive state changes.
+         *
+         * @param isFullscreen if any of the system bar is hidden by the focused window.
+         * @param isImmersive if the navigation bar can stay hidden when the display gets tapped.
+         */
+        default void onFullscreenStateChanged(boolean isFullscreen, boolean isImmersive) {}
+
+        /**
+         * Callback to be notified when the pulsing state changes
+         */
+        default void onPulsingChanged(boolean pulsing) {}
     }
 }

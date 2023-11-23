@@ -40,8 +40,10 @@ row = 52
 col = 60
 chn = 3
 std = 5
-flt = 100
-pad = 50
+# This was lowered from values in avg_pool_float_2, as it wasn't possible
+# to evaluate it with expected accuracy requirements with fp16 accumulator.
+flt = 35
+pad = 30
 output_row = (row + 2 * pad - flt + std) // std
 output_col = (col + 2 * pad - flt + std) // std
 
@@ -166,12 +168,11 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
 
 
@@ -205,10 +206,33 @@ quant8 = DataTypeConverter().Identify({
     o3: ("TENSOR_QUANT8_ASYMM", 0.1, 128)
 })
 
-# Create test case with dummy values.
 Example({
     i1: [1],
-    o1: [0],
-    o2: [0],
-    o3: [0],
+    o1: [],
+    o2: [],
+    o3: [],
 }).AddNchw(i1, zero_sized, o3, layout).AddVariations("relaxed", quant8, "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "avg_pool_v1_2_nhwc",
+                   "avg_pool_v1_2_nhwc_2",
+                   "avg_pool_v1_2_nhwc_3",
+                   "avg_pool_v1_2_nhwc_4",
+                   "avg_pool_v1_2_nhwc_5",
+                   "avg_pool_v1_2_nhwc_all_inputs_as_internal",
+                   "avg_pool_v1_2_nhwc_all_inputs_as_internal_2",
+                   "avg_pool_v1_2_nhwc_all_inputs_as_internal_3",
+                   "avg_pool_v1_2_nhwc_all_inputs_as_internal_4",
+                   "avg_pool_v1_2_nhwc_all_inputs_as_internal_5",
+                   "avg_pool_v1_2_nhwc_quant8",
+                   "avg_pool_v1_2_nhwc_quant8_2",
+                   "avg_pool_v1_2_nhwc_quant8_3",
+                   "avg_pool_v1_2_nhwc_quant8_4",
+                   "avg_pool_v1_2_nhwc_quant8_5",
+                   "avg_pool_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "avg_pool_v1_2_nhwc_quant8_all_inputs_as_internal_2",
+                   "avg_pool_v1_2_nhwc_quant8_all_inputs_as_internal_3",
+                   "avg_pool_v1_2_nhwc_quant8_all_inputs_as_internal_4",
+                   "avg_pool_v1_2_nhwc_quant8_all_inputs_as_internal_5")

@@ -28,6 +28,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
@@ -192,9 +193,12 @@ public class OsuNetworkConnection {
         if (TextUtils.isEmpty(nai)) {
             config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
         } else {
-            // TODO: Handle OSEN.
-            Log.w(TAG, "OSEN not supported");
-            return false;
+            // Setup OSEN connection with Unauthenticated user TLS and WFA Root certs
+            config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.OSEN);
+            config.allowedProtocols.set(WifiConfiguration.Protocol.OSEN);
+            config.enterpriseConfig.setDomainSuffixMatch(nai);
+            config.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.UNAUTH_TLS);
+            config.enterpriseConfig.setCaPath(WfaKeyStore.DEFAULT_WFA_CERT_DIR);
         }
         mNetworkId = mWifiManager.addNetwork(config);
         if (mNetworkId < 0) {

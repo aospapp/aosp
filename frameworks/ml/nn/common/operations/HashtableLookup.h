@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef FRAMEWORKS_ML_NN_HASHTABLE_LOOKUP_H
-#define FRAMEWORKS_ML_NN_HASHTABLE_LOOKUP_H
-
-#include "HalOperation.h"
+#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_HASHTABLE_LOOKUP_H
+#define ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_HASHTABLE_LOOKUP_H
 
 #include <vector>
+
+#include "HalInterfaces.h"
 
 namespace android {
 namespace nn {
@@ -27,30 +27,28 @@ namespace nn {
 struct RunTimeOperandInfo;
 
 class HashtableLookup {
- public:
-  HashtableLookup(
-      const Operation &operation,
-      std::vector<RunTimeOperandInfo> &operands);
+   public:
+    HashtableLookup(const hal::Operation& operation, RunTimeOperandInfo* operands);
 
-  bool Eval();
+    bool Eval();
 
-  static constexpr int kLookupTensor = 0;
-  static constexpr int kKeyTensor = 1;
-  static constexpr int kValueTensor = 2;
+    static constexpr int kLookupTensor = 0;
+    static constexpr int kKeyTensor = 1;
+    static constexpr int kValueTensor = 2;
 
-  static constexpr int kOutputTensor = 0;
-  static constexpr int kHitsTensor = 1;
+    static constexpr int kOutputTensor = 0;
+    static constexpr int kHitsTensor = 1;
 
- private:
-  const RunTimeOperandInfo *lookup_;
-  const RunTimeOperandInfo *key_;
-  const RunTimeOperandInfo *value_;
+   private:
+    const RunTimeOperandInfo* lookup_;
+    const RunTimeOperandInfo* key_;
+    const RunTimeOperandInfo* value_;
 
-  RunTimeOperandInfo *output_;
-  RunTimeOperandInfo *hits_;
+    RunTimeOperandInfo* output_;
+    RunTimeOperandInfo* hits_;
 };
 
 }  // namespace nn
 }  // namespace android
 
-#endif  // FRAMEWORKS_ML_NN_HASHTABLE_LOOKUP_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_OPERATIONS_HASHTABLE_LOOKUP_H

@@ -16,7 +16,7 @@
 
 package com.android.server.wifi.hotspot2;
 
-import static com.android.server.wifi.hotspot2.Utils.isCarrierEapMethod;
+import android.text.TextUtils;
 
 import com.android.server.wifi.IMSIParameter;
 import com.android.server.wifi.hotspot2.anqp.CellularNetwork;
@@ -25,12 +25,8 @@ import com.android.server.wifi.hotspot2.anqp.NAIRealmData;
 import com.android.server.wifi.hotspot2.anqp.NAIRealmElement;
 import com.android.server.wifi.hotspot2.anqp.RoamingConsortiumElement;
 import com.android.server.wifi.hotspot2.anqp.ThreeGPPNetworkElement;
-import com.android.server.wifi.hotspot2.anqp.eap.AuthParam;
-import com.android.server.wifi.hotspot2.anqp.eap.EAPMethod;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Utility class for providing matching functions against ANQP elements.
@@ -44,13 +40,13 @@ public class ANQPMatcher {
      *
      * @param element The Domain Name ANQP element
      * @param fqdn The FQDN to compare against
-     * @param imsiParam The IMSI parameter of the provider
-     * @param simImsiList The list of IMSI from the installed SIM cards that matched provider's
-     *                    IMSI parameter
+     * @param imsiParam The IMSI parameter of the provider (needed only for IMSI matching)
+     * @param simImsi The IMSI from the installed SIM cards that best matched provider's
+     *                    IMSI parameter (needed only for IMSI matching)
      * @return true if a match is found
      */
     public static boolean matchDomainName(DomainNameElement element, String fqdn,
-            IMSIParameter imsiParam, List<String> simImsiList) {
+            IMSIParameter imsiParam, String simImsi) {
         if (element == null) {
             return false;
         }
@@ -60,9 +56,13 @@ public class ANQPMatcher {
                 return true;
             }
 
+            if (imsiParam == null || simImsi == null) {
+                continue;
+            }
+
             // Try to retrieve the MCC-MNC string from the domain (for 3GPP network domain) and
             // match against the provider's SIM credential.
-            if (matchMccMnc(Utils.getMccMnc(Utils.splitDomain(domain)), imsiParam, simImsiList)) {
+            if (matchMccMnc(Utils.getMccMnc(Utils.splitDomain(domain)), imsiParam, simImsi)) {
                 return true;
             }
         }
@@ -75,10 +75,11 @@ public class ANQPMatcher {
      *
      * @param element The Roaming Consortium ANQP element
      * @param providerOIs The roaming consortium OIs of the provider
+     * @param matchAll Indicates if a match with all OIs must be done
      * @return true if a match is found
      */
     public static boolean matchRoamingConsortium(RoamingConsortiumElement element,
-            long[] providerOIs) {
+            long[] providerOIs, boolean matchAll) {
         if (element == null) {
             return false;
         }
@@ -88,10 +89,14 @@ public class ANQPMatcher {
         List<Long> rcOIs = element.getOIs();
         for (long oi : providerOIs) {
             if (rcOIs.contains(oi)) {
-                return true;
+                if (!matchAll) {
+                    return true;
+                }
+            } else if (matchAll) {
+                return false;
             }
         }
-        return false;
+        return matchAll;
     }
 
     /**
@@ -100,49 +105,19 @@ public class ANQPMatcher {
      *
      * @param element The NAI Realm ANQP element
      * @param realm The realm of the provider's credential
-     * @param eapMethodID The EAP Method ID of the provider's credential
-     * @param authParam The authentication parameter of the provider's credential
-     * @return an integer indicating the match status
+     * @return true if there is a NAI Realm match, false otherwise
      */
-    public static int matchNAIRealm(NAIRealmElement element, String realm, int eapMethodID,
-            AuthParam authParam) {
+    public static boolean matchNAIRealm(NAIRealmElement element, String realm) {
         if (element == null || element.getRealmDataList().isEmpty()) {
-            return AuthMatch.INDETERMINATE;
-        }
-
-        int bestMatch = AuthMatch.NONE;
-        for (NAIRealmData realmData : element.getRealmDataList()) {
-            int match = matchNAIRealmData(realmData, realm, eapMethodID, authParam);
-            if (match > bestMatch) {
-                bestMatch = match;
-                if (bestMatch == AuthMatch.EXACT) {
-                    break;
-                }
-            }
-        }
-        return bestMatch;
-    }
-
-    /**
-     * Get a EAP-Method from a corresponding NAI realm that has one of them (EAP-SIM/AKA/AKA)'.
-     *
-     * @param realm a realm of the provider's credential.
-     * @param element The NAI Realm ANQP element
-     * @return a EAP Method (EAP-SIM/AKA/AKA') from matching NAI realm, {@code -1} otherwise.
-     */
-    public static int getCarrierEapMethodFromMatchingNAIRealm(String realm,
-            NAIRealmElement element) {
-        if (element == null || element.getRealmDataList().isEmpty()) {
-            return -1;
+            return false;
         }
 
         for (NAIRealmData realmData : element.getRealmDataList()) {
-            int eapMethodID = getEapMethodForNAIRealmWithCarrier(realm, realmData);
-            if (eapMethodID != -1) {
-                return eapMethodID;
+            if (matchNAIRealmData(realmData, realm)) {
+                return true;
             }
         }
-        return -1;
+        return false;
     }
 
     /**
@@ -150,17 +125,17 @@ public class ANQPMatcher {
      *
      * @param element 3GPP Network ANQP element
      * @param imsiParam The IMSI parameter of the provider's SIM credential
-     * @param simImsiList The list of IMSI from the installed SIM cards that matched provider's
+     * @param simImsi The IMSI from the installed SIM cards that best matched provider's
      *                    IMSI parameter
-     * @return true if a matched is found
+     * @return true if a match is found
      */
     public static  boolean matchThreeGPPNetwork(ThreeGPPNetworkElement element,
-            IMSIParameter imsiParam, List<String> simImsiList) {
+            IMSIParameter imsiParam, String simImsi) {
         if (element == null) {
             return false;
         }
         for (CellularNetwork network : element.getNetworks()) {
-            if (matchCellularNetwork(network, imsiParam, simImsiList)) {
+            if (matchCellularNetwork(network, imsiParam, simImsi)) {
                 return true;
             }
         }
@@ -172,93 +147,16 @@ public class ANQPMatcher {
      *
      * @param realmData The NAI Realm data
      * @param realm The realm of the provider's credential
-     * @param eapMethodID The EAP Method ID of the provider's credential
-     * @param authParam The authentication parameter of the provider's credential
-     * @return an integer indicating the match status
+     * @return true if a match is found
      */
-    private static int matchNAIRealmData(NAIRealmData realmData, String realm, int eapMethodID,
-            AuthParam authParam) {
+    private static boolean matchNAIRealmData(NAIRealmData realmData, String realm) {
         // Check for realm domain name match.
-        int realmMatch = AuthMatch.NONE;
         for (String realmStr : realmData.getRealms()) {
             if (DomainMatcher.arg2SubdomainOfArg1(realm, realmStr)) {
-                realmMatch = AuthMatch.REALM;
-                break;
+                return true;
             }
         }
-
-        if (realmData.getEAPMethods().isEmpty()) {
-            return realmMatch;
-        }
-
-        // Check for EAP method match.
-        int eapMethodMatch = AuthMatch.NONE;
-        for (EAPMethod eapMethod : realmData.getEAPMethods()) {
-            eapMethodMatch = matchEAPMethod(eapMethod, eapMethodID, authParam);
-            if (eapMethodMatch != AuthMatch.NONE) {
-                break;
-            }
-        }
-
-        if (eapMethodMatch == AuthMatch.NONE) {
-            return AuthMatch.NONE;
-        }
-
-        if (realmMatch == AuthMatch.NONE) {
-            return eapMethodMatch;
-        }
-        return realmMatch | eapMethodMatch;
-    }
-
-    private static int getEapMethodForNAIRealmWithCarrier(String realm,
-            NAIRealmData realmData) {
-        int realmMatch = AuthMatch.NONE;
-
-        for (String realmStr : realmData.getRealms()) {
-            if (DomainMatcher.arg2SubdomainOfArg1(realm, realmStr)) {
-                realmMatch = AuthMatch.REALM;
-                break;
-            }
-        }
-
-        if (realmMatch == AuthMatch.NONE) {
-            return -1;
-        }
-
-        for (EAPMethod eapMethod : realmData.getEAPMethods()) {
-            if (isCarrierEapMethod(eapMethod.getEAPMethodID())) {
-                return eapMethod.getEAPMethodID();
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * Match the given EAPMethod against the authentication method of a provider.
-     *
-     * @param method The EAP Method
-     * @param eapMethodID The EAP Method ID of the provider's credential
-     * @param authParam The authentication parameter of the provider's credential
-     * @return an integer indicating the match status
-     */
-    private static int matchEAPMethod(EAPMethod method, int eapMethodID, AuthParam authParam) {
-        if (method.getEAPMethodID() != eapMethodID) {
-            return AuthMatch.NONE;
-        }
-        // Check for authentication parameter match.
-        if (authParam != null) {
-            Map<Integer, Set<AuthParam>> authParams = method.getAuthParams();
-            if (authParams.isEmpty()) {
-                // no auth methods to match
-                return AuthMatch.METHOD;
-            }
-            Set<AuthParam> paramSet = authParams.get(authParam.getAuthTypeID());
-            if (paramSet == null || !paramSet.contains(authParam)) {
-                return AuthMatch.NONE;
-            }
-            return AuthMatch.METHOD_PARAM;
-        }
-        return AuthMatch.METHOD;
+        return false;
     }
 
     /**
@@ -267,17 +165,18 @@ public class ANQPMatcher {
      *
      * @param network The cellular network that contained list of PLMNs
      * @param imsiParam IMSI parameter of the provider
-     * @param simImsiList The list of IMSI from the installed SIM cards that matched provider's
+     * @param simImsi The IMSI from the installed SIM cards that best matched provider's
      *                    IMSI parameter
      * @return true if a match is found
      */
     private static boolean matchCellularNetwork(CellularNetwork network, IMSIParameter imsiParam,
-            List<String> simImsiList) {
+            String simImsi) {
         for (String plmn : network.getPlmns()) {
-            if (matchMccMnc(plmn, imsiParam, simImsiList)) {
+            if (matchMccMnc(plmn, imsiParam, simImsi)) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -286,27 +185,22 @@ public class ANQPMatcher {
      *
      * @param mccMnc The string containing MCC-MNC
      * @param imsiParam The IMSI parameter of the provider
-     * @param simImsiList The list of IMSI from the installed SIM cards that matched provider's
+     * @param simImsi The IMSI from the installed SIM cards that best matched provider's
      *                    IMSI parameter
      * @return true if a match is found
      */
     private static boolean matchMccMnc(String mccMnc, IMSIParameter imsiParam,
-            List<String> simImsiList) {
-        if (imsiParam == null || simImsiList == null) {
+            String simImsi) {
+        if (imsiParam == null || TextUtils.isEmpty(simImsi) || mccMnc == null) {
             return false;
         }
         // Match against the IMSI parameter in the provider.
         if (!imsiParam.matchesMccMnc(mccMnc)) {
             return false;
         }
-        // Additional check for verifying the match with IMSIs from the SIM cards, since the IMSI
+        // Additional check for verifying the match with IMSI from the SIM card, since the IMSI
         // parameter might not contain the full 6-digit MCC MNC (e.g. IMSI parameter is an IMSI
         // prefix that contained less than 6-digit of numbers "12345*").
-        for (String imsi : simImsiList) {
-            if (imsi.startsWith(mccMnc)) {
-                return true;
-            }
-        }
-        return false;
+        return simImsi.startsWith(mccMnc);
     }
 }

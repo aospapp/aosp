@@ -70,12 +70,23 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * Tracks saved or available wifi networks and their state.
+ *
+ * @deprecated WifiTracker/AccessPoint is no longer supported, and will be removed in a future
+ * release. Clients that need a dynamic list of available wifi networks should migrate to one of the
+ * newer tracker classes,
+ * {@link com.android.wifitrackerlib.WifiPickerTracker},
+ * {@link com.android.wifitrackerlib.SavedNetworkTracker},
+ * {@link com.android.wifitrackerlib.NetworkDetailsTracker},
+ * in conjunction with {@link com.android.wifitrackerlib.WifiEntry} to represent each wifi network.
  */
+@Deprecated
 public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestroy {
     /**
      * Default maximum age in millis of cached scored networks in
@@ -180,7 +191,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
         filter.addAction(WifiManager.NETWORK_IDS_CHANGED_ACTION);
         filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
         filter.addAction(WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION);
-        filter.addAction(WifiManager.LINK_CONFIGURATION_CHANGED_ACTION);
+        filter.addAction(WifiManager.ACTION_LINK_CONFIGURATION_CHANGED);
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         filter.addAction(WifiManager.RSSI_CHANGED_ACTION);
 
@@ -224,7 +235,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
         mConnectivityManager = connectivityManager;
 
         // check if verbose logging developer option has been turned on or off
-        sVerboseLogging = mWifiManager != null && (mWifiManager.getVerboseLoggingLevel() > 0);
+        sVerboseLogging = mWifiManager != null && mWifiManager.isVerboseLoggingEnabled();
 
         mFilter = filter;
 
@@ -359,7 +370,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
         mNetworkScoreManager.registerNetworkScoreCache(
                 NetworkKey.TYPE_WIFI,
                 mScoreCache,
-                NetworkScoreManager.CACHE_FILTER_SCAN_RESULTS);
+                NetworkScoreManager.SCORE_FILTER_SCAN_RESULTS);
     }
 
     private void requestScoresForNetworkKeys(Collection<NetworkKey> keys) {
@@ -475,7 +486,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
                 continue;
             }
 
-            String apKey = AccessPoint.getKey(result);
+            String apKey = AccessPoint.getKey(mContext, result);
             List<ScanResult> resultList;
             if (scanResultsByApKey.containsKey(apKey)) {
                 resultList = scanResultsByApKey.get(apKey);
@@ -516,8 +527,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
             int networkId, final List<WifiConfiguration> configs) {
         if (configs != null) {
             for (WifiConfiguration config : configs) {
-                if (mLastInfo != null && networkId == config.networkId &&
-                        !(config.selfAdded && config.numAssociation == 0)) {
+                if (mLastInfo != null && networkId == config.networkId) {
                     return config;
                 }
             }
@@ -547,14 +557,6 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
     /** Update the internal list of access points. */
     private void updateAccessPoints(final List<ScanResult> newScanResults,
             List<WifiConfiguration> configs) {
-
-        // Map configs and scan results necessary to make AccessPoints
-        final Map<String, WifiConfiguration> configsByKey = new ArrayMap(configs.size());
-        if (configs != null) {
-            for (WifiConfiguration config : configs) {
-                configsByKey.put(AccessPoint.getKey(config), config);
-            }
-        }
 
         WifiConfiguration connectionConfig = null;
         if (mLastInfo != null) {
@@ -587,14 +589,33 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
                         getCachedOrCreate(entry.getValue(), cachedAccessPoints);
 
                 // Update the matching config if there is one, to populate saved network info
-                accessPoint.update(configsByKey.get(entry.getKey()));
+                final List<WifiConfiguration> matchedConfigs = configs.stream()
+                        .filter(config -> accessPoint.matches(config))
+                        .collect(Collectors.toList());
+
+                final int matchedConfigCount = matchedConfigs.size();
+                if (matchedConfigCount == 0) {
+                    accessPoint.update(null);
+                } else if (matchedConfigCount == 1) {
+                    accessPoint.update(matchedConfigs.get(0));
+                } else {
+                    // We may have 2 matched configured WifiCongiguration if the AccessPoint is
+                    // of PSK/SAE transition mode or open/OWE transition mode.
+                    Optional<WifiConfiguration> preferredConfig = matchedConfigs.stream()
+                            .filter(config -> isSaeOrOwe(config)).findFirst();
+                    if (preferredConfig.isPresent()) {
+                        accessPoint.update(preferredConfig.get());
+                    } else {
+                        accessPoint.update(matchedConfigs.get(0));
+                    }
+                }
 
                 accessPoints.add(accessPoint);
             }
 
             List<ScanResult> cachedScanResults = new ArrayList<>(mScanResultCache.values());
 
-            // Add a unique Passpoint AccessPoint for each Passpoint profile's FQDN.
+            // Add a unique Passpoint AccessPoint for each Passpoint profile's unique identifier.
             accessPoints.addAll(updatePasspointAccessPoints(
                     mWifiManager.getAllMatchingWifiConfigs(cachedScanResults), cachedAccessPoints));
 
@@ -653,6 +674,11 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
         conditionallyNotifyListeners();
     }
 
+    private static boolean isSaeOrOwe(WifiConfiguration config) {
+        final int security = AccessPoint.getSecurity(config);
+        return security == AccessPoint.SECURITY_SAE || security == AccessPoint.SECURITY_OWE;
+    }
+
     @VisibleForTesting
     List<AccessPoint> updatePasspointAccessPoints(
             List<Pair<WifiConfiguration, Map<Integer, List<ScanResult>>>> passpointConfigsAndScans,
@@ -701,7 +727,8 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
     private AccessPoint getCachedOrCreate(
             List<ScanResult> scanResults,
             List<AccessPoint> cache) {
-        AccessPoint accessPoint = getCachedByKey(cache, AccessPoint.getKey(scanResults.get(0)));
+        AccessPoint accessPoint = getCachedByKey(cache,
+                AccessPoint.getKey(mContext, scanResults.get(0)));
         if (accessPoint == null) {
             accessPoint = new AccessPoint(mContext, scanResults);
         } else {
@@ -864,7 +891,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
 
                 fetchScansAndConfigsAndUpdateAccessPoints();
             } else if (WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION.equals(action)
-                    || WifiManager.LINK_CONFIGURATION_CHANGED_ACTION.equals(action)) {
+                    || WifiManager.ACTION_LINK_CONFIGURATION_CHANGED.equals(action)) {
                 fetchScansAndConfigsAndUpdateAccessPoints();
             } else if (WifiManager.NETWORK_STATE_CHANGED_ACTION.equals(action)) {
                 // TODO(sghuman): Refactor these methods so they cannot result in duplicate
@@ -873,9 +900,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
                 updateNetworkInfo(info);
                 fetchScansAndConfigsAndUpdateAccessPoints();
             } else if (WifiManager.RSSI_CHANGED_ACTION.equals(action)) {
-                NetworkInfo info =
-                        mConnectivityManager.getNetworkInfo(mWifiManager.getCurrentNetwork());
-                updateNetworkInfo(info);
+                updateNetworkInfo(/* networkInfo= */ null);
             }
         }
     };
@@ -921,7 +946,7 @@ public class WifiTracker implements LifecycleObserver, OnStart, OnStop, OnDestro
                 // We don't send a NetworkInfo object along with this message, because even if we
                 // fetch one from ConnectivityManager, it might be older than the most recent
                 // NetworkInfo message we got via a WIFI_STATE_CHANGED broadcast.
-                updateNetworkInfo(null);
+                updateNetworkInfo(/* networkInfo= */ null);
             }
         }
     }

@@ -36,7 +36,7 @@ namespace android {
 // ---------------------------------------------------------------------------
 
 AudioEffect::AudioEffect(const String16& opPackageName)
-    : mStatus(NO_INIT), mOpPackageName(opPackageName)
+    : mStatus(NO_INIT), mProbe(false), mOpPackageName(opPackageName)
 {
 }
 
@@ -48,12 +48,14 @@ AudioEffect::AudioEffect(const effect_uuid_t *type,
                 effect_callback_t cbf,
                 void* user,
                 audio_session_t sessionId,
-                audio_io_handle_t io
+                audio_io_handle_t io,
+                const AudioDeviceTypeAddr& device,
+                bool probe
                 )
-    : mStatus(NO_INIT), mOpPackageName(opPackageName)
+    : mStatus(NO_INIT), mProbe(false), mOpPackageName(opPackageName)
 {
     AutoMutex lock(mConstructLock);
-    mStatus = set(type, uuid, priority, cbf, user, sessionId, io);
+    mStatus = set(type, uuid, priority, cbf, user, sessionId, io, device, probe);
 }
 
 AudioEffect::AudioEffect(const char *typeStr,
@@ -63,9 +65,11 @@ AudioEffect::AudioEffect(const char *typeStr,
                 effect_callback_t cbf,
                 void* user,
                 audio_session_t sessionId,
-                audio_io_handle_t io
+                audio_io_handle_t io,
+                const AudioDeviceTypeAddr& device,
+                bool probe
                 )
-    : mStatus(NO_INIT), mOpPackageName(opPackageName)
+    : mStatus(NO_INIT), mProbe(false), mOpPackageName(opPackageName)
 {
     effect_uuid_t type;
     effect_uuid_t *pType = NULL;
@@ -87,7 +91,7 @@ AudioEffect::AudioEffect(const char *typeStr,
     }
 
     AutoMutex lock(mConstructLock);
-    mStatus = set(pType, pUuid, priority, cbf, user, sessionId, io);
+    mStatus = set(pType, pUuid, priority, cbf, user, sessionId, io, device, probe);
 }
 
 status_t AudioEffect::set(const effect_uuid_t *type,
@@ -96,7 +100,9 @@ status_t AudioEffect::set(const effect_uuid_t *type,
                 effect_callback_t cbf,
                 void* user,
                 audio_session_t sessionId,
-                audio_io_handle_t io)
+                audio_io_handle_t io,
+                const AudioDeviceTypeAddr& device,
+                bool probe)
 {
     sp<IEffect> iEffect;
     sp<IMemory> cblk;
@@ -109,6 +115,10 @@ status_t AudioEffect::set(const effect_uuid_t *type,
         return INVALID_OPERATION;
     }
 
+    if (sessionId == AUDIO_SESSION_DEVICE && io != AUDIO_IO_HANDLE_NONE) {
+        ALOGW("IO handle should not be specified for device effect");
+        return BAD_VALUE;
+    }
     const sp<IAudioFlinger>& audioFlinger = AudioSystem::get_audio_flinger();
     if (audioFlinger == 0) {
         ALOGE("set(): Could not get audioflinger");
@@ -119,7 +129,7 @@ status_t AudioEffect::set(const effect_uuid_t *type,
         ALOGW("Must specify at least type or uuid");
         return BAD_VALUE;
     }
-
+    mProbe = probe;
     mPriority = priority;
     mCbf = cbf;
     mUserData = user;
@@ -131,18 +141,24 @@ status_t AudioEffect::set(const effect_uuid_t *type,
 
     mIEffectClient = new EffectClient(this);
     mClientPid = IPCThreadState::self()->getCallingPid();
+    mClientUid = IPCThreadState::self()->getCallingUid();
 
     iEffect = audioFlinger->createEffect((effect_descriptor_t *)&mDescriptor,
-            mIEffectClient, priority, io, mSessionId, mOpPackageName, mClientPid,
-            &mStatus, &mId, &enabled);
+            mIEffectClient, priority, io, mSessionId, device, mOpPackageName, mClientPid,
+            probe, &mStatus, &mId, &enabled);
 
-    if (iEffect == 0 || (mStatus != NO_ERROR && mStatus != ALREADY_EXISTS)) {
-        char typeBuffer[64], uuidBuffer[64];
+    // In probe mode, we stop here and return the status: the IEffect interface to
+    // audio flinger will not be retained. initCheck() will return the creation status
+    // but all other APIs will return invalid operation.
+    if (probe || iEffect == 0 || (mStatus != NO_ERROR && mStatus != ALREADY_EXISTS)) {
+        char typeBuffer[64] = {}, uuidBuffer[64] = {};
         guidToString(type, typeBuffer, sizeof(typeBuffer));
         guidToString(uuid, uuidBuffer, sizeof(uuidBuffer));
-        ALOGE("set(): AudioFlinger could not create effect %s / %s, status: %d",
-                typeBuffer, uuidBuffer, mStatus);
-        if (iEffect == 0) {
+        ALOGE_IF(!probe, "set(): AudioFlinger could not create effect %s / %s, status: %d",
+                type != nullptr ? typeBuffer : "NULL",
+                uuid != nullptr ? uuidBuffer : "NULL",
+                mStatus);
+        if (!probe && iEffect == 0) {
             mStatus = NO_INIT;
         }
         return mStatus;
@@ -159,7 +175,11 @@ status_t AudioEffect::set(const effect_uuid_t *type,
 
     mIEffect = iEffect;
     mCblkMemory = cblk;
-    mCblk = static_cast<effect_param_cblk_t*>(cblk->pointer());
+    // TODO: Using unsecurePointer() has some associated security pitfalls
+    //       (see declaration for details).
+    //       Either document why it is safe in this case or address the
+    //       issue (e.g. by copying).
+    mCblk = static_cast<effect_param_cblk_t*>(cblk->unsecurePointer());
     int bufOffset = ((sizeof(effect_param_cblk_t) - 1) / sizeof(int) + 1) * sizeof(int);
     mCblk->buffer = (uint8_t *)mCblk + bufOffset;
 
@@ -167,8 +187,8 @@ status_t AudioEffect::set(const effect_uuid_t *type,
     ALOGV("set() %p OK effect: %s id: %d status %d enabled %d pid %d", this, mDescriptor.name, mId,
             mStatus, mEnabled, mClientPid);
 
-    if (mSessionId > AUDIO_SESSION_OUTPUT_MIX) {
-        AudioSystem::acquireAudioSessionId(mSessionId, mClientPid);
+    if (!audio_is_global_session(mSessionId)) {
+        AudioSystem::acquireAudioSessionId(mSessionId, mClientPid, mClientUid);
     }
 
     return mStatus;
@@ -179,8 +199,8 @@ AudioEffect::~AudioEffect()
 {
     ALOGV("Destructor %p", this);
 
-    if (mStatus == NO_ERROR || mStatus == ALREADY_EXISTS) {
-        if (mSessionId > AUDIO_SESSION_OUTPUT_MIX) {
+    if (!mProbe && (mStatus == NO_ERROR || mStatus == ALREADY_EXISTS)) {
+        if (!audio_is_global_session(mSessionId)) {
             AudioSystem::releaseAudioSessionId(mSessionId, mClientPid);
         }
         if (mIEffect != NULL) {
@@ -189,9 +209,9 @@ AudioEffect::~AudioEffect()
         }
         mIEffect.clear();
         mCblkMemory.clear();
-        mIEffectClient.clear();
-        IPCThreadState::self()->flushCommands();
     }
+    mIEffectClient.clear();
+    IPCThreadState::self()->flushCommands();
 }
 
 
@@ -214,6 +234,9 @@ bool AudioEffect::getEnabled() const
 
 status_t AudioEffect::setEnabled(bool enabled)
 {
+    if (mProbe) {
+        return INVALID_OPERATION;
+    }
     if (mStatus != NO_ERROR) {
         return (mStatus == ALREADY_EXISTS) ? (status_t) INVALID_OPERATION : mStatus;
     }
@@ -242,6 +265,9 @@ status_t AudioEffect::command(uint32_t cmdCode,
                               uint32_t *replySize,
                               void *replyData)
 {
+    if (mProbe) {
+        return INVALID_OPERATION;
+    }
     if (mStatus != NO_ERROR && mStatus != ALREADY_EXISTS) {
         ALOGV("command() bad status %d", mStatus);
         return mStatus;
@@ -275,6 +301,9 @@ status_t AudioEffect::command(uint32_t cmdCode,
 
 status_t AudioEffect::setParameter(effect_param_t *param)
 {
+    if (mProbe) {
+        return INVALID_OPERATION;
+    }
     if (mStatus != NO_ERROR) {
         return (mStatus == ALREADY_EXISTS) ? (status_t) INVALID_OPERATION : mStatus;
     }
@@ -295,6 +324,9 @@ status_t AudioEffect::setParameter(effect_param_t *param)
 
 status_t AudioEffect::setParameterDeferred(effect_param_t *param)
 {
+    if (mProbe) {
+        return INVALID_OPERATION;
+    }
     if (mStatus != NO_ERROR) {
         return (mStatus == ALREADY_EXISTS) ? (status_t) INVALID_OPERATION : mStatus;
     }
@@ -321,6 +353,9 @@ status_t AudioEffect::setParameterDeferred(effect_param_t *param)
 
 status_t AudioEffect::setParameterCommit()
 {
+    if (mProbe) {
+        return INVALID_OPERATION;
+    }
     if (mStatus != NO_ERROR) {
         return (mStatus == ALREADY_EXISTS) ? (status_t) INVALID_OPERATION : mStatus;
     }
@@ -335,6 +370,9 @@ status_t AudioEffect::setParameterCommit()
 
 status_t AudioEffect::getParameter(effect_param_t *param)
 {
+    if (mProbe) {
+        return INVALID_OPERATION;
+    }
     if (mStatus != NO_ERROR && mStatus != ALREADY_EXISTS) {
         return mStatus;
     }

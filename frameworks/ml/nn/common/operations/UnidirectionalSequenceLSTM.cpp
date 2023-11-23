@@ -16,6 +16,8 @@
 
 #define LOG_TAG "Operations"
 
+#include <vector>
+
 #include "HalInterfaces.h"
 #include "IndexedShapeWrapper.h"
 #include "LSTM.h"
@@ -78,10 +80,15 @@ constexpr uint32_t kOutputLayerNormWeightsTensor = 27;  // Optional
 
 // Output tensors.
 constexpr uint32_t kNumOutputs = 1;
+constexpr uint32_t kNumOutputsWithState = 3;
 
 constexpr uint32_t kOutputTensor = 0;
+constexpr uint32_t kOutputStateOutTensor = 1;
+constexpr uint32_t kCellStateOutTensor = 2;
 
 namespace {
+
+using namespace hal;
 
 inline bool hasTensor(IOperationExecutionContext* context, const uint32_t tensor) {
     return context->getInputBuffer(tensor) != nullptr;
@@ -110,7 +117,8 @@ inline LSTMParams getLSTMParams(IOperationExecutionContext* context) {
 
 bool validate(const IOperationValidationContext* context) {
     NN_RET_CHECK_EQ(context->getNumInputs(), kNumInputs);
-    NN_RET_CHECK_EQ(context->getNumOutputs(), kNumOutputs);
+    const uint32_t numOutputs = context->getNumOutputs();
+    NN_RET_CHECK(numOutputs == kNumOutputs || numOutputs == kNumOutputsWithState);
     const OperandType inputType = context->getInputType(kInputTensor);
     std::vector<OperandType> inExpectedTypes;
     std::vector<OperandType> outExpectedTypes;
@@ -151,9 +159,14 @@ bool validate(const IOperationValidationContext* context) {
                 << "Unsupported input operand type for UNIDIRECTIONAL_SEQUENCE_LSTM op: "
                 << toString(inputType);
     }
+    HalVersion minHalVersionSupported = HalVersion::V1_2;
+    if (context->getNumOutputs() == kNumOutputsWithState) {
+        minHalVersionSupported = HalVersion::V1_3;
+        outExpectedTypes.insert(outExpectedTypes.end(), {inputType, inputType});
+    }
     NN_RET_CHECK(validateInputTypes(context, inExpectedTypes));
     NN_RET_CHECK(validateOutputTypes(context, outExpectedTypes));
-    return validateHalVersion(context, HalVersion::V1_2);
+    return validateHalVersion(context, minHalVersionSupported);
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -361,6 +374,23 @@ bool prepare(IOperationExecutionContext* context) {
     Shape outputShape = context->getInputShape(kInputTensor);
     outputShape.dimensions[2] = outputSize;
 
+    if (context->getNumOutputs() == kNumOutputsWithState) {
+        NN_RET_CHECK(!context->isOmittedOutput(kOutputStateOutTensor));
+        NN_RET_CHECK(!context->isOmittedOutput(kCellStateOutTensor));
+
+        Shape outputStateOutTensor = context->getInputShape(kOutputStateInTensor);
+        outputStateOutTensor.dimensions.resize(2);
+        outputStateOutTensor.dimensions[0] = batchSize;
+        outputStateOutTensor.dimensions[1] = outputSize;
+        NN_RET_CHECK(context->setOutputShape(kOutputStateOutTensor, outputStateOutTensor));
+
+        Shape cellStateOutTensor = context->getInputShape(kCellStateInTensor);
+        cellStateOutTensor.dimensions.resize(2);
+        cellStateOutTensor.dimensions[0] = batchSize;
+        cellStateOutTensor.dimensions[1] = numCells;
+        NN_RET_CHECK(context->setOutputShape(kCellStateOutTensor, cellStateOutTensor));
+    }
+
     return context->setOutputShape(kOutputTensor, outputShape);
 }
 
@@ -369,12 +399,25 @@ bool execute(IOperationExecutionContext* context) {
     const auto cellStateSize = getNumberOfElements(context->getInputShape(kCellStateInTensor));
     const bool use_cifg = !hasTensor(context, kInputToInputWeightsTensor);
     const auto scratchSize = use_cifg ? 3 * cellStateSize : 4 * cellStateSize;
+    const bool useStateOutTensors = (context->getNumOutputs() == kNumOutputsWithState);
 
     const OperandType inputType = context->getInputType(kInputTensor);
     switch (inputType) {
         case OperandType::TENSOR_FLOAT32: {
-            std::vector<float> outputStateOut(outputStateSize);
-            std::vector<float> cellStateOut(cellStateSize);
+            // Initialize empty vectors and resize below only if needed
+            std::vector<float> outputStateOutBuffer;
+            std::vector<float> cellStateOutBuffer;
+            float* outputStateOut;
+            float* cellStateOut;
+            if (useStateOutTensors) {
+                outputStateOut = context->getOutputBuffer<float>(kOutputStateOutTensor);
+                cellStateOut = context->getOutputBuffer<float>(kCellStateOutTensor);
+            } else {
+                outputStateOutBuffer.resize(outputStateSize);
+                cellStateOutBuffer.resize(cellStateSize);
+                outputStateOut = outputStateOutBuffer.data();
+                cellStateOut = cellStateOutBuffer.data();
+            }
             std::vector<float> scratchBuffer(scratchSize);
             LSTMCell::LSTMEvalFloat32(
                     getLSTMParams<float>(context), context->getInputBuffer<float>(kInputTensor),
@@ -408,14 +451,25 @@ bool execute(IOperationExecutionContext* context) {
                     context->getInputBuffer<float>(kInputLayerNormWeightsTensor),
                     context->getInputBuffer<float>(kForgetLayerNormWeightsTensor),
                     context->getInputBuffer<float>(kCellLayerNormWeightsTensor),
-                    context->getInputBuffer<float>(kOutputLayerNormWeightsTensor),
-                    outputStateOut.data(), cellStateOut.data(),
-                    context->getOutputBuffer<float>(kOutputTensor), scratchBuffer.data(),
-                    isTimeMajor(context));
+                    context->getInputBuffer<float>(kOutputLayerNormWeightsTensor), outputStateOut,
+                    cellStateOut, context->getOutputBuffer<float>(kOutputTensor),
+                    scratchBuffer.data(), isTimeMajor(context));
         } break;
         case OperandType::TENSOR_FLOAT16: {
-            std::vector<_Float16> outputStateOut(outputStateSize);
-            std::vector<_Float16> cellStateOut(cellStateSize);
+            // Initialize empty vectors and resize below only if needed
+            std::vector<_Float16> outputStateOutBuffer;
+            std::vector<_Float16> cellStateOutBuffer;
+            _Float16* outputStateOut;
+            _Float16* cellStateOut;
+            if (useStateOutTensors) {
+                outputStateOut = context->getOutputBuffer<_Float16>(kOutputStateOutTensor);
+                cellStateOut = context->getOutputBuffer<_Float16>(kCellStateOutTensor);
+            } else {
+                outputStateOutBuffer.resize(outputStateSize);
+                cellStateOutBuffer.resize(cellStateSize);
+                outputStateOut = outputStateOutBuffer.data();
+                cellStateOut = cellStateOutBuffer.data();
+            }
             std::vector<_Float16> scratchBuffer(scratchSize);
             LSTMCell::LSTMEvalFloat16(
                     getLSTMParams<_Float16>(context),
@@ -451,9 +505,8 @@ bool execute(IOperationExecutionContext* context) {
                     context->getInputBuffer<_Float16>(kForgetLayerNormWeightsTensor),
                     context->getInputBuffer<_Float16>(kCellLayerNormWeightsTensor),
                     context->getInputBuffer<_Float16>(kOutputLayerNormWeightsTensor),
-                    outputStateOut.data(), cellStateOut.data(),
-                    context->getOutputBuffer<_Float16>(kOutputTensor), scratchBuffer.data(),
-                    isTimeMajor(context));
+                    outputStateOut, cellStateOut, context->getOutputBuffer<_Float16>(kOutputTensor),
+                    scratchBuffer.data(), isTimeMajor(context));
         } break;
         default: {
             LOG(ERROR) << "Unsupported data type: " << static_cast<int>(inputType);

@@ -14,20 +14,27 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Operations"
+
 #include "QuantizedLSTM.h"
 
 #include "CpuExecutor.h"
 #include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
 
 #include "Tracing.h"
 
-#include "public/gemmlowp.h"
-#include "tensorflow/lite/kernels/internal/reference/legacy_reference_ops.h"
+#include <public/gemmlowp.h>
+#include <tensorflow/lite/kernels/internal/reference/legacy_reference_ops.h>
+#include <algorithm>
+#include <vector>
 
 namespace android {
 namespace nn {
 
 namespace {
+
+using namespace hal;
 
 template <typename T>
 inline T* GetBuffer(RunTimeOperandInfo* operand) {
@@ -213,8 +220,7 @@ void assignWeightsSubmatrix(const RunTimeOperandInfo* submatrix, const int32_t o
 
 }  // namespace
 
-QuantizedLSTMCell::QuantizedLSTMCell(const Operation& operation,
-                                     std::vector<RunTimeOperandInfo>& operands) {
+QuantizedLSTMCell::QuantizedLSTMCell(const Operation& operation, RunTimeOperandInfo* operands) {
     input_ = GetInput(operation, operands, kInputTensor);
 
     inputToInputWeights_ = GetInput(operation, operands, kInputToInputWeightsTensor);
@@ -239,9 +245,8 @@ QuantizedLSTMCell::QuantizedLSTMCell(const Operation& operation,
     output_ = GetOutput(operation, operands, kOutputTensor);
 }
 
-bool QuantizedLSTMCell::prepare(const Operation& operation,
-                                std::vector<RunTimeOperandInfo>& operands, Shape* cellStateOutShape,
-                                Shape* outputShape) {
+bool QuantizedLSTMCell::prepare(const Operation& operation, RunTimeOperandInfo* operands,
+                                Shape* cellStateOutShape, Shape* outputShape) {
     auto input = GetInput(operation, operands, kInputTensor);
     NN_RET_CHECK_EQ(NumDimensions(input), 2);
     NN_RET_CHECK_EQ(input->scale, 1. / 128.0);

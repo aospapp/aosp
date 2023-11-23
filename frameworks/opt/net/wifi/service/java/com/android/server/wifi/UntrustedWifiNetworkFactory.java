@@ -27,7 +27,7 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
 /**
- * Network factory to handle untrusted (used for {@link ScoredNetworkEvaluator}) wifi network
+ * Network factory to handle untrusted (used for {@link ScoredNetworkNominator}) wifi network
  * requests.
  */
 public class UntrustedWifiNetworkFactory extends NetworkFactory {
@@ -47,8 +47,7 @@ public class UntrustedWifiNetworkFactory extends NetworkFactory {
 
     @Override
     protected void needNetworkFor(NetworkRequest networkRequest, int score) {
-        if (!networkRequest.networkCapabilities.hasCapability(
-                NetworkCapabilities.NET_CAPABILITY_TRUSTED)) {
+        if (!networkRequest.hasCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED)) {
             if (++mConnectionReqCount == 1) {
                 mWifiConnectivityManager.setUntrustedConnectionAllowed(true);
             }
@@ -57,8 +56,7 @@ public class UntrustedWifiNetworkFactory extends NetworkFactory {
 
     @Override
     protected void releaseNetworkFor(NetworkRequest networkRequest) {
-        if (!networkRequest.networkCapabilities.hasCapability(
-                NetworkCapabilities.NET_CAPABILITY_TRUSTED)) {
+        if (!networkRequest.hasCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED)) {
             if (mConnectionReqCount == 0) {
                 Log.e(TAG, "No valid network request to release");
                 return;

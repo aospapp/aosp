@@ -22,6 +22,9 @@
 #include <android/hardware/input/classifier/1.0/IInputClassifier.h>
 
 using namespace android::hardware::input;
+using android::hardware::Return;
+using android::hardware::Void;
+using android::hardware::input::common::V1_0::Classification;
 
 namespace android {
 
@@ -38,12 +41,15 @@ static NotifyMotionArgs generateBasicMotionArgs() {
     coords.setAxisValue(AMOTION_EVENT_AXIS_X, 1);
     coords.setAxisValue(AMOTION_EVENT_AXIS_Y, 1);
     static constexpr nsecs_t downTime = 2;
-    NotifyMotionArgs motionArgs(1/*sequenceNum*/, downTime/*eventTime*/, 3/*deviceId*/,
-            AINPUT_SOURCE_ANY, ADISPLAY_ID_DEFAULT, 4/*policyFlags*/, AMOTION_EVENT_ACTION_DOWN,
-            0/*actionButton*/, 0/*flags*/, AMETA_NONE, 0/*buttonState*/, MotionClassification::NONE,
-            AMOTION_EVENT_EDGE_FLAG_NONE, 5/*deviceTimestamp*/,
-            1/*pointerCount*/, &properties, &coords, 0/*xPrecision*/, 0/*yPrecision*/,
-            downTime, {}/*videoFrames*/);
+    NotifyMotionArgs motionArgs(1 /*sequenceNum*/, downTime /*eventTime*/, 3 /*deviceId*/,
+                                AINPUT_SOURCE_ANY, ADISPLAY_ID_DEFAULT, 4 /*policyFlags*/,
+                                AMOTION_EVENT_ACTION_DOWN, 0 /*actionButton*/, 0 /*flags*/,
+                                AMETA_NONE, 0 /*buttonState*/, MotionClassification::NONE,
+                                AMOTION_EVENT_EDGE_FLAG_NONE, 1 /*pointerCount*/, &properties,
+                                &coords, 0 /*xPrecision*/, 0 /*yPrecision*/,
+                                AMOTION_EVENT_INVALID_CURSOR_POSITION,
+                                AMOTION_EVENT_INVALID_CURSOR_POSITION, downTime,
+                                {} /*videoFrames*/);
     return motionArgs;
 }
 
@@ -129,6 +135,49 @@ TEST_F(InputClassifierTest, SendToNextStage_NotifyDeviceResetArgs) {
     ASSERT_EQ(args, outArgs);
 }
 
+TEST_F(InputClassifierTest, SetMotionClassifier_Enabled) {
+    mClassifier->setMotionClassifierEnabled(true);
+}
+
+TEST_F(InputClassifierTest, SetMotionClassifier_Disabled) {
+    mClassifier->setMotionClassifierEnabled(false);
+}
+
+/**
+ * Try to break it by calling setMotionClassifierEnabled multiple times.
+ */
+TEST_F(InputClassifierTest, SetMotionClassifier_Multiple) {
+    mClassifier->setMotionClassifierEnabled(true);
+    mClassifier->setMotionClassifierEnabled(true);
+    mClassifier->setMotionClassifierEnabled(true);
+    mClassifier->setMotionClassifierEnabled(false);
+    mClassifier->setMotionClassifierEnabled(false);
+    mClassifier->setMotionClassifierEnabled(true);
+    mClassifier->setMotionClassifierEnabled(true);
+    mClassifier->setMotionClassifierEnabled(true);
+}
+
+/**
+ * A minimal implementation of IInputClassifier.
+ */
+struct TestHal : public android::hardware::input::classifier::V1_0::IInputClassifier {
+    Return<Classification> classify(
+            const android::hardware::input::common::V1_0::MotionEvent& event) override {
+        return Classification::NONE;
+    };
+    Return<void> reset() override { return Void(); };
+    Return<void> resetDevice(int32_t deviceId) override { return Void(); };
+};
+
+/**
+ * An entity that will be subscribed to the HAL death.
+ */
+class TestDeathRecipient : public android::hardware::hidl_death_recipient {
+public:
+    virtual void serviceDied(uint64_t cookie,
+                             const wp<android::hidl::base::V1_0::IBase>& who) override{};
+};
+
 // --- MotionClassifierTest ---
 
 class MotionClassifierTest : public testing::Test {
@@ -136,7 +185,14 @@ protected:
     std::unique_ptr<MotionClassifierInterface> mMotionClassifier;
 
     virtual void SetUp() override {
-        mMotionClassifier = std::make_unique<MotionClassifier>();
+        mMotionClassifier = MotionClassifier::create(new TestDeathRecipient());
+        if (mMotionClassifier == nullptr) {
+            // If the device running this test does not have IInputClassifier service,
+            // use the test HAL instead.
+            // Using 'new' to access non-public constructor
+            mMotionClassifier =
+                    std::unique_ptr<MotionClassifier>(new MotionClassifier(new TestHal()));
+        }
     }
 };
 

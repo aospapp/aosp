@@ -37,6 +37,9 @@ bool use_context_priority(bool defaultValue);
 
 int64_t max_frame_buffer_acquired_buffers(int64_t defaultValue);
 
+int32_t max_graphics_width(int32_t defaultValue);
+int32_t max_graphics_height(int32_t defaultValue);
+
 bool has_wide_color_display(bool defaultValue);
 
 bool running_without_sync_framework(bool defaultValue);
@@ -70,15 +73,26 @@ int64_t wcg_composition_dataspace(
 int32_t wcg_composition_pixel_format(
         android::hardware::graphics::common::V1_2::PixelFormat defaultValue);
 
+int64_t color_space_agnostic_dataspace(
+        android::hardware::graphics::common::V1_2::Dataspace defaultValue);
+
+bool refresh_rate_switching(bool defaultValue);
+
 int32_t set_idle_timer_ms(int32_t defaultValue);
 
 int32_t set_touch_timer_ms(int32_t defaultValue);
 
-bool use_smart_90_for_video(bool defaultValue);
+int32_t set_display_power_timer_ms(int32_t defaultValue);
+
+bool use_content_detection_for_refresh_rate(bool defaultValue);
 
 bool enable_protected_contents(bool defaultValue);
 
 bool support_kernel_idle_timer(bool defaultValue);
+
+bool use_frame_rate_api(bool defaultValue);
+
+int32_t display_update_imminent_timeout_ms(int32_t defaultValue);
 
 android::ui::DisplayPrimaries getDisplayNativePrimaries();
 } // namespace sysprop

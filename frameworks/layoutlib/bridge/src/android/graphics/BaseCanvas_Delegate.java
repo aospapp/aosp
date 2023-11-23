@@ -168,7 +168,7 @@ public class BaseCanvas_Delegate {
     /*package*/ static void nDrawPaint(long nativeCanvas, long paint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Canvas.drawPaint is not supported.", null, null /*data*/);
+                "Canvas.drawPaint is not supported.", null,null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -421,7 +421,7 @@ public class BaseCanvas_Delegate {
             long nativePaint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Some canvas paths may not be drawn", null, null);
+                "Some canvas paths may not be drawn", null, null, null);
     }
 
     @LayoutlibDelegate
@@ -513,7 +513,7 @@ public class BaseCanvas_Delegate {
             int colorOffset, long nPaint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Canvas.drawBitmapMesh is not supported.", null, null /*data*/);
+                "Canvas.drawBitmapMesh is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -525,7 +525,7 @@ public class BaseCanvas_Delegate {
             int indexCount, long nPaint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Canvas.drawVertices is not supported.", null, null /*data*/);
+                "Canvas.drawVertices is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -574,7 +574,7 @@ public class BaseCanvas_Delegate {
             long paint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Canvas.drawTextOnPath is not supported.", null, null /*data*/);
+                "Canvas.drawTextOnPath is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -585,7 +585,7 @@ public class BaseCanvas_Delegate {
             int bidiFlags, long paint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Canvas.drawTextOnPath is not supported.", null, null /*data*/);
+                "Canvas.drawTextOnPath is not supported.", null, null, null /*data*/);
     }
 
     // ---- Private delegate/helper methods ----

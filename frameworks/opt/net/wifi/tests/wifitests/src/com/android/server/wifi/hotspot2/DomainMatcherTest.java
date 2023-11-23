@@ -24,6 +24,8 @@ import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -34,7 +36,7 @@ import java.util.Map;
  * Unit tests for {@link com.android.server.wifi.hotspot2.DomainMatcher}.
  */
 @SmallTest
-public class DomainMatcherTest {
+public class DomainMatcherTest extends WifiBaseTest {
     private static final String PRIMARY_DOMAIN = "google.com";
     private static final String SECONDARY_DOMAIN1 = "android.com";
     private static final String SECONDARY_DOMAIN2 = "testing.test.com";

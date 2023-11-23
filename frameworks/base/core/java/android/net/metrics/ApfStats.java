@@ -17,9 +17,10 @@
 package android.net.metrics;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -260,6 +261,7 @@ public final class ApfStats implements IpConnectivityLog.Event {
         return 0;
     }
 
+    @NonNull
     @Override
     public String toString() {
         return new StringBuilder("ApfStats(")
@@ -276,7 +278,7 @@ public final class ApfStats implements IpConnectivityLog.Event {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj == null || !(obj.getClass().equals(ApfStats.class))) return false;
         final ApfStats other = (ApfStats) obj;
         return durationMs == other.durationMs

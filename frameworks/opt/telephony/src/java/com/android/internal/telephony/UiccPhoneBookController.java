@@ -18,29 +18,27 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.ServiceManager;
-import android.telephony.Rlog;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.os.TelephonyServiceManager.ServiceRegisterer;
+import android.telephony.TelephonyFrameworkInitializer;
 
-import com.android.internal.telephony.IIccPhoneBook;
 import com.android.internal.telephony.uicc.AdnRecord;
+import com.android.telephony.Rlog;
 
-import java.lang.ArrayIndexOutOfBoundsException;
-import java.lang.NullPointerException;
 import java.util.List;
 
 public class UiccPhoneBookController extends IIccPhoneBook.Stub {
     private static final String TAG = "UiccPhoneBookController";
-    @UnsupportedAppUsage
-    private Phone[] mPhone;
 
     /* only one UiccPhoneBookController exists */
     @UnsupportedAppUsage
-    public UiccPhoneBookController(Phone[] phone) {
-        if (ServiceManager.getService("simphonebook") == null) {
-               ServiceManager.addService("simphonebook", this);
+    public UiccPhoneBookController() {
+        ServiceRegisterer iccPhoneBookServiceRegisterer = TelephonyFrameworkInitializer
+                .getTelephonyServiceManager()
+                .getIccPhoneBookServiceRegisterer();
+        if (iccPhoneBookServiceRegisterer.get() == null) {
+            iccPhoneBookServiceRegisterer.register(this);
         }
-        mPhone = phone;
     }
 
     @Override
@@ -139,7 +137,7 @@ public class UiccPhoneBookController extends IIccPhoneBook.Stub {
 
         int phoneId = SubscriptionController.getInstance().getPhoneId(subId);
         try {
-            return mPhone[phoneId].getIccPhoneBookInterfaceManager();
+            return PhoneFactory.getPhone(phoneId).getIccPhoneBookInterfaceManager();
         } catch (NullPointerException e) {
             Rlog.e(TAG, "Exception is :"+e.toString()+" For subscription :"+subId );
             e.printStackTrace(); //To print stack trace

@@ -52,7 +52,7 @@ example = Example({
          11, 3, 7.4, 10.9,
          11, 3, 7.8, 11.5,
          11, 3, 8.0, 11.8]
-}).AddNchw(i1, o1, layout).AddInput(f1, b1).AddVariations("relaxed", "float16", channelQuant8, channelQuant8_mult_gt_1, quant8)
+}).AddNchw(i1, o1, layout).AddVariations("relaxed", "float16", channelQuant8, channelQuant8_mult_gt_1, quant8)
 
 
 # TEST 2: DEPTHWISE_CONV2D_NCHW_2, pad = valid, stride = 1, cm = 2, act = none
@@ -80,7 +80,7 @@ channelQuant8 = DataTypeConverter().Identify({
 example = Example({
     i2: [1, 2, 7, 8, 3, 4, 9, 10, 5, 6, 11, 12],
     o2: [71, -34, 99, -20, 91, -26, 127, -4]
-}).AddNchw(i2, o2, layout).AddInput(f2, b2).AddVariations("relaxed", "float16", quant8, channelQuant8)
+}).AddNchw(i2, o2, layout).AddVariations("relaxed", "float16", quant8, channelQuant8)
 
 
 # TEST 3: DEPTHWISE_CONV2D_NCHW_LARGE, pad = 0, stride = 1, cm = 1, act = none
@@ -108,7 +108,7 @@ channelQuant8 = DataTypeConverter().Identify({
 example = Example({
     i3: [10, 21, 10, 22, 10, 23, 10, 24],
     o3: [110, 246]
-}).AddNchw(i3, o3, layout).AddInput(f3, b3).AddVariations("relaxed", "float16", quant8, channelQuant8)
+}).AddNchw(i3, o3, layout).AddVariations("relaxed", "float16", quant8, channelQuant8)
 
 
 # TEST 4: DEPTHWISE_CONV2D_NCHW_LARGE, pad = 0, stride = 1, cm = 1, act = none
@@ -139,7 +139,7 @@ example = Example({
          10, 23, 30, 0,
          10, 24, 40, 0],
     o4: [6010, 7046, 11000, 9000]
-}).AddNchw(i4, o4, layout).AddInput(f4, b4).AddVariations("relaxed", "float16", quant8, channelQuant8)
+}).AddNchw(i4, o4, layout).AddVariations("relaxed", "float16", quant8, channelQuant8)
 
 # TEST 9: quantized with scale product greater than output scale
 input_scale = 256.5 / 255
@@ -164,4 +164,40 @@ model9 = Model("quant_output_multiplier_gt_1").Operation("DEPTHWISE_CONV_2D", i9
 example = Example({
     i9: [129, 131, 141, 143, 133, 135, 145, 147, 137, 139, 149, 151],
     o9: [255, 58, 255, 87, 255, 74, 255, 119]
-}, model=model9).AddInput(f9, b9).AddVariations("relaxed")
+}, model=model9).AddVariations("relaxed")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "depthwise_conv2d_v1_2_large_nhwc",
+                   "depthwise_conv2d_v1_2_large_nhwc_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_large_nhwc_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_all_tensors_as_inputs",
+                   "depthwise_conv2d_v1_2_large_nhwc_all_tensors_as_inputs_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_large_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_all_tensors_as_inputs",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_all_tensors_as_inputs_2",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_large_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_nhwc",
+                   "depthwise_conv2d_v1_2_nhwc_2",
+                   "depthwise_conv2d_v1_2_nhwc_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_nhwc_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_nhwc_all_tensors_as_inputs",
+                   "depthwise_conv2d_v1_2_nhwc_all_tensors_as_inputs_2",
+                   "depthwise_conv2d_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_nhwc_all_tensors_as_inputs_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_nhwc_quant8",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_2",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_all_inputs_as_internal_2",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs_2",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_v1_2_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal_2")

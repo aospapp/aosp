@@ -22,13 +22,13 @@
 
 #include "include/ESDS.h"
 
+#include <datasource/DataSourceFactory.h>
+#include <datasource/FileSource.h>
 #include <media/DataSource.h>
-#include <media/MediaSource.h>
+#include <media/stagefright/MediaSource.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/stagefright/DataSourceFactory.h>
-#include <media/stagefright/FileSource.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
@@ -36,6 +36,7 @@
 #include <media/stagefright/MediaExtractorFactory.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
+#include <media/stagefright/FoundationUtils.h>
 
 namespace android {
 
@@ -81,7 +82,7 @@ status_t NuMediaExtractor::setDataSource(
     }
 
     sp<DataSource> dataSource =
-        DataSourceFactory::CreateFromURI(httpService, path, headers);
+        DataSourceFactory::getInstance()->CreateFromURI(httpService, path, headers);
 
     if (dataSource == NULL) {
         return -ENOENT;
@@ -93,11 +94,16 @@ status_t NuMediaExtractor::setDataSource(
         return ERROR_UNSUPPORTED;
     }
 
+    status_t err = OK;
     if (!mCasToken.empty()) {
-        mImpl->setMediaCas(mCasToken);
+        err = mImpl->setMediaCas(mCasToken);
+        if (err != OK) {
+            ALOGE("%s: failed to setMediaCas (%d)", __FUNCTION__, err);
+            return err;
+        }
     }
 
-    status_t err = updateDurationAndBitrate();
+    err = updateDurationAndBitrate();
     if (err == OK) {
         mDataSource = dataSource;
     }
@@ -130,7 +136,11 @@ status_t NuMediaExtractor::setDataSource(int fd, off64_t offset, off64_t size) {
     }
 
     if (!mCasToken.empty()) {
-        mImpl->setMediaCas(mCasToken);
+        err = mImpl->setMediaCas(mCasToken);
+        if (err != OK) {
+            ALOGE("%s: failed to setMediaCas (%d)", __FUNCTION__, err);
+            return err;
+        }
     }
 
     err = updateDurationAndBitrate();
@@ -160,7 +170,11 @@ status_t NuMediaExtractor::setDataSource(const sp<DataSource> &source) {
     }
 
     if (!mCasToken.empty()) {
-        mImpl->setMediaCas(mCasToken);
+        err = mImpl->setMediaCas(mCasToken);
+        if (err != OK) {
+            ALOGE("%s: failed to setMediaCas (%d)", __FUNCTION__, err);
+            return err;
+        }
     }
 
     err = updateDurationAndBitrate();
@@ -194,8 +208,12 @@ status_t NuMediaExtractor::setMediaCas(const HInterfaceToken &casToken) {
     mCasToken = casToken;
 
     if (mImpl != NULL) {
-        mImpl->setMediaCas(casToken);
-        status_t err = updateDurationAndBitrate();
+        status_t err = mImpl->setMediaCas(casToken);
+        if (err != OK) {
+            ALOGE("%s: failed to setMediaCas (%d)", __FUNCTION__, err);
+            return err;
+        }
+        err = updateDurationAndBitrate();
         if (err != OK) {
             return err;
         }

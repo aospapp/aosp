@@ -230,7 +230,7 @@ public class Paint_Delegate {
             } else {
                 Bridge.getLog().fidelityWarning(LayoutLog.TAG_PATHEFFECT,
                         mPathEffect.getSupportMessage(),
-                        null, null /*data*/);
+                        null, null, null /*data*/);
             }
         }
 
@@ -456,14 +456,14 @@ public class Paint_Delegate {
             float radius, float dx, float dy, long colorSpaceHandle,
             long shadowColor) {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Paint.setShadowLayer is not supported.", null, null /*data*/);
+                "Paint.setShadowLayer is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
     /*package*/ static boolean nHasShadowLayer(long paint) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Paint.hasShadowLayer is not supported.", null, null /*data*/);
+                "Paint.hasShadowLayer is not supported.", null, null, null /*data*/);
         return false;
     }
 
@@ -848,7 +848,7 @@ public class Paint_Delegate {
         // Log warning if it's not supported.
         if (delegate.mColorFilter != null && !delegate.mColorFilter.isSupported()) {
             Bridge.getLog().fidelityWarning(LayoutLog.TAG_COLORFILTER,
-                    delegate.mColorFilter.getSupportMessage(), null, null /*data*/);
+                    delegate.mColorFilter.getSupportMessage(), null, null, null /*data*/);
         }
 
         return filter;
@@ -889,7 +889,7 @@ public class Paint_Delegate {
         // since none of those are supported, display a fidelity warning right away
         if (delegate.mMaskFilter != null && !delegate.mMaskFilter.isSupported()) {
             Bridge.getLog().fidelityWarning(LayoutLog.TAG_MASKFILTER,
-                    delegate.mMaskFilter.getSupportMessage(), null, null /*data*/);
+                    delegate.mMaskFilter.getSupportMessage(), null, null, null /*data*/);
         }
 
         return maskfilter;
@@ -985,7 +985,7 @@ public class Paint_Delegate {
             int contextStart, int contextLength, int flags, int offset, int cursorOpt) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Paint.getTextRunCursor is not supported.", null, null /*data*/);
+                "Paint.getTextRunCursor is not supported.", null, null, null /*data*/);
         return 0;
     }
 
@@ -994,7 +994,7 @@ public class Paint_Delegate {
             int contextStart, int contextEnd, int flags, int offset, int cursorOpt) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Paint.getTextRunCursor is not supported.", null, null /*data*/);
+                "Paint.getTextRunCursor is not supported.", null, null, null /*data*/);
         return 0;
     }
 
@@ -1003,7 +1003,7 @@ public class Paint_Delegate {
             int index, int count, float x, float y, long path) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Paint.getTextPath is not supported.", null, null /*data*/);
+                "Paint.getTextPath is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -1011,7 +1011,7 @@ public class Paint_Delegate {
             int end, float x, float y, long path) {
         // FIXME
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
-                "Paint.getTextPath is not supported.", null, null /*data*/);
+                "Paint.getTextPath is not supported.", null, null, null /*data*/);
     }
 
     @LayoutlibDelegate
@@ -1057,7 +1057,7 @@ public class Paint_Delegate {
     @LayoutlibDelegate
     /*package*/ static void nSetLetterSpacing(long nativePaint, float letterSpacing) {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_TEXT_RENDERING,
-                "Paint.setLetterSpacing() not supported.", null, null);
+                "Paint.setLetterSpacing() not supported.", null, null, null);
         Paint_Delegate delegate = sManager.getDelegate(nativePaint);
         if (delegate == null) {
             return;
@@ -1086,7 +1086,7 @@ public class Paint_Delegate {
     @LayoutlibDelegate
     /*package*/ static void nSetFontFeatureSettings(long nativePaint, String settings) {
         Bridge.getLog().fidelityWarning(LayoutLog.TAG_TEXT_RENDERING,
-                "Paint.setFontFeatureSettings() not supported.", null, null);
+                "Paint.setFontFeatureSettings() not supported.", null, null, null);
     }
 
     @LayoutlibDelegate
@@ -1136,7 +1136,7 @@ public class Paint_Delegate {
         }
         if (string.length() > 1) {
             Bridge.getLog().fidelityWarning(LayoutLog.TAG_TEXT_RENDERING,
-                    "Paint.hasGlyph() is not supported for ligatures.", null, null);
+                    "Paint.hasGlyph() is not supported for ligatures.", null, null, null);
             return false;
         }
 

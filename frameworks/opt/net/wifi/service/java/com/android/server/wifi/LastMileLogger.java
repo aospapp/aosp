@@ -16,31 +16,36 @@
 
 package com.android.server.wifi;
 
-import android.os.FileUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.util.FileUtils;
 
-import libcore.io.IoUtils;
-
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * Provides a facility for capturing kernel trace events related to Wifi control and data paths.
  */
 public class LastMileLogger {
     public LastMileLogger(WifiInjector injector) {
-        this(injector, WIFI_EVENT_BUFFER_PATH, WIFI_EVENT_ENABLE_PATH, WIFI_EVENT_RELEASE_PATH);
+        File tracefsEnablePath = new File(WIFI_EVENT_ENABLE_PATH);
+        if (tracefsEnablePath.exists()) {
+            initLastMileLogger(injector, WIFI_EVENT_BUFFER_PATH, WIFI_EVENT_ENABLE_PATH,
+                    WIFI_EVENT_RELEASE_PATH);
+        } else {
+            initLastMileLogger(injector, WIFI_EVENT_BUFFER_PATH_DEBUGFS,
+                    WIFI_EVENT_ENABLE_PATH_DEBUGFS, WIFI_EVENT_RELEASE_PATH_DEBUGFS);
+        }
     }
 
     @VisibleForTesting
     public LastMileLogger(WifiInjector injector, String bufferPath, String enablePath,
                           String releasePath) {
-        mLog = injector.makeLog(TAG);
-        mEventBufferPath = bufferPath;
-        mEventEnablePath = enablePath;
-        mEventReleasePath = releasePath;
+        initLastMileLogger(injector, bufferPath, enablePath, releasePath);
     }
 
     /**
@@ -77,18 +82,33 @@ public class LastMileLogger {
 
     private static final String TAG = "LastMileLogger";
     private static final String WIFI_EVENT_BUFFER_PATH =
-            "/sys/kernel/debug/tracing/instances/wifi/trace";
+            "/sys/kernel/tracing/instances/wifi/trace";
     private static final String WIFI_EVENT_ENABLE_PATH =
-            "/sys/kernel/debug/tracing/instances/wifi/tracing_on";
+            "/sys/kernel/tracing/instances/wifi/tracing_on";
     private static final String WIFI_EVENT_RELEASE_PATH =
+            "/sys/kernel/tracing/instances/wifi/free_buffer";
+    private static final String WIFI_EVENT_BUFFER_PATH_DEBUGFS =
+            "/sys/kernel/debug/tracing/instances/wifi/trace";
+    private static final String WIFI_EVENT_ENABLE_PATH_DEBUGFS =
+            "/sys/kernel/debug/tracing/instances/wifi/tracing_on";
+    private static final String WIFI_EVENT_RELEASE_PATH_DEBUGFS =
             "/sys/kernel/debug/tracing/instances/wifi/free_buffer";
 
-    private final String mEventBufferPath;
-    private final String mEventEnablePath;
-    private final String mEventReleasePath;
+
+    private String mEventBufferPath;
+    private String mEventEnablePath;
+    private String mEventReleasePath;
     private WifiLog mLog;
     private byte[] mLastMileLogForLastFailure;
     private FileInputStream mLastMileTraceHandle;
+
+    private void initLastMileLogger(WifiInjector injector, String bufferPath, String enablePath,
+                          String releasePath) {
+        mLog = injector.makeLog(TAG);
+        mEventBufferPath = bufferPath;
+        mEventEnablePath = enablePath;
+        mEventReleasePath = releasePath;
+    }
 
     private void enableTracing() {
         if (!ensureFailSafeIsArmed()) {
@@ -113,7 +133,7 @@ public class LastMileLogger {
 
     private byte[] readTrace() {
         try {
-            return IoUtils.readFileAsByteArray(mEventBufferPath);
+            return Files.readAllBytes(Paths.get(mEventBufferPath));
         } catch (IOException e) {
             mLog.warn("Failed to read event trace: %").r(e.getMessage()).flush();
             return new byte[0];

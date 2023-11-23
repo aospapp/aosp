@@ -16,7 +16,7 @@
 
 package android.nfc.cardemulation;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -32,6 +32,7 @@ import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
+import android.util.proto.ProtoOutputStream;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -114,7 +115,7 @@ public final class ApduServiceInfo implements Parcelable {
      * @hide
      */
     @UnsupportedAppUsage
-    public ApduServiceInfo(ResolveInfo info, String description,
+    public ApduServiceInfo(ResolveInfo info, boolean onHost, String description,
             ArrayList<AidGroup> staticAidGroups, ArrayList<AidGroup> dynamicAidGroups,
             boolean requiresUnlock, int bannerResource, int uid,
             String settingsActivityName, String offHost, String staticOffHost) {
@@ -124,7 +125,7 @@ public final class ApduServiceInfo implements Parcelable {
         this.mDynamicAidGroups = new HashMap<String, AidGroup>();
         this.mOffHostName = offHost;
         this.mStaticOffHostName = staticOffHost;
-        this.mOnHost = (offHost == null);
+        this.mOnHost = onHost;
         this.mRequiresDeviceUnlock = requiresUnlock;
         for (AidGroup aidGroup : staticAidGroups) {
             this.mStaticAidGroups.put(aidGroup.category, aidGroup);
@@ -570,7 +571,7 @@ public final class ApduServiceInfo implements Parcelable {
             int bannerResource = source.readInt();
             int uid = source.readInt();
             String settingsActivityName = source.readString();
-            return new ApduServiceInfo(info, description, staticAidGroups,
+            return new ApduServiceInfo(info, onHost, description, staticAidGroups,
                     dynamicAidGroups, requiresUnlock, bannerResource, uid,
                     settingsActivityName, offHostName, staticOffHostName);
         }
@@ -606,5 +607,35 @@ public final class ApduServiceInfo implements Parcelable {
             }
         }
         pw.println("    Settings Activity: " + mSettingsActivityName);
+    }
+
+    /**
+     * Dump debugging info as ApduServiceInfoProto
+     *
+     * If the output belongs to a sub message, the caller is responsible for wrapping this function
+     * between {@link ProtoOutputStream#start(long)} and {@link ProtoOutputStream#end(long)}.
+     * See proto definition in frameworks/base/core/proto/android/nfc/apdu_service_info.proto
+     *
+     * @param proto the ProtoOutputStream to write to
+     */
+    public void dumpDebug(ProtoOutputStream proto) {
+        getComponent().dumpDebug(proto, ApduServiceInfoProto.COMPONENT_NAME);
+        proto.write(ApduServiceInfoProto.DESCRIPTION, getDescription());
+        proto.write(ApduServiceInfoProto.ON_HOST, mOnHost);
+        if (!mOnHost) {
+            proto.write(ApduServiceInfoProto.OFF_HOST_NAME, mOffHostName);
+            proto.write(ApduServiceInfoProto.STATIC_OFF_HOST_NAME, mStaticOffHostName);
+        }
+        for (AidGroup group : mStaticAidGroups.values()) {
+            long token = proto.start(ApduServiceInfoProto.STATIC_AID_GROUPS);
+            group.dump(proto);
+            proto.end(token);
+        }
+        for (AidGroup group : mDynamicAidGroups.values()) {
+            long token = proto.start(ApduServiceInfoProto.STATIC_AID_GROUPS);
+            group.dump(proto);
+            proto.end(token);
+        }
+        proto.write(ApduServiceInfoProto.SETTINGS_ACTIVITY_NAME, mSettingsActivityName);
     }
 }

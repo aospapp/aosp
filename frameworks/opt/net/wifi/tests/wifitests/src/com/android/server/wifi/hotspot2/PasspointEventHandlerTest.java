@@ -26,6 +26,7 @@ import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.hotspot2.anqp.Constants;
 
@@ -42,7 +43,7 @@ import java.util.List;
  * TODO(zqiu): add more test when switch over to use wificond.
  */
 @SmallTest
-public class PasspointEventHandlerTest {
+public class PasspointEventHandlerTest extends WifiBaseTest {
 
     private static final String TAG = "PasspointEventHandlerTest";
 

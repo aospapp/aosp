@@ -43,6 +43,7 @@ import org.junit.Test;
 import org.kxml2.io.KXmlParser;
 import org.xmlpull.v1.XmlPullParser;
 
+import android.R.attr;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.res.AssetManager;
@@ -156,11 +157,11 @@ public class RenderTests extends RenderTestBase {
         LayoutLibTestCallback layoutLibCallback =
                 new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
         layoutLibCallback.initResources();
-        layoutLibCallback.setUseShadow(false);
         SessionParams params = getSessionParamsBuilder()
                 .setParser(parser)
                 .setConfigGenerator(ConfigGenerator.NEXUS_5)
                 .setCallback(layoutLibCallback)
+                .disableShadows()
                 .build();
 
         renderAndVerify(params, "allwidgets.png");
@@ -184,11 +185,11 @@ public class RenderTests extends RenderTestBase {
         LayoutLibTestCallback layoutLibCallback =
                 new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
         layoutLibCallback.initResources();
-        layoutLibCallback.setUseShadow(false);
         SessionParams params = getSessionParamsBuilder()
                 .setParser(parser)
                 .setConfigGenerator(ConfigGenerator.NEXUS_7_2012)
                 .setCallback(layoutLibCallback)
+                .disableShadows()
                 .build();
         renderAndVerify(params, "allwidgets_tab.png");
 
@@ -329,6 +330,50 @@ public class RenderTests extends RenderTestBase {
                     .build();
 
         renderAndVerify(params, "expand_horz_layout.png");
+    }
+
+    @Test
+    public void testShrink() throws ClassNotFoundException, FileNotFoundException {
+        // Create the layout pull parser.
+        LayoutPullParser parser = createParserFromPath("expand_vert_layout.xml");
+        // Create LayoutLibCallback.
+        LayoutLibTestCallback layoutLibCallback =
+                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+        layoutLibCallback.initResources();
+        // Normal mode
+        ConfigGenerator customConfigGenerator = new ConfigGenerator()
+                .setScreenWidth(600)
+                .setScreenHeight(3000)
+                .setDensity(Density.XHIGH)
+                .setNavigation(Navigation.NONAV);
+        SessionParams params = getSessionParamsBuilder()
+                .setParser(parser)
+                .setConfigGenerator(customConfigGenerator)
+                .setCallback(layoutLibCallback)
+                .setTheme("Theme.Material.Light.NoActionBar.Fullscreen", false)
+                .setRenderingMode(RenderingMode.NORMAL)
+                .disableDecoration()
+                .build();
+
+        renderAndVerify(params, "normal_layout.png");
+
+        // Shrink mode
+        customConfigGenerator = new ConfigGenerator()
+                .setScreenWidth(600)
+                .setScreenHeight(3000)
+                .setDensity(Density.XHIGH)
+                .setNavigation(Navigation.NONAV);
+        parser = createParserFromPath("expand_vert_layout.xml");
+        params = getSessionParamsBuilder()
+                .setParser(parser)
+                .setConfigGenerator(customConfigGenerator)
+                .setCallback(layoutLibCallback)
+                .setTheme("Theme.Material.Light.NoActionBar.Fullscreen", false)
+                .setRenderingMode(RenderingMode.SHRINK)
+                .disableDecoration()
+                .build();
+
+        renderAndVerify(params, "shrunk_layout.png");
     }
 
     /** Test indeterminate_progressbar.xml */
@@ -758,7 +803,7 @@ public class RenderTests extends RenderTestBase {
         Configuration configuration = RenderAction.getConfiguration(params);
         BridgeContext context = new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                 params.getAssets(), params.getLayoutlibCallback(), configuration,
-                params.getTargetSdkVersion(), params.isRtlSupported());
+                params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
         Resources resources = Resources_Delegate.initSystem(context, assetManager, metrics,
                 configuration, params.getLayoutlibCallback());
         // Test
@@ -800,7 +845,7 @@ public class RenderTests extends RenderTestBase {
         Configuration configuration = RenderAction.getConfiguration(params);
         BridgeContext context = new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                 params.getAssets(), params.getLayoutlibCallback(), configuration,
-                params.getTargetSdkVersion(), params.isRtlSupported());
+                params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
         Resources resources = Resources_Delegate.initSystem(context, assetManager, metrics,
                 configuration, params.getLayoutlibCallback());
 
@@ -849,6 +894,7 @@ public class RenderTests extends RenderTestBase {
                 new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
         layoutLibCallback.initResources();
 
+        layoutLibCallback.setAdaptiveIconMaskPath("M50,0L100,0 100,100 0,100 0,0z");
         SessionParams params = getSessionParamsBuilder()
                 .setParser(parser)
                 .setCallback(layoutLibCallback)
@@ -892,7 +938,7 @@ public class RenderTests extends RenderTestBase {
     }
 
     @Test
-    public void testColorTypedValue() throws Exception {
+    public void testTypedValue() throws Exception {
         // Setup
         // Create the layout pull parser for our resources (empty.xml can not be part of the test
         // app as it won't compile).
@@ -912,12 +958,27 @@ public class RenderTests extends RenderTestBase {
         BridgeContext mContext =
                 new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                         params.getAssets(), params.getLayoutlibCallback(), configuration,
-                        params.getTargetSdkVersion(), params.isRtlSupported());
+                        params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
 
         TypedValue outValue = new TypedValue();
         mContext.resolveThemeAttribute(android.R.attr.colorPrimary, outValue, true);
         assertEquals(TypedValue.TYPE_INT_COLOR_ARGB8, outValue.type);
         assertNotEquals(0, outValue.data);
+
+        outValue = new TypedValue();
+        mContext.resolveThemeAttribute(android.R.attr.colorError, outValue, true);
+        assertEquals(TypedValue.TYPE_INT_COLOR_RGB4, outValue.type);
+        assertEquals(-65536, outValue.data);
+
+        outValue = new TypedValue();
+        mContext.resolveThemeAttribute(attr.colorActivatedHighlight, outValue, true);
+        assertEquals(TypedValue.TYPE_INT_COLOR_ARGB4, outValue.type);
+        assertEquals(-872349952, outValue.data);
+
+        outValue = new TypedValue();
+        mContext.resolveThemeAttribute(android.R.attr.isLightTheme, outValue, true);
+        assertEquals(TypedValue.TYPE_INT_BOOLEAN, outValue.type);
+        assertEquals(1, outValue.data);
         assertTrue(sRenderMessages.isEmpty());
     }
 
@@ -975,7 +1036,7 @@ public class RenderTests extends RenderTestBase {
         BridgeContext mContext =
                 new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                         params.getAssets(), params.getLayoutlibCallback(), configuration,
-                        params.getTargetSdkVersion(), params.isRtlSupported());
+                        params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
         mContext.initResources();
         BridgeContext oldContext = RenderActionTestUtil.setBridgeContext(mContext);
 
@@ -1032,12 +1093,12 @@ public class RenderTests extends RenderTestBase {
         LayoutLibTestCallback layoutLibCallback =
                 new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
         layoutLibCallback.initResources();
-        layoutLibCallback.setUseShadow(false);
         SessionParams params = getSessionParamsBuilder()
                 .setParser(parser)
                 .setConfigGenerator(ConfigGenerator.NEXUS_5)
                 .setCallback(layoutLibCallback)
                 .disableDecoration()
+                .disableShadows()
                 .build();
 
         renderAndVerify(params, "shadows_test_no_shadow.png");
@@ -1051,89 +1112,15 @@ public class RenderTests extends RenderTestBase {
         LayoutLibTestCallback layoutLibCallback =
                 new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
         layoutLibCallback.initResources();
-        layoutLibCallback.setShadowQuality(false);
         SessionParams params = getSessionParamsBuilder()
                 .setParser(parser)
                 .setConfigGenerator(ConfigGenerator.NEXUS_5)
                 .setCallback(layoutLibCallback)
                 .disableDecoration()
+                .disableHighQualityShadows()
                 .build();
 
         renderAndVerify(params, "shadows_test.png");
-        // We expect fidelity warnings for Path.isConvex. Fail for anything else.
-        sRenderMessages.removeIf(message -> message.equals("Path.isConvex is not supported."));
-    }
-
-    @Test
-    public void testHighQualityRectangleShadow() throws Exception {
-        LayoutPullParser parser = createParserFromPath("shadows_test.xml");
-        LayoutLibTestCallback layoutLibCallback =
-                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
-        layoutLibCallback.initResources();
-        layoutLibCallback.setShadowQuality(true);
-        SessionParams params = getSessionParamsBuilder()
-                .setParser(parser)
-                .setConfigGenerator(ConfigGenerator.NEXUS_5)
-                .setCallback(layoutLibCallback)
-                .disableDecoration()
-                .build();
-
-        renderAndVerify(params, "shadows_test_high_quality.png");
-        // We expect fidelity warnings for Path.isConvex. Fail for anything else.
-        sRenderMessages.removeIf(message -> message.equals("Path.isConvex is not supported."));
-    }
-
-    @Test
-    public void testHighQualityRoundedEdgeRectangleShadow() throws Exception {
-        LayoutPullParser parser = createParserFromPath("shadows_rounded_edge_test.xml");
-        LayoutLibTestCallback layoutLibCallback =
-                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
-        layoutLibCallback.initResources();
-        layoutLibCallback.setShadowQuality(true);
-        SessionParams params = getSessionParamsBuilder()
-                .setParser(parser)
-                .setConfigGenerator(ConfigGenerator.NEXUS_5)
-                .setCallback(layoutLibCallback)
-                .build();
-
-        renderAndVerify(params, "shadows_test_high_quality_rounded_edge.png");
-        // We expect fidelity warnings for Path.isConvex. Fail for anything else.
-        sRenderMessages.removeIf(message -> message.equals("Path.isConvex is not supported."));
-    }
-
-    @Test
-    public void testHighQualityLargeViewShadow() throws Exception {
-        LayoutPullParser parser = createParserFromPath("large_view_shadows_test.xml");
-        LayoutLibTestCallback layoutLibCallback =
-                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
-        layoutLibCallback.initResources();
-        layoutLibCallback.setShadowQuality(true);
-        SessionParams params = getSessionParamsBuilder()
-                .setParser(parser)
-                .setConfigGenerator(ConfigGenerator.NEXUS_5)
-                .setCallback(layoutLibCallback)
-                .disableDecoration()
-                .build();
-
-        renderAndVerify(params, "large_shadows_test_high_quality.png");
-        // We expect fidelity warnings for Path.isConvex. Fail for anything else.
-        sRenderMessages.removeIf(message -> message.equals("Path.isConvex is not supported."));
-    }
-
-    @Test
-    public void testHighQualityShadowSizes() throws Exception {
-        LayoutPullParser parser = createParserFromPath("shadow_sizes_test.xml");
-        LayoutLibTestCallback layoutLibCallback =
-                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
-        layoutLibCallback.initResources();
-        layoutLibCallback.setShadowQuality(true);
-        SessionParams params = getSessionParamsBuilder()
-                .setParser(parser)
-                .setConfigGenerator(ConfigGenerator.NEXUS_5)
-                .setCallback(layoutLibCallback)
-                .build();
-
-        renderAndVerify(params, "shadow_sizes_test_high_quality.png");
         // We expect fidelity warnings for Path.isConvex. Fail for anything else.
         sRenderMessages.removeIf(message -> message.equals("Path.isConvex is not supported."));
     }
@@ -1158,7 +1145,7 @@ public class RenderTests extends RenderTestBase {
         Configuration configuration = RenderAction.getConfiguration(params);
         BridgeContext context = new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
                 params.getAssets(), params.getLayoutlibCallback(), configuration,
-                params.getTargetSdkVersion(), params.isRtlSupported());
+                params.getTargetSdkVersion(), params.isRtlSupported(), true, true);
         Resources resources = Resources_Delegate.initSystem(context, assetManager, metrics,
                 configuration, params.getLayoutlibCallback());
         Integer id =
@@ -1534,7 +1521,6 @@ public class RenderTests extends RenderTestBase {
         LayoutLibTestCallback layoutLibCallback =
                 new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
         layoutLibCallback.initResources();
-        layoutLibCallback.setUseShadow(false);
 
         LayoutPullParser parser = LayoutPullParser.createFromString(
                 "<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
@@ -1561,6 +1547,7 @@ public class RenderTests extends RenderTestBase {
                         new BufferedImage(width / 10, height / 10,
                         BufferedImage.TYPE_INT_ARGB))
                 .setFlag(RenderParamsFlags.FLAG_KEY_RESULT_IMAGE_AUTO_SCALE, true)
+                .disableShadows()
                 .build();
 
         renderAndVerify(params, "auto-scale-image.png");
@@ -1693,4 +1680,100 @@ public class RenderTests extends RenderTestBase {
                 TimeUnit.SECONDS.toNanos(2));
     }
 
+    @Test
+    public void testHighQualityShadowWidgetWithScroll() throws Exception {
+        LayoutPullParser parser = createParserFromPath("shadows_scrollview.xml");
+        LayoutLibTestCallback layoutLibCallback =
+                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+        layoutLibCallback.initResources();
+        SessionParams params = getSessionParamsBuilder()
+                .setParser(parser)
+                .setCallback(layoutLibCallback)
+                .build();
+
+        renderAndVerify(params, "shadow_scrollview_test_high_quality.png");
+        // We expect fidelity warnings for Path.isConvex. Fail for anything else.
+        sRenderMessages.removeIf(message -> message.equals("Path.isConvex is not supported."));
+        sRenderMessages.removeIf(message -> message.equals("Font$Builder.nAddAxis is not supported."));
+    }
+
+    @Test
+    public void testContentId() throws ClassNotFoundException {
+        final String layout =
+                "<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
+                        "              android:layout_width=\"match_parent\"\n" +
+                        "              android:layout_height=\"match_parent\">\n" + "\n" +
+                        "    <com.android.layoutlib.bridge.test.widgets.ContentWidget\n" +
+                        "        android:layout_width=\"match_parent\"\n" +
+                        "        android:layout_height=\"wrap_content\"/>\n" +
+                        "</FrameLayout>";
+
+        {
+            // Create the layout pull parser.
+            LayoutPullParser parser = LayoutPullParser.createFromString(layout);
+            // Create LayoutLibCallback.
+            LayoutLibTestCallback layoutLibCallback = new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+            layoutLibCallback.initResources();
+
+            SessionParams params = getSessionParamsBuilder()
+                    .setParser(parser)
+                    .setCallback(layoutLibCallback)
+                    .build();
+
+            RenderResult result = render(sBridge, params, TimeUnit.SECONDS.toNanos(2));
+            BufferedImage image = result.getImage();
+            assertNotNull(image);
+        }
+
+        {
+            // Create the layout pull parser.
+            LayoutPullParser parser = LayoutPullParser.createFromString(layout);
+            // Create LayoutLibCallback.
+            LayoutLibTestCallback layoutLibCallback = new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+            layoutLibCallback.initResources();
+
+            SessionParams params = getSessionParamsBuilder()
+                    .setParser(parser)
+                    .setCallback(layoutLibCallback)
+                    .disableDecoration()
+                    .build();
+
+            RenderResult result = render(sBridge, params, TimeUnit.SECONDS.toNanos(2));
+            BufferedImage image = result.getImage();
+            assertNotNull(image);
+        }
+    }
+
+    /**
+     * Tests that the TextClock widget renders without error
+     * <p/>
+     * http://b/150151293
+     */
+    @Test
+    public void testTextClock() throws ClassNotFoundException {
+        String layout =
+                "<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
+                        "              android:padding=\"16dp\"\n" +
+                        "              android:orientation=\"horizontal\"\n" +
+                        "              android:layout_width=\"fill_parent\"\n" +
+                        "              android:layout_height=\"fill_parent\">\n" +
+                        "    <TextClock\n" +
+                        "             android:layout_height=\"wrap_content\"\n" +
+                        "             android:layout_width=\"wrap_content\"\n" +
+                        "             android:text=\"12:34\"" +
+                        "             android:textSize=\"18sp\" />\n" +
+                        "</LinearLayout>\n";
+        LayoutPullParser parser = LayoutPullParser.createFromString(layout);
+        // Create LayoutLibCallback.
+        LayoutLibTestCallback layoutLibCallback =
+                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+        layoutLibCallback.initResources();
+        SessionParams params = getSessionParamsBuilder()
+                .setParser(parser)
+                .setCallback(layoutLibCallback)
+                .disableDecoration()
+                .build();
+
+        renderAndVerify(params, "textclock.png");
+    }
 }

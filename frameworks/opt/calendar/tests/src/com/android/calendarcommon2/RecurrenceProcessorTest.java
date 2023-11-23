@@ -2534,4 +2534,30 @@ public class RecurrenceProcessorTest extends TestCase {
         Log.i(TAG, "date: " + date.format2445());
         Log.i(TAG, "testPerformanceNormalize() unsafeNormalize() elapsed millis: " + elapsed);
     }
+
+    @SmallTest
+    public void testYearDay() {
+        assertEquals(181, RecurrenceProcessor.yearDay(2019, 6, 1));
+
+        /* compare day of year in non leap year (2019) to leap year (2020). */
+
+        // january 1
+        assertEquals(0, RecurrenceProcessor.yearDay(2019, 0, 1));
+        assertEquals(0, RecurrenceProcessor.yearDay(2020, 0, 1));
+
+        // february 28
+        assertEquals(58, RecurrenceProcessor.yearDay(2019, 1, 28));
+        assertEquals(58, RecurrenceProcessor.yearDay(2020, 1, 28));
+
+        // february 29
+        assertEquals(59, RecurrenceProcessor.yearDay(2020, 1, 29));
+
+        // march 1
+        assertEquals(59, RecurrenceProcessor.yearDay(2019, 2, 1));
+        assertEquals(60, RecurrenceProcessor.yearDay(2020, 2, 1));
+
+        // december 31
+        assertEquals(364, RecurrenceProcessor.yearDay(2019, 11, 31));
+        assertEquals(365, RecurrenceProcessor.yearDay(2020, 11, 31));
+    }
  }

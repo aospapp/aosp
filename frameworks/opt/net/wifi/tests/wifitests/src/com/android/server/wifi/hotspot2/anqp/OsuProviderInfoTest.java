@@ -21,6 +21,8 @@ import static org.junit.Assert.assertNotNull;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -34,7 +36,7 @@ import java.util.Locale;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.OsuProviderInfo}.
  */
 @SmallTest
-public class OsuProviderInfoTest {
+public class OsuProviderInfoTest extends WifiBaseTest {
     /**
      * Verify that BufferUnderflowException will be thrown when parsing an empty buffer.
      * @throws Exception

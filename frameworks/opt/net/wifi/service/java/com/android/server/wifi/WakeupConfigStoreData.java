@@ -16,10 +16,12 @@
 
 package com.android.server.wifi;
 
+import android.annotation.Nullable;
 import android.util.ArraySet;
 import android.util.Log;
 
 import com.android.server.wifi.WifiConfigStore.StoreData;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtil;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -94,7 +96,8 @@ public class WakeupConfigStoreData implements StoreData {
     }
 
     @Override
-    public void serializeData(XmlSerializer out)
+    public void serializeData(XmlSerializer out,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         writeFeatureState(out);
 
@@ -141,7 +144,9 @@ public class WakeupConfigStoreData implements StoreData {
     }
 
     @Override
-    public void deserializeData(XmlPullParser in, int outerTagDepth)
+    public void deserializeData(XmlPullParser in, int outerTagDepth,
+            @WifiConfigStore.Version int version,
+            @Nullable WifiConfigStoreEncryptionUtil encryptionUtil)
             throws XmlPullParserException, IOException {
         if (!mHasBeenRead) {
             Log.d(TAG, "WifiWake user data has been read");
@@ -200,7 +205,8 @@ public class WakeupConfigStoreData implements StoreData {
                     notificationsShown = (Integer) value;
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value found: " + valueName[0]);
+                    Log.w(TAG, "Unknown value found: " + valueName[0]);
+                    break;
             }
         }
 
@@ -235,8 +241,8 @@ public class WakeupConfigStoreData implements StoreData {
                     scanResultMatchInfo.networkType = (int) value;
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown tag under " + TAG + ": "
-                            + valueName[0]);
+                    Log.w(TAG, "Ignoring unknown tag under " + TAG + ": " + valueName[0]);
+                    break;
             }
         }
 

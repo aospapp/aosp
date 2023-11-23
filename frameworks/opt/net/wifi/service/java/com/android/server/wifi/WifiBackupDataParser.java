@@ -42,4 +42,11 @@ interface WifiBackupDataParser {
      */
     List<WifiConfiguration> parseNetworkConfigurationsFromXml(XmlPullParser in, int outerTagDepth,
             int minorVersion) throws XmlPullParserException, IOException;
+
+    /**
+     * Get the highest supported minor version for this major version.
+     * This is used for generating the version code when serializing the data.
+     * @return Indicating the max supported minor version by this major version parser.
+     */
+    int getHighestSupportedMinorVersion();
 }

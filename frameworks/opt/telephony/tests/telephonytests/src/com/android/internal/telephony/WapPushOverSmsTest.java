@@ -45,7 +45,7 @@ import org.mockito.Mock;
 
 public class WapPushOverSmsTest extends TelephonyTest {
     @Mock
-    protected IMms.Stub mIMmsStub;
+    protected ISms.Stub mISmsStub;
 
     private WapPushOverSms mWapPushOverSmsUT;
 
@@ -55,8 +55,8 @@ public class WapPushOverSmsTest extends TelephonyTest {
 
         // Note that this replaces only cached services in ServiceManager. If a service is not found
         // in the cache, a real instance is used.
-        mServiceManagerMockedServices.put("imms", mIMmsStub);
-        doReturn(mIMmsStub).when(mIMmsStub).queryLocalInterface(anyString());
+        mServiceManagerMockedServices.put("isms", mISmsStub);
+        doReturn(mISmsStub).when(mISmsStub).queryLocalInterface(anyString());
 
         mWapPushOverSmsUT = new WapPushOverSms(mContext);
     }
@@ -84,20 +84,23 @@ public class WapPushOverSmsTest extends TelephonyTest {
                 (byte) 0xFF
         };
 
-        mWapPushOverSmsUT.dispatchWapPdu(pdu, null, mInboundSmsHandler, "123456");
+        long messageId = 9989L;
+        mWapPushOverSmsUT.dispatchWapPdu(pdu, null, mInboundSmsHandler, "123456", 0, messageId);
 
         ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
         verify(mInboundSmsHandler).dispatchIntent(intentArgumentCaptor.capture(),
                 eq(android.Manifest.permission.RECEIVE_WAP_PUSH),
-                eq(AppOpsManager.OP_RECEIVE_WAP_PUSH),
+                eq(AppOpsManager.OPSTR_RECEIVE_WAP_PUSH),
                 nullable(Bundle.class),
                 isNull(BroadcastReceiver.class),
-                eq(UserHandle.SYSTEM));
+                eq(UserHandle.SYSTEM),
+                anyInt());
         Intent intent = intentArgumentCaptor.getValue();
         assertEquals(Telephony.Sms.Intents.WAP_PUSH_DELIVER_ACTION, intent.getAction());
         assertEquals(0xFF, intent.getIntExtra("transactionId", 0));
         assertEquals(0x06, intent.getIntExtra("pduType", 0));
         assertEquals("123456", intent.getStringExtra("address"));
+        assertEquals(messageId, intent.getLongExtra("messageId", 0L));
 
         byte[] header = intent.getByteArrayExtra("header");
         assertEquals(2, header.length);
@@ -117,7 +120,7 @@ public class WapPushOverSmsTest extends TelephonyTest {
 
     @Test @SmallTest
     public void testDispatchWapPduFromBlockedNumber_noIntentsDispatched() throws Exception {
-        when(mIMmsStub.getCarrierConfigValues(anyInt())).thenReturn(new Bundle());
+        when(mISmsStub.getCarrierConfigValuesForSubscriber(anyInt())).thenReturn(new Bundle());
 
         mFakeBlockedNumberContentProvider.mBlockedNumbers.add("16178269168");
 
@@ -138,13 +141,14 @@ public class WapPushOverSmsTest extends TelephonyTest {
                 111, 109, 47, 115, 97, 100, 102, 100, 100, 0};
 
         assertEquals(Telephony.Sms.Intents.RESULT_SMS_HANDLED,
-                mWapPushOverSmsUT.dispatchWapPdu(pdu, null, mInboundSmsHandler));
+                mWapPushOverSmsUT.dispatchWapPdu(pdu, null, mInboundSmsHandler, null, 0, 0L));
         verify(mInboundSmsHandler, never()).dispatchIntent(
                 any(Intent.class),
                 any(String.class),
-                anyInt(),
+                any(String.class),
                 any(Bundle.class),
                 any(BroadcastReceiver.class),
-                any(UserHandle.class));
+                any(UserHandle.class),
+                anyInt());
     }
 }

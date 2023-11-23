@@ -40,7 +40,7 @@ example = Example({
          11, 3, 7.4, 10.9,
          11, 3, 7.8, 11.5,
          11, 3, 8.0, 11.8]
-}).AddNchw(i1, o1, layout).AddInput(f1, b1).AddVariations("relaxed", "float16", quant8)
+}).AddNchw(i1, o1, layout).AddVariations("relaxed", "float16", quant8)
 
 
 # TEST 2: dilation set to 2
@@ -68,7 +68,7 @@ example = Example({
          0, 0, 11, 12,
          5, 6, 0, 0,
          0, 0, 3, 4]
-}).AddNchw(i2, o2, layout).AddInput(f2, b2)
+}).AddNchw(i2, o2, layout)
 
 
 # TEST 3: same as test 1 but with implicit padding
@@ -95,7 +95,7 @@ example = Example({
          11, 3, 7.4, 10.9,
          11, 3, 7.8, 11.5,
          11, 3, 8.0, 11.8]
-}, name="valid_padding").AddNchw(i1, o1, layout).AddInput(f1, b1).AddVariations("relaxed", "float16", quant8)
+}, name="valid_padding").AddNchw(i1, o1, layout).AddVariations("relaxed", "float16", quant8)
 
 
 # TEST 4: same as test 2 but with implicit padding
@@ -123,7 +123,7 @@ example = Example({
          0, 0, 11, 12,
          5, 6, 0, 0,
          0, 0, 3, 4]
-}, name="valid_padding").AddNchw(i2, o2, layout).AddInput(f2, b2)
+}, name="valid_padding").AddNchw(i2, o2, layout)
 
 # TEST 5: dilation set to 3, padding SAME, stride 2
 i2 = Input("op1", "TENSOR_FLOAT32", "{1, 6, 6, 1}")
@@ -151,4 +151,24 @@ example = Example({
     o2: [4, 0, 3,
          0, 0, 0,
          2, 0, 1]
-}, name="same_padding_stride_2").AddNchw(i2, o2, layout).AddInput(f2, b2).AddVariations("relaxed", quant8, "float16")
+}, name="same_padding_stride_2").AddNchw(i2, o2, layout).AddVariations("relaxed", quant8, "float16")
+
+# The tests below can comply with a lower version because the runtime removes
+# optional arguments set to default values.
+Example.SetVersion("V1_0",
+                   "depthwise_conv2d_dilation_nhwc",
+                   "depthwise_conv2d_dilation_nhwc_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_nhwc_all_tensors_as_inputs",
+                   "depthwise_conv2d_dilation_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_nhwc_quant8",
+                   "depthwise_conv2d_dilation_nhwc_quant8_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_nhwc_quant8_all_tensors_as_inputs",
+                   "depthwise_conv2d_dilation_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_all_tensors_as_inputs",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_all_tensors_as_inputs_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_quant8",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_quant8_all_inputs_as_internal",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_quant8_all_tensors_as_inputs",
+                   "depthwise_conv2d_dilation_valid_padding_nhwc_quant8_all_tensors_as_inputs_all_inputs_as_internal")

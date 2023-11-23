@@ -60,7 +60,6 @@ output_state_out = IgnoredOutput("output_state_out", "TENSOR_FLOAT32", "{%d, %d}
 cell_state_out = IgnoredOutput("cell_state_out", "TENSOR_FLOAT32", "{%d, %d}" % (n_batch, n_cell))
 output = Output("output", "TENSOR_FLOAT32", "{%d, %d}" % (n_batch, n_output))
 
-# TODO: need support for more than one output
 model = model.Operation("LSTM",
                         input,
 

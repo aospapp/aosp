@@ -32,7 +32,7 @@ import java.nio.charset.StandardCharsets;
  * Unit tests for {@link com.android.server.wifi.ByteBufferReader}.
  */
 @SmallTest
-public class ByteBufferReaderTest {
+public class ByteBufferReaderTest extends WifiBaseTest {
     /**
      * Verify that BufferUnderflowException will be thrown when reading an integer from a buffer
      * that contained less data than needed.

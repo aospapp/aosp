@@ -29,6 +29,7 @@ FLAG_GREYLIST = "greylist"
 FLAG_BLACKLIST = "blacklist"
 FLAG_GREYLIST_MAX_O = "greylist-max-o"
 FLAG_GREYLIST_MAX_P = "greylist-max-p"
+FLAG_GREYLIST_MAX_Q = "greylist-max-q"
 FLAG_CORE_PLATFORM_API = "core-platform-api"
 FLAG_PUBLIC_API = "public-api"
 FLAG_SYSTEM_API = "system-api"
@@ -41,6 +42,7 @@ FLAGS_API_LIST = [
     FLAG_BLACKLIST,
     FLAG_GREYLIST_MAX_O,
     FLAG_GREYLIST_MAX_P,
+    FLAG_GREYLIST_MAX_Q,
 ]
 ALL_FLAGS = FLAGS_API_LIST + [
     FLAG_CORE_PLATFORM_API,
@@ -147,7 +149,12 @@ def extract_package(signature):
         The package name of the class containing the field/method.
     """
     full_class_name = signature.split(";->")[0]
-    package_name = full_class_name[1:full_class_name.rindex("/")]
+    # Example: Landroid/hardware/radio/V1_2/IRadio$Proxy
+    if (full_class_name[0] != "L"):
+        raise ValueError("Expected to start with 'L': %s" % full_class_name)
+    full_class_name = full_class_name[1:]
+    # If full_class_name doesn't contain '/', then package_name will be ''.
+    package_name = full_class_name.rpartition("/")[0]
     return package_name.replace('/', '.')
 
 class FlagsDict:
@@ -239,8 +246,6 @@ class FlagsDict:
             flags = csv[1:]
             if (FLAG_PUBLIC_API in flags) or (FLAG_SYSTEM_API in flags):
                 flags.append(FLAG_WHITELIST)
-            elif FLAG_TEST_API in flags:
-                flags.append(FLAG_GREYLIST)
             self._dict[csv[0]].update(flags)
 
     def assign_flag(self, flag, apis, source="<unknown>"):

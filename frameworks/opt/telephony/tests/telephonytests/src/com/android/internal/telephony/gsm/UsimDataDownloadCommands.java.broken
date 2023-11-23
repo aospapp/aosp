@@ -20,7 +20,7 @@ import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Message;
 import android.os.SystemClock;
-import android.telephony.Rlog;
+import com.android.telephony.Rlog;
 
 import com.android.internal.telephony.BaseCommands;
 import com.android.internal.telephony.UUSInfo;
@@ -381,7 +381,7 @@ class UsimDataDownloadCommands extends BaseCommands {
     }
 
     @Override
-    public void writeSmsToRuim(int status, String pdu, Message response) {
+    public void writeSmsToRuim(int status, byte[] pdu, Message response) {
     }
 
     @Override

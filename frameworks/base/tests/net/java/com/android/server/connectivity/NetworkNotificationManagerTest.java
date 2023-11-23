@@ -20,6 +20,7 @@ import static com.android.server.connectivity.NetworkNotificationManager.Notific
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -40,6 +41,7 @@ import android.telephony.TelephonyManager;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.internal.R;
 import com.android.server.connectivity.NetworkNotificationManager.NotificationType;
 
 import org.junit.Before;
@@ -60,12 +62,19 @@ public class NetworkNotificationManagerTest {
 
     static final NetworkCapabilities CELL_CAPABILITIES = new NetworkCapabilities();
     static final NetworkCapabilities WIFI_CAPABILITIES = new NetworkCapabilities();
+    static final NetworkCapabilities VPN_CAPABILITIES = new NetworkCapabilities();
     static {
         CELL_CAPABILITIES.addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
         CELL_CAPABILITIES.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
 
         WIFI_CAPABILITIES.addTransportType(NetworkCapabilities.TRANSPORT_WIFI);
         WIFI_CAPABILITIES.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+
+        // Set the underyling network to wifi.
+        VPN_CAPABILITIES.addTransportType(NetworkCapabilities.TRANSPORT_WIFI);
+        VPN_CAPABILITIES.addTransportType(NetworkCapabilities.TRANSPORT_VPN);
+        VPN_CAPABILITIES.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        VPN_CAPABILITIES.removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN);
     }
 
     @Mock Context mCtx;
@@ -75,6 +84,7 @@ public class NetworkNotificationManagerTest {
     @Mock NotificationManager mNotificationManager;
     @Mock NetworkAgentInfo mWifiNai;
     @Mock NetworkAgentInfo mCellNai;
+    @Mock NetworkAgentInfo mVpnNai;
     @Mock NetworkInfo mNetworkInfo;
     ArgumentCaptor<Notification> mCaptor;
 
@@ -88,6 +98,9 @@ public class NetworkNotificationManagerTest {
         mWifiNai.networkInfo = mNetworkInfo;
         mCellNai.networkCapabilities = CELL_CAPABILITIES;
         mCellNai.networkInfo = mNetworkInfo;
+        mVpnNai.networkCapabilities = VPN_CAPABILITIES;
+        mVpnNai.networkInfo = mNetworkInfo;
+        doReturn(true).when(mVpnNai).isVPN();
         when(mCtx.getResources()).thenReturn(mResources);
         when(mCtx.getPackageManager()).thenReturn(mPm);
         when(mCtx.getApplicationInfo()).thenReturn(new ApplicationInfo());
@@ -95,6 +108,35 @@ public class NetworkNotificationManagerTest {
         when(mResources.getColor(anyInt(), any())).thenReturn(0xFF607D8B);
 
         mManager = new NetworkNotificationManager(mCtx, mTelephonyManager, mNotificationManager);
+    }
+
+    private void verifyTitleByNetwork(final int id, final NetworkAgentInfo nai, final int title) {
+        final String tag = NetworkNotificationManager.tagFor(id);
+        mManager.showNotification(id, PRIVATE_DNS_BROKEN, nai, null, null, true);
+        verify(mNotificationManager, times(1))
+                .notifyAsUser(eq(tag), eq(PRIVATE_DNS_BROKEN.eventId), any(), any());
+        final int transportType = NetworkNotificationManager.approximateTransportType(nai);
+        if (transportType == NetworkCapabilities.TRANSPORT_WIFI) {
+            verify(mResources, times(1)).getString(title, eq(any()));
+        } else {
+            verify(mResources, times(1)).getString(title);
+        }
+        verify(mResources, times(1)).getString(R.string.private_dns_broken_detailed);
+    }
+
+    @Test
+    public void testTitleOfPrivateDnsBroken() {
+        // Test the title of mobile data.
+        verifyTitleByNetwork(100, mCellNai, R.string.mobile_no_internet);
+        reset(mResources);
+
+        // Test the title of wifi.
+        verifyTitleByNetwork(101, mWifiNai, R.string.wifi_no_internet);
+        reset(mResources);
+
+        // Test the title of other networks.
+        verifyTitleByNetwork(102, mVpnNai, R.string.other_networks_no_internet);
+        reset(mResources);
     }
 
     @Test
@@ -196,20 +238,6 @@ public class NetworkNotificationManagerTest {
     }
 
     @Test
-    public void testSameLevelNotifications() {
-        final int id = 101;
-        final String tag = NetworkNotificationManager.tagFor(id);
-
-        mManager.showNotification(id, LOGGED_IN, mWifiNai, mCellNai, null, false);
-        verify(mNotificationManager, times(1))
-                .notifyAsUser(eq(tag), eq(LOGGED_IN.eventId), any(), any());
-
-        mManager.showNotification(id, LOST_INTERNET, mWifiNai, mCellNai, null, false);
-        verify(mNotificationManager, times(1))
-                .notifyAsUser(eq(tag), eq(LOST_INTERNET.eventId), any(), any());
-    }
-
-    @Test
     public void testClearNotificationByType() {
         final int id = 101;
         final String tag = NetworkNotificationManager.tagFor(id);
@@ -217,31 +245,25 @@ public class NetworkNotificationManagerTest {
         // clearNotification(int id, NotificationType notifyType) will check if given type is equal
         // to previous type or not. If they are equal then clear the notification; if they are not
         // equal then return.
-
-        mManager.showNotification(id, LOGGED_IN, mWifiNai, mCellNai, null, false);
+        mManager.showNotification(id, NO_INTERNET, mWifiNai, mCellNai, null, false);
         verify(mNotificationManager, times(1))
-                .notifyAsUser(eq(tag), eq(LOGGED_IN.eventId), any(), any());
+                .notifyAsUser(eq(tag), eq(NO_INTERNET.eventId), any(), any());
 
-        // Previous notification is LOGGED_IN and given type is LOGGED_IN too. The notification
+        // Previous notification is NO_INTERNET and given type is NO_INTERNET too. The notification
         // should be cleared.
-        mManager.clearNotification(id, LOGGED_IN);
+        mManager.clearNotification(id, NO_INTERNET);
         verify(mNotificationManager, times(1))
-                .cancelAsUser(eq(tag), eq(LOGGED_IN.eventId), any());
+                .cancelAsUser(eq(tag), eq(NO_INTERNET.eventId), any());
 
-        mManager.showNotification(id, LOGGED_IN, mWifiNai, mCellNai, null, false);
-        verify(mNotificationManager, times(2))
-                .notifyAsUser(eq(tag), eq(LOGGED_IN.eventId), any(), any());
-
-        // LOST_INTERNET notification popup after LOGGED_IN notification.
-        mManager.showNotification(id, LOST_INTERNET, mWifiNai, mCellNai, null, false);
+        // SIGN_IN is popped-up.
+        mManager.showNotification(id, SIGN_IN, mWifiNai, mCellNai, null, false);
         verify(mNotificationManager, times(1))
-                .notifyAsUser(eq(tag), eq(LOST_INTERNET.eventId), any(), any());
+                .notifyAsUser(eq(tag), eq(SIGN_IN.eventId), any(), any());
 
-        // Previous notification is LOST_INTERNET and given type is LOGGED_IN. The notification
-        // shouldn't be cleared.
-        mManager.clearNotification(id, LOGGED_IN);
-        // LOST_INTERNET shouldn't be cleared.
+        // The notification type is not matching previous one, PARTIAL_CONNECTIVITY won't be
+        // cleared.
+        mManager.clearNotification(id, PARTIAL_CONNECTIVITY);
         verify(mNotificationManager, never())
-                .cancelAsUser(eq(tag), eq(LOST_INTERNET.eventId), any());
+                .cancelAsUser(eq(tag), eq(PARTIAL_CONNECTIVITY.eventId), any());
     }
 }

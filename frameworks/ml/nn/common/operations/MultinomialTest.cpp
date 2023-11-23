@@ -18,12 +18,12 @@
 
 #include "HalInterfaces.h"
 #include "NeuralNetworksWrapper.h"
-#include "gmock/gmock-matchers.h"
-#include "gtest/gtest.h"
 #include "philox_random.h"
 #include "simple_philox.h"
 
-#include "unsupported/Eigen/CXX11/Tensor"
+#include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
+#include <unsupported/Eigen/CXX11/Tensor>
 
 namespace android {
 namespace nn {

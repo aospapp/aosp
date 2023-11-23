@@ -26,7 +26,7 @@
         <option name="binary-test-working-directory" value="_64bit::/data/nativetest64/" />
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalCameraServiceV2_0TargetTest/VtsHalCameraServiceV2_0TargetTest" />
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalCameraServiceV2_0TargetTest/VtsHalCameraServiceV2_0TargetTest" />
-        <option name="binary-test-type" value="hal_hidl_gtest"/>
+        <option name="binary-test-type" value="gtest"/>
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

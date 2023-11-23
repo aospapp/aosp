@@ -46,6 +46,7 @@ import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.DevicePolicyManagerInternal;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -463,7 +464,7 @@ public class AccountManagerService
             Log.v(TAG, "addAccountExplicitly: " + account + ", caller's uid " + callingUid
                     + ", pid " + Binder.getCallingPid());
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format("uid %s cannot explicitly add accounts of type: %s",
                     callingUid, account.type);
@@ -544,7 +545,7 @@ public class AccountManagerService
 
     @Override
     public Map<String, Integer> getPackagesAndVisibilityForAccount(Account account) {
-        Preconditions.checkNotNull(account, "account cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
         int callingUid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)
@@ -590,8 +591,8 @@ public class AccountManagerService
 
     @Override
     public int getAccountVisibility(Account account, String packageName) {
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(packageName, "packageName cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(packageName, "packageName cannot be null");
         int callingUid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)
@@ -659,7 +660,7 @@ public class AccountManagerService
      */
     private Integer resolveAccountVisibility(Account account, @NonNull String packageName,
             UserAccounts accounts) {
-        Preconditions.checkNotNull(packageName, "packageName cannot be null");
+        Objects.requireNonNull(packageName, "packageName cannot be null");
         int uid = -1;
         try {
             long identityToken = clearCallingIdentity();
@@ -755,8 +756,8 @@ public class AccountManagerService
 
     @Override
     public boolean setAccountVisibility(Account account, String packageName, int newVisibility) {
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(packageName, "packageName cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(packageName, "packageName cannot be null");
         int callingUid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)
@@ -1289,6 +1290,33 @@ public class AccountManagerService
     }
 
     protected UserAccounts getUserAccounts(int userId) {
+        try {
+            return getUserAccountsNotChecked(userId);
+        } catch (RuntimeException e) {
+            if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+                // Let it go...
+                throw e;
+            }
+            // User accounts database is corrupted, we must wipe out the whole user, otherwise the
+            // system will crash indefinitely
+            Slog.wtf(TAG, "Removing user " + userId + " due to exception (" + e + ") reading its "
+                    + "account database");
+            if (userId == ActivityManager.getCurrentUser() && userId != UserHandle.USER_SYSTEM) {
+                Slog.i(TAG, "Switching to system user first");
+                try {
+                    ActivityManager.getService().switchUser(UserHandle.USER_SYSTEM);
+                } catch (RemoteException re) {
+                    Slog.e(TAG, "Could not switch to " + UserHandle.USER_SYSTEM + ": " + re);
+                }
+            }
+            if (!getUserManager().removeUserEvenWhenDisallowed(userId)) {
+                Slog.e(TAG, "could not remove user " + userId);
+            }
+            throw e;
+        }
+    }
+
+    private UserAccounts getUserAccountsNotChecked(int userId) {
         synchronized (mUsers) {
             UserAccounts accounts = mUsers.get(userId);
             boolean validateAccounts = false;
@@ -1440,6 +1468,11 @@ public class AccountManagerService
 
     @Override
     public void onServiceChanged(AuthenticatorDescription desc, int userId, boolean removed) {
+        UserInfo user = getUserManager().getUserInfo(userId);
+        if (user == null) {
+            Log.w(TAG, "onServiceChanged: ignore removed user " + userId);
+            return;
+        }
         validateAccountsInternal(getUserAccounts(userId), false /* invalidateAuthenticatorCache */);
     }
 
@@ -1493,7 +1526,7 @@ public class AccountManagerService
                     + ", caller's uid " + Binder.getCallingUid()
                     + ", pid " + Binder.getCallingPid());
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
         int userId = UserHandle.getCallingUserId();
         long identityToken = clearCallingIdentity();
         try {
@@ -1531,8 +1564,8 @@ public class AccountManagerService
                     account, key, callingUid, Binder.getCallingPid());
             Log.v(TAG, msg);
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(key, "key cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(key, "key cannot be null");
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format(
@@ -1683,7 +1716,7 @@ public class AccountManagerService
                     callingUid);
             Log.v(TAG, msg);
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format(
@@ -2097,16 +2130,6 @@ public class AccountManagerService
     }
 
     @Override
-    public void removeAccount(IAccountManagerResponse response, Account account,
-            boolean expectActivityLaunch) {
-        removeAccountAsUser(
-                response,
-                account,
-                expectActivityLaunch,
-                UserHandle.getCallingUserId());
-    }
-
-    @Override
     public void removeAccountAsUser(IAccountManagerResponse response, Account account,
             boolean expectActivityLaunch, int userId) {
         final int callingUid = Binder.getCallingUid();
@@ -2369,8 +2392,8 @@ public class AccountManagerService
     @Override
     public void invalidateAuthToken(String accountType, String authToken) {
         int callerUid = Binder.getCallingUid();
-        Preconditions.checkNotNull(accountType, "accountType cannot be null");
-        Preconditions.checkNotNull(authToken, "authToken cannot be null");
+        Objects.requireNonNull(accountType, "accountType cannot be null");
+        Objects.requireNonNull(authToken, "authToken cannot be null");
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "invalidateAuthToken: accountType " + accountType
                     + ", caller's uid " + callerUid
@@ -2486,8 +2509,8 @@ public class AccountManagerService
                     + ", caller's uid " + callingUid
                     + ", pid " + Binder.getCallingPid());
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(authTokenType, "authTokenType cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(authTokenType, "authTokenType cannot be null");
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format(
@@ -2519,8 +2542,8 @@ public class AccountManagerService
                     + ", caller's uid " + callingUid
                     + ", pid " + Binder.getCallingPid());
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(authTokenType, "authTokenType cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(authTokenType, "authTokenType cannot be null");
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format(
@@ -2546,7 +2569,7 @@ public class AccountManagerService
                     + ", caller's uid " + callingUid
                     + ", pid " + Binder.getCallingPid());
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format(
@@ -2612,7 +2635,7 @@ public class AccountManagerService
                     + ", caller's uid " + callingUid
                     + ", pid " + Binder.getCallingPid());
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
         int userId = UserHandle.getCallingUserId();
         if (!isAccountManagedByCaller(account.type, callingUid, userId)) {
             String msg = String.format(
@@ -3243,7 +3266,7 @@ public class AccountManagerService
             UserAccounts accounts = getUserAccounts(userId);
             logRecordWithUid(
                     accounts, AccountsDb.DEBUG_ACTION_CALLED_ACCOUNT_ADD, AccountsDb.TABLE_ACCOUNTS,
-                    userId);
+                    uid);
             new Session(accounts, response, accountType, expectActivityLaunch,
                     true /* stripAuthTokenFromResult */, null /* accountName */,
                     false /* authDetailsRequired */, true /* updateLastAuthenticationTime */) {
@@ -3914,9 +3937,9 @@ public class AccountManagerService
         if (UserHandle.getAppId(Binder.getCallingUid()) != Process.SYSTEM_UID) {
             throw new SecurityException("Can be called only by system UID");
         }
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(packageName, "packageName cannot be null");
-        Preconditions.checkNotNull(userHandle, "userHandle cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(packageName, "packageName cannot be null");
+        Objects.requireNonNull(userHandle, "userHandle cannot be null");
 
         final int userId = userHandle.getIdentifier();
 
@@ -3990,9 +4013,9 @@ public class AccountManagerService
             throw new SecurityException("Can be called only by system UID");
         }
 
-        Preconditions.checkNotNull(account, "account cannot be null");
-        Preconditions.checkNotNull(packageName, "packageName cannot be null");
-        Preconditions.checkNotNull(userHandle, "userHandle cannot be null");
+        Objects.requireNonNull(account, "account cannot be null");
+        Objects.requireNonNull(packageName, "packageName cannot be null");
+        Objects.requireNonNull(userHandle, "userHandle cannot be null");
 
         final int userId = userHandle.getIdentifier();
 
@@ -4377,7 +4400,6 @@ public class AccountManagerService
         return true;
     }
 
-    @Override
     public boolean renameSharedAccountAsUser(Account account, String newName, int userId) {
         userId = handleIncomingUser(userId);
         UserAccounts accounts = getUserAccounts(userId);
@@ -4393,7 +4415,6 @@ public class AccountManagerService
         return r > 0;
     }
 
-    @Override
     public boolean removeSharedAccountAsUser(Account account, int userId) {
         return removeSharedAccountAsUser(account, userId, getCallingUid());
     }
@@ -4411,7 +4432,6 @@ public class AccountManagerService
         return deleted;
     }
 
-    @Override
     public Account[] getSharedAccountsAsUser(int userId) {
         userId = handleIncomingUser(userId);
         UserAccounts accounts = getUserAccounts(userId);
@@ -4421,12 +4441,6 @@ public class AccountManagerService
             accountList.toArray(accountArray);
             return accountArray;
         }
-    }
-
-    @Override
-    @NonNull
-    public Account[] getAccounts(String type, String opPackageName) {
-        return getAccountsAsUser(type, UserHandle.getCallingUserId(), opPackageName);
     }
 
     @Override
@@ -4744,6 +4758,11 @@ public class AccountManagerService
          * supplied entries in the system Settings app.
          */
          protected boolean checkKeyIntent(int authUid, Intent intent) {
+            // Explicitly set an empty ClipData to ensure that we don't offer to
+            // promote any Uris contained inside for granting purposes
+            if (intent.getClipData() == null) {
+                intent.setClipData(ClipData.newPlainText(null, null));
+            }
             intent.setFlags(intent.getFlags() & ~(Intent.FLAG_GRANT_READ_URI_PERMISSION
                     | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                     | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
@@ -5310,7 +5329,8 @@ public class AccountManagerService
         long identityToken = clearCallingIdentity();
         try {
             INotificationManager service = mInjector.getNotificationManager();
-            service.cancelNotificationWithTag(packageName, id.mTag, id.mId, user.getIdentifier());
+            service.cancelNotificationWithTag(
+                    packageName, "android", id.mTag, id.mId, user.getIdentifier());
         } catch (RemoteException e) {
             /* ignore - local call */
         } finally {

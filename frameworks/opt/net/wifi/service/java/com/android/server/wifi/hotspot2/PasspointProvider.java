@@ -16,6 +16,8 @@
 
 package com.android.server.wifi.hotspot2;
 
+import static android.net.wifi.WifiConfiguration.MeteredOverride;
+
 import android.annotation.Nullable;
 import android.net.wifi.EAPConstants;
 import android.net.wifi.WifiConfiguration;
@@ -25,13 +27,14 @@ import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.Credential.SimCredential;
 import android.net.wifi.hotspot2.pps.Credential.UserCredential;
 import android.net.wifi.hotspot2.pps.HomeSp;
-import android.security.Credentials;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Pair;
 
 import com.android.server.wifi.IMSIParameter;
-import com.android.server.wifi.SIMAccessor;
+import com.android.server.wifi.WifiCarrierInfoManager;
 import com.android.server.wifi.WifiKeyStore;
 import com.android.server.wifi.hotspot2.anqp.ANQPElement;
 import com.android.server.wifi.hotspot2.anqp.Constants.ANQPElementType;
@@ -41,11 +44,14 @@ import com.android.server.wifi.hotspot2.anqp.RoamingConsortiumElement;
 import com.android.server.wifi.hotspot2.anqp.ThreeGPPNetworkElement;
 import com.android.server.wifi.hotspot2.anqp.eap.AuthParam;
 import com.android.server.wifi.hotspot2.anqp.eap.NonEAPInnerAuth;
+import com.android.server.wifi.util.ArrayUtils;
 import com.android.server.wifi.util.InformationElementUtil.RoamingConsortium;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -69,6 +75,8 @@ public class PasspointProvider {
     private static final String ALIAS_HS_TYPE = "HS2_";
     private static final String ALIAS_ALIAS_REMEDIATION_TYPE = "REMEDIATION_";
 
+    private static final String SYSTEM_CA_STORE_PATH = "/system/etc/security/cacerts";
+
     private final PasspointConfiguration mConfig;
     private final WifiKeyStore mKeyStore;
 
@@ -79,8 +87,7 @@ public class PasspointProvider {
      * This will be consistent with the usage of the term "alias" in {@link WifiEnterpriseConfig}.
      */
     private List<String> mCaCertificateAliases;
-    private String mClientPrivateKeyAlias;
-    private String mClientCertificateAlias;
+    private String mClientPrivateKeyAndCertificateAlias;
     private String mRemediationCaCertificateAlias;
 
     private final long mProviderId;
@@ -88,31 +95,29 @@ public class PasspointProvider {
     private final String mPackageName;
 
     private final IMSIParameter mImsiParameter;
-    private final List<String> mMatchingSIMImsiList;
 
     private final int mEAPMethodID;
     private final AuthParam mAuthParam;
+    private final WifiCarrierInfoManager mWifiCarrierInfoManager;
 
+    private int mBestGuessCarrierId = TelephonyManager.UNKNOWN_CARRIER_ID;
     private boolean mHasEverConnected;
     private boolean mIsShared;
-
-    /**
-     * This is a flag to indicate if the Provider is created temporarily.
-     * Thus, it is not saved permanently unlike normal Passpoint profile.
-     */
-    private boolean mIsEphemeral = false;
+    private boolean mIsFromSuggestion;
+    private boolean mIsTrusted;
+    private boolean mVerboseLoggingEnabled;
 
     public PasspointProvider(PasspointConfiguration config, WifiKeyStore keyStore,
-            SIMAccessor simAccessor, long providerId, int creatorUid, String packageName) {
-        this(config, keyStore, simAccessor, providerId, creatorUid, packageName, null, null, null,
-                null, false, false);
+            WifiCarrierInfoManager wifiCarrierInfoManager, long providerId, int creatorUid,
+            String packageName, boolean isFromSuggestion) {
+        this(config, keyStore, wifiCarrierInfoManager, providerId, creatorUid, packageName,
+                isFromSuggestion, null, null, null, false, false);
     }
 
     public PasspointProvider(PasspointConfiguration config, WifiKeyStore keyStore,
-            SIMAccessor simAccessor, long providerId, int creatorUid, String packageName,
-            List<String> caCertificateAliases,
-            String clientCertificateAlias, String clientPrivateKeyAlias,
-            String remediationCaCertificateAlias,
+            WifiCarrierInfoManager wifiCarrierInfoManager, long providerId, int creatorUid,
+            String packageName, boolean isFromSuggestion, List<String> caCertificateAliases,
+            String clientPrivateKeyAndCertificateAlias, String remediationCaCertificateAlias,
             boolean hasEverConnected, boolean isShared) {
         // Maintain a copy of the configuration to avoid it being updated by others.
         mConfig = new PasspointConfiguration(config);
@@ -121,11 +126,13 @@ public class PasspointProvider {
         mCreatorUid = creatorUid;
         mPackageName = packageName;
         mCaCertificateAliases = caCertificateAliases;
-        mClientCertificateAlias = clientCertificateAlias;
-        mClientPrivateKeyAlias = clientPrivateKeyAlias;
+        mClientPrivateKeyAndCertificateAlias = clientPrivateKeyAndCertificateAlias;
         mRemediationCaCertificateAlias = remediationCaCertificateAlias;
         mHasEverConnected = hasEverConnected;
         mIsShared = isShared;
+        mIsFromSuggestion = isFromSuggestion;
+        mWifiCarrierInfoManager = wifiCarrierInfoManager;
+        mIsTrusted = true;
 
         // Setup EAP method and authentication parameter based on the credential.
         if (mConfig.getCredential().getUserCredential() != null) {
@@ -133,19 +140,32 @@ public class PasspointProvider {
             mAuthParam = new NonEAPInnerAuth(NonEAPInnerAuth.getAuthTypeID(
                     mConfig.getCredential().getUserCredential().getNonEapInnerMethod()));
             mImsiParameter = null;
-            mMatchingSIMImsiList = null;
         } else if (mConfig.getCredential().getCertCredential() != null) {
             mEAPMethodID = EAPConstants.EAP_TLS;
             mAuthParam = null;
             mImsiParameter = null;
-            mMatchingSIMImsiList = null;
         } else {
             mEAPMethodID = mConfig.getCredential().getSimCredential().getEapType();
             mAuthParam = null;
             mImsiParameter = IMSIParameter.build(
                     mConfig.getCredential().getSimCredential().getImsi());
-            mMatchingSIMImsiList = simAccessor.getMatchingImsis(mImsiParameter);
         }
+    }
+
+    /**
+     * Set passpoint network trusted or not.
+     * Default is true. Only allows to change when it is from suggestion.
+     */
+    public void setTrusted(boolean trusted) {
+        if (!mIsFromSuggestion) {
+            Log.e(TAG, "setTrusted can only be called for suggestion passpoint network");
+            return;
+        }
+        mIsTrusted = trusted;
+    }
+
+    public boolean isTrusted() {
+        return mIsTrusted;
     }
 
     public PasspointConfiguration getConfig() {
@@ -157,12 +177,8 @@ public class PasspointProvider {
         return mCaCertificateAliases;
     }
 
-    public String getClientPrivateKeyAlias() {
-        return mClientPrivateKeyAlias;
-    }
-
-    public String getClientCertificateAlias() {
-        return mClientCertificateAlias;
+    public String getClientPrivateKeyAndCertificateAlias() {
+        return mClientPrivateKeyAndCertificateAlias;
     }
 
     public String getRemediationCaCertificateAlias() {
@@ -190,16 +206,52 @@ public class PasspointProvider {
         mHasEverConnected = hasEverConnected;
     }
 
-    public boolean isEphemeral() {
-        return mIsEphemeral;
+    public boolean isFromSuggestion() {
+        return mIsFromSuggestion;
     }
 
-    public void setEphemeral(boolean isEphemeral) {
-        mIsEphemeral = isEphemeral;
+    /**
+     * Enable/disable the auto-join configuration of the corresponding passpoint configuration.
+     *
+     * @return true if the setting has changed
+     */
+    public boolean setAutojoinEnabled(boolean autoJoinEnabled) {
+        boolean changed = mConfig.isAutojoinEnabled() != autoJoinEnabled;
+        mConfig.setAutojoinEnabled(autoJoinEnabled);
+        return changed;
     }
 
-    public IMSIParameter getImsiParameter() {
-        return mImsiParameter;
+    public boolean isAutojoinEnabled() {
+        return mConfig.isAutojoinEnabled();
+    }
+
+    /**
+     * Enable/disable mac randomization for this passpoint profile.
+     *
+     * @return true if the setting has changed
+     */
+    public boolean setMacRandomizationEnabled(boolean enabled) {
+        boolean changed = mConfig.isMacRandomizationEnabled() != enabled;
+        mConfig.setMacRandomizationEnabled(enabled);
+        return changed;
+    }
+
+    /**
+     * Get whether mac randomization is enabled for this passpoint profile.
+     */
+    public boolean isMacRandomizationEnabled() {
+        return mConfig.isMacRandomizationEnabled();
+    }
+
+    /**
+     * Get the metered override for this passpoint profile.
+     *
+     * @return true if the setting has changed
+     */
+    public boolean setMeteredOverride(@MeteredOverride int meteredOverride) {
+        boolean changed = mConfig.getMeteredOverride() != meteredOverride;
+        mConfig.setMeteredOverride(meteredOverride);
+        return changed;
     }
 
     /**
@@ -216,9 +268,8 @@ public class PasspointProvider {
             mCaCertificateAliases = new ArrayList<>();
             for (int i = 0; i < x509Certificates.length; i++) {
                 String alias = String.format("%s%s_%d", ALIAS_HS_TYPE, mProviderId, i);
-                if (!mKeyStore.putCertInKeyStore(Credentials.CA_CERTIFICATE + alias,
-                        x509Certificates[i])) {
-                    Log.e(TAG, "Failed to install CA Certificate");
+                if (!mKeyStore.putCaCertInKeyStore(alias, x509Certificates[i])) {
+                    Log.e(TAG, "Failed to install CA Certificate " + alias);
                     uninstallCertsAndKeys();
                     return false;
                 } else {
@@ -227,20 +278,11 @@ public class PasspointProvider {
             }
         }
 
-        // Install the client private key.
-        if (mConfig.getCredential().getClientPrivateKey() != null) {
-            String keyName = Credentials.USER_PRIVATE_KEY + ALIAS_HS_TYPE + mProviderId;
-            if (!mKeyStore.putKeyInKeyStore(keyName,
-                    mConfig.getCredential().getClientPrivateKey())) {
-                Log.e(TAG, "Failed to install client private key");
-                uninstallCertsAndKeys();
-                return false;
-            }
-            mClientPrivateKeyAlias = ALIAS_HS_TYPE + mProviderId;
-        }
-
-        // Install the client certificate.
-        if (mConfig.getCredential().getClientCertificateChain() != null) {
+        // Install the client private key & certificate.
+        if (mConfig.getCredential().getClientPrivateKey() != null
+                && mConfig.getCredential().getClientCertificateChain() != null) {
+            String keyName = ALIAS_HS_TYPE + mProviderId;
+            PrivateKey clientKey = mConfig.getCredential().getClientPrivateKey();
             X509Certificate clientCert = getClientCertificate(
                     mConfig.getCredential().getClientCertificateChain(),
                     mConfig.getCredential().getCertCredential().getCertSha256Fingerprint());
@@ -249,13 +291,13 @@ public class PasspointProvider {
                 uninstallCertsAndKeys();
                 return false;
             }
-            String certName = Credentials.USER_CERTIFICATE + ALIAS_HS_TYPE + mProviderId;
-            if (!mKeyStore.putCertInKeyStore(certName, clientCert)) {
-                Log.e(TAG, "Failed to install client certificate");
+            if (!mKeyStore.putUserPrivKeyAndCertsInKeyStore(
+                    keyName, clientKey, new Certificate[] {clientCert})) {
+                Log.e(TAG, "Failed to install client private key or certificate");
                 uninstallCertsAndKeys();
                 return false;
             }
-            mClientCertificateAlias = ALIAS_HS_TYPE + mProviderId;
+            mClientPrivateKeyAndCertificateAlias = keyName;
         }
 
         if (mConfig.getSubscriptionUpdate() != null) {
@@ -265,15 +307,13 @@ public class PasspointProvider {
                 uninstallCertsAndKeys();
                 return false;
             }
-            mRemediationCaCertificateAlias =
-                    ALIAS_HS_TYPE + ALIAS_ALIAS_REMEDIATION_TYPE + mProviderId;
-            String certName = Credentials.CA_CERTIFICATE + mRemediationCaCertificateAlias;
-            if (!mKeyStore.putCertInKeyStore(certName, certificate)) {
+            String certName = ALIAS_HS_TYPE + ALIAS_ALIAS_REMEDIATION_TYPE + mProviderId;
+            if (!mKeyStore.putCaCertInKeyStore(certName, certificate)) {
                 Log.e(TAG, "Failed to install CA certificate for remediation");
-                mRemediationCaCertificateAlias = null;
                 uninstallCertsAndKeys();
                 return false;
             }
+            mRemediationCaCertificateAlias = certName;
         }
 
         // Clear the keys and certificates in the configuration.
@@ -292,31 +332,20 @@ public class PasspointProvider {
     public void uninstallCertsAndKeys() {
         if (mCaCertificateAliases != null) {
             for (String certificateAlias : mCaCertificateAliases) {
-                if (!mKeyStore.removeEntryFromKeyStore(
-                        Credentials.CA_CERTIFICATE + certificateAlias)) {
+                if (!mKeyStore.removeEntryFromKeyStore(certificateAlias)) {
                     Log.e(TAG, "Failed to remove entry: " + certificateAlias);
                 }
             }
             mCaCertificateAliases = null;
         }
-        if (mClientPrivateKeyAlias != null) {
-            if (!mKeyStore.removeEntryFromKeyStore(
-                    Credentials.USER_PRIVATE_KEY + mClientPrivateKeyAlias)) {
-                Log.e(TAG, "Failed to remove entry: " + mClientPrivateKeyAlias);
+        if (mClientPrivateKeyAndCertificateAlias != null) {
+            if (!mKeyStore.removeEntryFromKeyStore(mClientPrivateKeyAndCertificateAlias)) {
+                Log.e(TAG, "Failed to remove entry: " + mClientPrivateKeyAndCertificateAlias);
             }
-            mClientPrivateKeyAlias = null;
+            mClientPrivateKeyAndCertificateAlias = null;
         }
-        if (mClientCertificateAlias != null) {
-            if (!mKeyStore.removeEntryFromKeyStore(
-                    Credentials.USER_CERTIFICATE + mClientCertificateAlias)) {
-                Log.e(TAG, "Failed to remove entry: " + mClientCertificateAlias);
-            }
-            mClientCertificateAlias = null;
-        }
-
         if (mRemediationCaCertificateAlias != null) {
-            if (!mKeyStore.removeEntryFromKeyStore(
-                    Credentials.CA_CERTIFICATE + mRemediationCaCertificateAlias)) {
+            if (!mKeyStore.removeEntryFromKeyStore(mRemediationCaCertificateAlias)) {
                 Log.e(TAG, "Failed to remove entry: " + mRemediationCaCertificateAlias);
             }
             mRemediationCaCertificateAlias = null;
@@ -324,42 +353,99 @@ public class PasspointProvider {
     }
 
     /**
+     * Try to update the carrier ID according to the IMSI parameter of passpoint configuration.
+     *
+     * @return true if the carrier ID is updated, otherwise false.
+     */
+    public boolean tryUpdateCarrierId() {
+        return mWifiCarrierInfoManager.tryUpdateCarrierIdForPasspoint(mConfig);
+    }
+
+    private @Nullable String getMatchingSimImsi() {
+        String matchingSIMImsi = null;
+        if (mConfig.getCarrierId() != TelephonyManager.UNKNOWN_CARRIER_ID) {
+            matchingSIMImsi = mWifiCarrierInfoManager
+                    .getMatchingImsi(mConfig.getCarrierId());
+        } else {
+            // Get the IMSI and carrier ID of SIM card which match with the IMSI prefix from
+            // passpoint profile
+            Pair<String, Integer> imsiCarrierIdPair = mWifiCarrierInfoManager
+                    .getMatchingImsiCarrierId(mConfig.getCredential().getSimCredential().getImsi());
+            if (imsiCarrierIdPair != null) {
+                matchingSIMImsi = imsiCarrierIdPair.first;
+                mBestGuessCarrierId = imsiCarrierIdPair.second;
+            }
+        }
+
+        return matchingSIMImsi;
+    }
+
+    /**
      * Return the matching status with the given AP, based on the ANQP elements from the AP.
      *
      * @param anqpElements ANQP elements from the AP
-     * @param roamingConsortium Roaming Consortium information element from the AP
+     * @param roamingConsortiumFromAp Roaming Consortium information element from the AP
      * @return {@link PasspointMatch}
      */
     public PasspointMatch match(Map<ANQPElementType, ANQPElement> anqpElements,
-            RoamingConsortium roamingConsortium) {
-        PasspointMatch providerMatch = matchProviderExceptFor3GPP(anqpElements, roamingConsortium);
+            RoamingConsortium roamingConsortiumFromAp) {
+        // If the profile requires a SIM credential, make sure that the installed SIM matches
+        String matchingSimImsi = null;
+        if (mConfig.getCredential().getSimCredential() != null) {
+            matchingSimImsi = getMatchingSimImsi();
+            if (TextUtils.isEmpty(matchingSimImsi)) {
+                if (mVerboseLoggingEnabled) {
+                    Log.d(TAG, "No SIM card with IMSI "
+                            + mConfig.getCredential().getSimCredential().getImsi()
+                            + " is installed, final match: " + PasspointMatch.None);
+                }
+                return PasspointMatch.None;
+            }
+        }
 
-        // 3GPP Network matching.
+        // Match FQDN for Home provider or RCOI(s) for Roaming provider
+        // For SIM credential, the FQDN is in the format of wlan.mnc*.mcc*.3gppnetwork.org
+        PasspointMatch providerMatch = matchFqdnAndRcoi(anqpElements, roamingConsortiumFromAp,
+                matchingSimImsi);
+
+        // 3GPP Network matching
         if (providerMatch == PasspointMatch.None && ANQPMatcher.matchThreeGPPNetwork(
                 (ThreeGPPNetworkElement) anqpElements.get(ANQPElementType.ANQP3GPPNetwork),
-                mImsiParameter, mMatchingSIMImsiList)) {
+                mImsiParameter, matchingSimImsi)) {
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, "Final RoamingProvider match with "
+                        + anqpElements.get(ANQPElementType.ANQP3GPPNetwork));
+            }
             return PasspointMatch.RoamingProvider;
         }
 
-        // Perform authentication match against the NAI Realm.
-        int authMatch = ANQPMatcher.matchNAIRealm(
+        // Perform NAI Realm matching
+        boolean realmMatch = ANQPMatcher.matchNAIRealm(
                 (NAIRealmElement) anqpElements.get(ANQPElementType.ANQPNAIRealm),
-                mConfig.getCredential().getRealm(), mEAPMethodID, mAuthParam);
-
-        // In case of Auth mismatch, demote provider match.
-        if (authMatch == AuthMatch.NONE) {
-            return PasspointMatch.None;
-        }
+                mConfig.getCredential().getRealm());
 
         // In case of no realm match, return provider match as is.
-        if ((authMatch & AuthMatch.REALM) == 0) {
+        if (!realmMatch) {
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, "No NAI realm match, final match: " + providerMatch);
+            }
             return providerMatch;
         }
 
-        // Promote the provider match to roaming provider if provider match is not found, but NAI
+        if (mVerboseLoggingEnabled) {
+            Log.d(TAG, "NAI realm match with " + mConfig.getCredential().getRealm());
+        }
+
+        // Promote the provider match to RoamingProvider if provider match is not found, but NAI
         // realm is matched.
-        return providerMatch == PasspointMatch.None ? PasspointMatch.RoamingProvider
-                : providerMatch;
+        if (providerMatch == PasspointMatch.None) {
+            providerMatch = PasspointMatch.RoamingProvider;
+        }
+
+        if (mVerboseLoggingEnabled) {
+            Log.d(TAG, "Final match: " + providerMatch);
+        }
+        return providerMatch;
     }
 
     /**
@@ -373,6 +459,7 @@ public class PasspointProvider {
     public WifiConfiguration getWifiConfig() {
         WifiConfiguration wifiConfig = new WifiConfiguration();
         wifiConfig.FQDN = mConfig.getHomeSp().getFqdn();
+        wifiConfig.setPasspointUniqueId(mConfig.getUniqueId());
         if (mConfig.getHomeSp().getRoamingConsortiumOis() != null) {
             wifiConfig.roamingConsortiumIds = Arrays.copyOf(
                     mConfig.getHomeSp().getRoamingConsortiumOis(),
@@ -389,6 +476,11 @@ public class PasspointProvider {
         wifiConfig.providerFriendlyName = mConfig.getHomeSp().getFriendlyName();
         wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_EAP);
         wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.IEEE8021X);
+        int carrierId = mConfig.getCarrierId();
+        if (carrierId == TelephonyManager.UNKNOWN_CARRIER_ID) {
+            carrierId = mBestGuessCarrierId;
+        }
+        wifiConfig.carrierId = carrierId;
 
         // Set RSN only to tell wpa_supplicant that this network is for Passpoint.
         wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
@@ -407,8 +499,34 @@ public class PasspointProvider {
             buildEnterpriseConfigForSimCredential(enterpriseConfig,
                     mConfig.getCredential().getSimCredential());
         }
+        // If AAA server trusted names are specified, use it to replace HOME SP FQDN
+        // and use system CA regardless of provisioned CA certificate.
+        if (!ArrayUtils.isEmpty(mConfig.getAaaServerTrustedNames())) {
+            enterpriseConfig.setDomainSuffixMatch(
+                    String.join(";", mConfig.getAaaServerTrustedNames()));
+            enterpriseConfig.setCaPath(SYSTEM_CA_STORE_PATH);
+        }
         wifiConfig.enterpriseConfig = enterpriseConfig;
+        // PPS MO Credential/CheckAAAServerCertStatus node contains a flag which indicates
+        // if the mobile device needs to check the AAA server certificate's revocation status
+        // during EAP authentication.
+        if (mConfig.getCredential().getCheckAaaServerCertStatus()) {
+            // Check server certificate using OCSP (Online Certificate Status Protocol).
+            wifiConfig.enterpriseConfig.setOcsp(WifiEnterpriseConfig.OCSP_REQUIRE_CERT_STATUS);
+        }
+        wifiConfig.allowAutojoin = isAutojoinEnabled();
         wifiConfig.shared = mIsShared;
+        wifiConfig.fromWifiNetworkSuggestion = mIsFromSuggestion;
+        wifiConfig.ephemeral = mIsFromSuggestion;
+        wifiConfig.creatorName = mPackageName;
+        wifiConfig.creatorUid = mCreatorUid;
+        wifiConfig.trusted = mIsTrusted;
+        if (mConfig.isMacRandomizationEnabled()) {
+            wifiConfig.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_PERSISTENT;
+        } else {
+            wifiConfig.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
+        }
+        wifiConfig.meteredOverride = mConfig.getMeteredOverride();
         return wifiConfig;
     }
 
@@ -443,6 +561,7 @@ public class PasspointProvider {
                     wifiConfig.roamingConsortiumIds, wifiConfig.roamingConsortiumIds.length));
         }
         passpointConfig.setHomeSp(homeSp);
+        passpointConfig.setCarrierId(wifiConfig.carrierId);
 
         // Setup Credential.
         Credential credential = new Credential();
@@ -470,7 +589,8 @@ public class PasspointProvider {
                         EAPConstants.EAP_AKA_PRIME, wifiConfig.enterpriseConfig));
                 break;
             default:
-                Log.e(TAG, "Unsupport EAP method: " + wifiConfig.enterpriseConfig.getEapMethod());
+                Log.e(TAG, "Unsupported EAP method: "
+                        + wifiConfig.enterpriseConfig.getEapMethod());
                 return null;
         }
         if (credential.getUserCredential() == null && credential.getCertCredential() == null
@@ -495,8 +615,8 @@ public class PasspointProvider {
         return mProviderId == that.mProviderId
                 && (mCaCertificateAliases == null ? that.mCaCertificateAliases == null
                 : mCaCertificateAliases.equals(that.mCaCertificateAliases))
-                && TextUtils.equals(mClientCertificateAlias, that.mClientCertificateAlias)
-                && TextUtils.equals(mClientPrivateKeyAlias, that.mClientPrivateKeyAlias)
+                && TextUtils.equals(mClientPrivateKeyAndCertificateAlias,
+                that.mClientPrivateKeyAndCertificateAlias)
                 && (mConfig == null ? that.mConfig == null : mConfig.equals(that.mConfig))
                 && TextUtils.equals(mRemediationCaCertificateAlias,
                 that.mRemediationCaCertificateAlias);
@@ -504,8 +624,8 @@ public class PasspointProvider {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mProviderId, mCaCertificateAliases, mClientCertificateAlias,
-                mClientPrivateKeyAlias, mConfig, mRemediationCaCertificateAlias);
+        return Objects.hash(mProviderId, mCaCertificateAliases,
+                mClientPrivateKeyAndCertificateAlias, mConfig, mRemediationCaCertificateAlias);
     }
 
     @Override
@@ -513,12 +633,21 @@ public class PasspointProvider {
         StringBuilder builder = new StringBuilder();
         builder.append("ProviderId: ").append(mProviderId).append("\n");
         builder.append("CreatorUID: ").append(mCreatorUid).append("\n");
+        builder.append("Best guess Carrier ID: ").append(mBestGuessCarrierId).append("\n");
+        builder.append("Ever connected: ").append(mHasEverConnected).append("\n");
+        builder.append("Shared: ").append(mIsShared).append("\n");
+        builder.append("Suggestion: ").append(mIsFromSuggestion).append("\n");
+        builder.append("Trusted: ").append(mIsTrusted).append("\n");
+
         if (mPackageName != null) {
             builder.append("PackageName: ").append(mPackageName).append("\n");
         }
         builder.append("Configuration Begin ---\n");
         builder.append(mConfig);
         builder.append("Configuration End ---\n");
+        builder.append("WifiConfiguration Begin ---\n");
+        builder.append(getWifiConfig());
+        builder.append("WifiConfiguration End ---\n");
         return builder.toString();
     }
 
@@ -570,42 +699,129 @@ public class PasspointProvider {
     }
 
     /**
-     * Perform a provider match based on the given ANQP elements except for matching 3GPP Network.
+     * Match given OIs to the Roaming Consortium OIs
+     *
+     * @param providerOis Provider OIs to match against
+     * @param roamingConsortiumElement RCOIs in the ANQP element
+     * @param roamingConsortiumFromAp RCOIs in the AP scan results
+     * @param matchAll Indicates if all providerOis must match the RCOIs elements
+     * @return {@code true} if there is a match, {@code false} otherwise.
+     */
+    private boolean matchOis(long[] providerOis,
+            RoamingConsortiumElement roamingConsortiumElement,
+            RoamingConsortium roamingConsortiumFromAp,
+            boolean matchAll) {
+
+
+        // ANQP Roaming Consortium OI matching.
+        if (ANQPMatcher.matchRoamingConsortium(roamingConsortiumElement, providerOis, matchAll)) {
+            if (mVerboseLoggingEnabled) {
+                Log.e(TAG, "ANQP RCOI match " + roamingConsortiumElement);
+            }
+            return true;
+        }
+
+        // AP Roaming Consortium OI matching.
+        long[] apRoamingConsortiums = roamingConsortiumFromAp.getRoamingConsortiums();
+        if (apRoamingConsortiums == null || providerOis == null) {
+            return false;
+        }
+        // Roaming Consortium OI information element matching.
+        for (long apOi: apRoamingConsortiums) {
+            boolean matched = false;
+            for (long providerOi: providerOis) {
+                if (apOi == providerOi) {
+                    if (mVerboseLoggingEnabled) {
+                        Log.e(TAG, "AP RCOI match: " + apOi);
+                    }
+                    if (!matchAll) {
+                        return true;
+                    } else {
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (matchAll && !matched) {
+                return false;
+            }
+        }
+        return matchAll;
+    }
+
+    /**
+     * Perform a provider match based on the given ANQP elements for FQDN and RCOI
      *
      * @param anqpElements List of ANQP elements
-     * @param roamingConsortium Roaming Consortium information element from the AP
+     * @param roamingConsortiumFromAp Roaming Consortium information element from the AP
+     * @param matchingSIMImsi Installed SIM IMSI that matches the SIM credential ANQP element
      * @return {@link PasspointMatch}
      */
-    private PasspointMatch matchProviderExceptFor3GPP(
-            Map<ANQPElementType, ANQPElement> anqpElements,
-            RoamingConsortium roamingConsortium) {
+    private PasspointMatch matchFqdnAndRcoi(Map<ANQPElementType, ANQPElement> anqpElements,
+            RoamingConsortium roamingConsortiumFromAp, String matchingSIMImsi) {
         // Domain name matching.
         if (ANQPMatcher.matchDomainName(
                 (DomainNameElement) anqpElements.get(ANQPElementType.ANQPDomName),
-                mConfig.getHomeSp().getFqdn(), mImsiParameter, mMatchingSIMImsiList)) {
+                mConfig.getHomeSp().getFqdn(), mImsiParameter, matchingSIMImsi)) {
+            if (mVerboseLoggingEnabled) {
+                Log.d(TAG, "Domain name " + mConfig.getHomeSp().getFqdn()
+                        + " match: HomeProvider");
+            }
             return PasspointMatch.HomeProvider;
         }
 
-        // ANQP Roaming Consortium OI matching.
-        long[] providerOIs = mConfig.getHomeSp().getRoamingConsortiumOis();
-        if (ANQPMatcher.matchRoamingConsortium(
-                (RoamingConsortiumElement) anqpElements.get(ANQPElementType.ANQPRoamingConsortium),
-                providerOIs)) {
-            return PasspointMatch.RoamingProvider;
-        }
-
-        long[] roamingConsortiums = roamingConsortium.getRoamingConsortiums();
-        // Roaming Consortium OI information element matching.
-        if (roamingConsortiums != null && providerOIs != null) {
-            for (long sta_oi: roamingConsortiums) {
-                for (long ap_oi: providerOIs) {
-                    if (sta_oi == ap_oi) {
-                        return PasspointMatch.RoamingProvider;
+        // Other Home Partners matching.
+        if (mConfig.getHomeSp().getOtherHomePartners() != null) {
+            for (String otherHomePartner : mConfig.getHomeSp().getOtherHomePartners()) {
+                if (ANQPMatcher.matchDomainName(
+                        (DomainNameElement) anqpElements.get(ANQPElementType.ANQPDomName),
+                        otherHomePartner, null, null)) {
+                    if (mVerboseLoggingEnabled) {
+                        Log.d(TAG, "Other Home Partner " + otherHomePartner
+                                + " match: HomeProvider");
                     }
+                    return PasspointMatch.HomeProvider;
                 }
             }
         }
 
+        // HomeOI matching
+        if (mConfig.getHomeSp().getMatchAllOis() != null) {
+            // Ensure that every HomeOI whose corresponding HomeOIRequired value is true shall match
+            // an OI in the Roaming Consortium advertised by the hotspot operator.
+            if (matchOis(mConfig.getHomeSp().getMatchAllOis(), (RoamingConsortiumElement)
+                            anqpElements.get(ANQPElementType.ANQPRoamingConsortium),
+                    roamingConsortiumFromAp, true)) {
+                if (mVerboseLoggingEnabled) {
+                    Log.e(TAG, "All HomeOI RCOI match: HomeProvider");
+                }
+                return PasspointMatch.HomeProvider;
+            }
+        } else if (mConfig.getHomeSp().getMatchAnyOis() != null) {
+            // Ensure that any HomeOI whose corresponding HomeOIRequired value is false shall match
+            // an OI in the Roaming Consortium advertised by the hotspot operator.
+            if (matchOis(mConfig.getHomeSp().getMatchAnyOis(), (RoamingConsortiumElement)
+                            anqpElements.get(ANQPElementType.ANQPRoamingConsortium),
+                    roamingConsortiumFromAp, false)) {
+                if (mVerboseLoggingEnabled) {
+                    Log.e(TAG, "Any HomeOI RCOI match: HomeProvider");
+                }
+                return PasspointMatch.HomeProvider;
+            }
+        }
+
+        // Roaming Consortium OI matching.
+        if (matchOis(mConfig.getHomeSp().getRoamingConsortiumOis(), (RoamingConsortiumElement)
+                anqpElements.get(ANQPElementType.ANQPRoamingConsortium),
+                roamingConsortiumFromAp, false)) {
+            if (mVerboseLoggingEnabled) {
+                Log.e(TAG, "ANQP RCOI match: RoamingProvider");
+            }
+            return PasspointMatch.RoamingProvider;
+        }
+        if (mVerboseLoggingEnabled) {
+            Log.e(TAG, "No domain name or RCOI match");
+        }
         return PasspointMatch.None;
     }
 
@@ -617,12 +833,22 @@ public class PasspointProvider {
      */
     private void buildEnterpriseConfigForUserCredential(WifiEnterpriseConfig config,
             Credential.UserCredential credential) {
-        byte[] pwOctets = Base64.decode(credential.getPassword(), Base64.DEFAULT);
-        String decodedPassword = new String(pwOctets, StandardCharsets.UTF_8);
+        String password;
+        try {
+            byte[] pwOctets = Base64.decode(credential.getPassword(), Base64.DEFAULT);
+            password = new String(pwOctets, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "Failed to decode password");
+            password = credential.getPassword();
+        }
         config.setEapMethod(WifiEnterpriseConfig.Eap.TTLS);
         config.setIdentity(credential.getUsername());
-        config.setPassword(decodedPassword);
-        config.setCaCertificateAliases(mCaCertificateAliases.toArray(new String[0]));
+        config.setPassword(password);
+        if (!ArrayUtils.isEmpty(mCaCertificateAliases)) {
+            config.setCaCertificateAliases(mCaCertificateAliases.toArray(new String[0]));
+        } else {
+            config.setCaPath(SYSTEM_CA_STORE_PATH);
+        }
         int phase2Method = WifiEnterpriseConfig.Phase2.NONE;
         switch (credential.getNonEapInnerMethod()) {
             case Credential.UserCredential.AUTH_METHOD_PAP:
@@ -650,8 +876,12 @@ public class PasspointProvider {
      */
     private void buildEnterpriseConfigForCertCredential(WifiEnterpriseConfig config) {
         config.setEapMethod(WifiEnterpriseConfig.Eap.TLS);
-        config.setClientCertificateAlias(mClientCertificateAlias);
-        config.setCaCertificateAliases(mCaCertificateAliases.toArray(new String[0]));
+        config.setClientCertificateAlias(mClientPrivateKeyAndCertificateAlias);
+        if (!ArrayUtils.isEmpty(mCaCertificateAliases)) {
+            config.setCaCertificateAliases(mCaCertificateAliases.toArray(new String[0]));
+        } else {
+            config.setCaPath(SYSTEM_CA_STORE_PATH);
+        }
     }
 
     /**
@@ -767,5 +997,13 @@ public class PasspointProvider {
         simCredential.setImsi(config.getPlmn());
         simCredential.setEapType(eapType);
         return simCredential;
+    }
+
+    /**
+     * Enable verbose logging
+     * @param verbose more than 0 enables verbose logging
+     */
+    public void enableVerboseLogging(int verbose) {
+        mVerboseLoggingEnabled = (verbose > 0) ? true : false;
     }
 }

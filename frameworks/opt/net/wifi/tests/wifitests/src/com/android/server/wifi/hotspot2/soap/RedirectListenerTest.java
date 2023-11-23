@@ -29,6 +29,8 @@ import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -42,7 +44,7 @@ import fi.iki.elonen.NanoHTTPD;
  * Unit tests for {@link RedirectListener}.
  */
 @SmallTest
-public class RedirectListenerTest {
+public class RedirectListenerTest extends WifiBaseTest {
     private static final int TEST_PORT = 1010;
 
     private RedirectListenerSpy mRedirectListener;

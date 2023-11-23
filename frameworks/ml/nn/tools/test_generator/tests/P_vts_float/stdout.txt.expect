@@ -19,7 +19,7 @@ Model createTestModel() {
             .numberOfConsumers = 1,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_INPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_INPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         },
         {
@@ -73,7 +73,7 @@ Model createTestModel() {
             .numberOfConsumers = 0,
             .scale = 0.0f,
             .zeroPoint = 0,
-            .lifetime = OperandLifeTime::MODEL_OUTPUT,
+            .lifetime = OperandLifeTime::SUBGRAPH_OUTPUT,
             .location = {.poolIndex = 0, .offset = 0, .length = 0},
         }
     };

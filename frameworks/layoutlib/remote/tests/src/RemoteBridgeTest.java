@@ -75,7 +75,7 @@ public class RemoteBridgeTest extends RenderTestBase {
         File buildProp = new File(PLATFORM_DIR, "build.prop");
         File attrs = new File(res, "values" + File.separator + "attrs.xml");
 
-        mClient.init(ConfigGenerator.loadProperties(buildProp), fontLocation, null,
+        mClient.init(ConfigGenerator.loadProperties(buildProp), fontLocation, null, null,
                 ConfigGenerator.getEnumMap(attrs), getLayoutLog());
         System.out.printf("Remote client init took %dms\n",
                 System.currentTimeMillis() - startTime);

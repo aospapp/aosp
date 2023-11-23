@@ -16,94 +16,105 @@
 
 package com.android.internal.telephony;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+
+import android.content.Context;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import org.junit.Ignore;
+import androidx.test.InstrumentationRegistry;
+
+import com.android.internal.telephony.MccTable.MccMnc;
+import com.android.internal.telephony.util.LocaleUtils;
+
+import org.junit.Test;
 
 import java.util.Locale;
 
-// TODO try using InstrumentationRegistry.getContext() instead of the default
-// AndroidTestCase context
-public class MccTableTest extends AndroidTestCase {
-    private final static String LOG_TAG = "GSM";
+public class MccTableTest {
 
     @SmallTest
-    @Ignore
-    public void testTimeZone() throws Exception {
-        assertEquals("Europe/Paris", MccTable.defaultTimeZoneForMcc(208));
-        assertEquals("Europe/Vienna", MccTable.defaultTimeZoneForMcc(232));
-        assertEquals("Africa/Johannesburg", MccTable.defaultTimeZoneForMcc(655));
-        assertEquals("Asia/Tokyo", MccTable.defaultTimeZoneForMcc(440));
-        assertEquals("Asia/Tokyo", MccTable.defaultTimeZoneForMcc(441));
-        assertEquals("Asia/Singapore", MccTable.defaultTimeZoneForMcc(525));
-        assertEquals("Europe/Stockholm", MccTable.defaultTimeZoneForMcc(240));
+    @Test
+    public void testCountryCodeForMcc() throws Exception {
+        checkMccLookupWithNoMnc("lu", 270);
+        checkMccLookupWithNoMnc("gr", 202);
+        checkMccLookupWithNoMnc("fk", 750);
+        checkMccLookupWithNoMnc("mg", 646);
+        checkMccLookupWithNoMnc("us", 314);
+        checkMccLookupWithNoMnc("", 300);  // mcc not defined, hence default
+        checkMccLookupWithNoMnc("", 0);    // mcc not defined, hence default
+        checkMccLookupWithNoMnc("", 2000); // mcc not defined, hence default
+    }
 
-        /* A test for the special handling for MCC 505. http://b/33228250. */
-        assertEquals("Australia/Sydney", MccTable.defaultTimeZoneForMcc(505));
-        assertEquals(null, MccTable.defaultTimeZoneForMcc(0));    // mcc not defined, hence default
-        assertEquals(null, MccTable.defaultTimeZoneForMcc(2000)); // mcc not defined, hence default
+    private void checkMccLookupWithNoMnc(String expectedCountryIsoCode, int mcc) {
+        assertEquals(expectedCountryIsoCode, MccTable.countryCodeForMcc(mcc));
+        assertEquals(expectedCountryIsoCode, MccTable.countryCodeForMcc(mcc));
+        assertEquals(expectedCountryIsoCode, MccTable.countryCodeForMcc("" + mcc));
+        assertEquals(expectedCountryIsoCode,
+                MccTable.geoCountryCodeForMccMnc(new MccMnc("" + mcc, "999")));
     }
 
     @SmallTest
-    @Ignore
-    public void testCountryCode() throws Exception {
-        assertEquals("lu", MccTable.countryCodeForMcc(270));
-        assertEquals("gr", MccTable.countryCodeForMcc(202));
-        assertEquals("fk", MccTable.countryCodeForMcc(750));
-        assertEquals("mg", MccTable.countryCodeForMcc(646));
-        assertEquals("us", MccTable.countryCodeForMcc(314));
-        assertEquals("", MccTable.countryCodeForMcc(300));  // mcc not defined, hence default
-        assertEquals("", MccTable.countryCodeForMcc(0));    // mcc not defined, hence default
-        assertEquals("", MccTable.countryCodeForMcc(2000)); // mcc not defined, hence default
+    @Test
+    public void testGeoCountryCodeForMccMnc() throws Exception {
+        // This test is possibly fragile as this data is configurable.
+        assertEquals("gu", MccTable.geoCountryCodeForMccMnc(new MccMnc("310", "370")));
     }
 
     @SmallTest
-    @Ignore
+    @Test
     public void testLang() throws Exception {
-        assertEquals("en", MccTable.defaultLanguageForMcc(311));
-        assertEquals("de", MccTable.defaultLanguageForMcc(232));
-        assertEquals("cs", MccTable.defaultLanguageForMcc(230));
-        assertEquals("nl", MccTable.defaultLanguageForMcc(204));
-        assertEquals("is", MccTable.defaultLanguageForMcc(274));
-        assertEquals(null, MccTable.defaultLanguageForMcc(0));    // mcc not defined, hence default
-        assertEquals(null, MccTable.defaultLanguageForMcc(2000)); // mcc not defined, hence default
+        assertEquals("en", LocaleUtils.defaultLanguageForMcc(311));
+        assertEquals("de", LocaleUtils.defaultLanguageForMcc(232));
+        assertEquals("cs", LocaleUtils.defaultLanguageForMcc(230));
+        assertEquals("nl", LocaleUtils.defaultLanguageForMcc(204));
+        assertEquals("is", LocaleUtils.defaultLanguageForMcc(274));
+        // mcc not defined, hence default
+        assertEquals(null, LocaleUtils.defaultLanguageForMcc(0));
+        // mcc not defined, hence default
+        assertEquals(null, LocaleUtils.defaultLanguageForMcc(2000));
     }
 
     @SmallTest
-    @Ignore
+    @Test
     public void testLang_India() throws Exception {
-        assertEquals("en", MccTable.defaultLanguageForMcc(404));
-        assertEquals("en", MccTable.defaultLanguageForMcc(405));
-        assertEquals("en", MccTable.defaultLanguageForMcc(406));
+        assertEquals("en", LocaleUtils.defaultLanguageForMcc(404));
+        assertEquals("en", LocaleUtils.defaultLanguageForMcc(405));
+        assertEquals("en", LocaleUtils.defaultLanguageForMcc(406));
     }
 
     @SmallTest
-    @Ignore
+    @Test
     public void testLocale() throws Exception {
         assertEquals(Locale.forLanguageTag("en-CA"),
-                MccTable.getLocaleFromMcc(getContext(), 302, null));
+                LocaleUtils.getLocaleFromMcc(getContext(), 302, null));
         assertEquals(Locale.forLanguageTag("en-GB"),
-                MccTable.getLocaleFromMcc(getContext(), 234, null));
+                LocaleUtils.getLocaleFromMcc(getContext(), 234, null));
         assertEquals(Locale.forLanguageTag("en-US"),
-                MccTable.getLocaleFromMcc(getContext(), 0, "en"));
+                LocaleUtils.getLocaleFromMcc(getContext(), 0, "en"));
         assertEquals(Locale.forLanguageTag("zh-HK"),
-                MccTable.getLocaleFromMcc(getContext(), 454, null));
+                LocaleUtils.getLocaleFromMcc(getContext(), 454, null));
         assertEquals(Locale.forLanguageTag("en-HK"),
-                MccTable.getLocaleFromMcc(getContext(), 454, "en"));
+                LocaleUtils.getLocaleFromMcc(getContext(), 454, "en"));
         assertEquals(Locale.forLanguageTag("zh-TW"),
-                MccTable.getLocaleFromMcc(getContext(), 466, null));
+                LocaleUtils.getLocaleFromMcc(getContext(), 466, null));
+    }
+
+    private Context getContext() {
+        return InstrumentationRegistry.getContext();
     }
 
     @SmallTest
-    @Ignore
+    @Test
     public void testSmDigits() throws Exception {
         assertEquals(3, MccTable.smallestDigitsMccForMnc(312));
         assertEquals(2, MccTable.smallestDigitsMccForMnc(430));
         assertEquals(3, MccTable.smallestDigitsMccForMnc(365));
         assertEquals(2, MccTable.smallestDigitsMccForMnc(536));
-        assertEquals(2, MccTable.smallestDigitsMccForMnc(352));  // sd not defined, hence default
-        assertEquals(2, MccTable.smallestDigitsMccForMnc(0));    // mcc not defined, hence default
-        assertEquals(2, MccTable.smallestDigitsMccForMnc(2000)); // mcc not defined, hence default
+        // sd not defined, hence default
+        assertEquals(2, MccTable.smallestDigitsMccForMnc(352));
+        // mcc not defined, hence default
+        assertEquals(2, MccTable.smallestDigitsMccForMnc(0));
+        // mcc not defined, hence default
+        assertEquals(2, MccTable.smallestDigitsMccForMnc(2000));
     }
 }

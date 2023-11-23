@@ -112,7 +112,7 @@ public class SweepGradient_Delegate extends Gradient_Delegate {
                 canvasMatrix = xform.createInverse();
             } catch (java.awt.geom.NoninvertibleTransformException e) {
                 Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_INVERSE,
-                        "Unable to inverse matrix in SweepGradient", e, null /*data*/);
+                        "Unable to inverse matrix in SweepGradient", e, null, null /*data*/);
                 canvasMatrix = new java.awt.geom.AffineTransform();
             }
 
@@ -121,7 +121,7 @@ public class SweepGradient_Delegate extends Gradient_Delegate {
                 localMatrix = localMatrix.createInverse();
             } catch (java.awt.geom.NoninvertibleTransformException e) {
                 Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_INVERSE,
-                        "Unable to inverse matrix in SweepGradient", e, null /*data*/);
+                        "Unable to inverse matrix in SweepGradient", e, null, null /*data*/);
                 localMatrix = new java.awt.geom.AffineTransform();
             }
 

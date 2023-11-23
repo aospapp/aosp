@@ -19,7 +19,7 @@ package android.widget;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.ResourceId;
 import android.content.res.TypedArray;
@@ -73,7 +73,7 @@ import java.util.TreeSet;
  *
  * <p>This behavior has been preserved for apps that set <code>android:targetSdkVersion="17"</code>
  * or older in their manifest's <code>uses-sdk</code> tag for compatibility. Apps targeting SDK
- * version 18 or newer will receive the correct behavior</p>
+ * version 18 or newer will receive the correct behavior.</p>
  *
  * <p>See the <a href="{@docRoot}guide/topics/ui/layout/relative.html">Relative
  * Layout</a> guide.</p>
@@ -1202,13 +1202,13 @@ public class RelativeLayout extends ViewGroup {
      * determine where to position the view on the screen.  If the view is not contained
      * within a relative layout, these attributes are ignored.
      *
-     * See the <a href="/guide/topics/ui/layout/relative.html">
-     * Relative Layout</a> guide for example code demonstrating how to use relative layout’s
+     * See the <a href="{@docRoot}guide/topics/ui/layout/relative.html">Relative
+     * Layout</a> guide for example code demonstrating how to use relative layout's
      * layout parameters in a layout XML.
      *
      * To learn more about layout parameters and how they differ from typical view attributes,
-     * see the <a href="/guide/topics/ui/declaring-layout.html#attributes">
-     *     Layouts guide</a>.
+     * see the <a href="{@docRoot}guide/topics/ui/declaring-layout.html#attributes">Layouts
+     * guide</a>.
      *
      *
      * @attr ref android.R.styleable#RelativeLayout_Layout_layout_alignWithParentIfMissing
@@ -2026,6 +2026,11 @@ public class RelativeLayout extends ViewGroup {
          * A node with no dependent is considered a root of the graph.
          */
         static class Node {
+
+            @UnsupportedAppUsage
+            Node() {
+            }
+
             /**
              * The view representing this node in the layout.
              */

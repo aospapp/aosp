@@ -16,21 +16,17 @@
 
 package com.android.internal.telephony;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.app.BroadcastOptions;
-import android.content.BroadcastReceiver;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
-import android.net.NetworkStats;
 import android.net.Uri;
-import android.net.wifi.WifiManager;
 import android.os.AsyncResult;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -41,27 +37,30 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.WorkSource;
 import android.preference.PreferenceManager;
-import android.provider.Settings;
+import android.sysprop.TelephonyProperties;
 import android.telecom.VideoProfile;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.Annotation.ApnType;
+import android.telephony.Annotation.DataFailureCause;
 import android.telephony.CarrierConfigManager;
 import android.telephony.CarrierRestrictionRules;
+import android.telephony.CellIdentity;
 import android.telephony.CellInfo;
-import android.telephony.CellLocation;
 import android.telephony.ClientRequestStats;
-import android.telephony.DataFailCause;
 import android.telephony.ImsiEncryptionInfo;
 import android.telephony.PhoneStateListener;
 import android.telephony.PhysicalChannelConfig;
+import android.telephony.PreciseDataConnectionState;
 import android.telephony.RadioAccessFamily;
-import android.telephony.Rlog;
+import android.telephony.RadioAccessSpecifier;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
-import android.telephony.data.ApnSetting.ApnType;
 import android.telephony.emergency.EmergencyNumber;
+import android.telephony.ims.RegistrationManager;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.text.TextUtils;
 import android.util.LocalLog;
@@ -69,14 +68,17 @@ import android.util.SparseArray;
 
 import com.android.ims.ImsCall;
 import com.android.ims.ImsConfig;
+import com.android.ims.ImsException;
 import com.android.ims.ImsManager;
 import com.android.internal.R;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.dataconnection.DataConnectionReasons;
 import com.android.internal.telephony.dataconnection.DataEnabledSettings;
 import com.android.internal.telephony.dataconnection.DcTracker;
 import com.android.internal.telephony.dataconnection.TransportManager;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.imsphone.ImsPhoneCall;
+import com.android.internal.telephony.metrics.VoiceCallSessionStats;
 import com.android.internal.telephony.test.SimulatedRadioControl;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 import com.android.internal.telephony.uicc.IccFileHandler;
@@ -86,16 +88,21 @@ import com.android.internal.telephony.uicc.UiccCard;
 import com.android.internal.telephony.uicc.UiccCardApplication;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.uicc.UsimServiceTable;
+import com.android.internal.telephony.util.TelephonyUtils;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * (<em>Not for SDK use</em>)
@@ -115,33 +122,6 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     protected final static Object lockForRadioTechnologyChange = new Object();
 
     protected final int USSD_MAX_QUEUE = 10;
-
-    private BroadcastReceiver mImsIntentReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Rlog.d(LOG_TAG, "mImsIntentReceiver: action " + intent.getAction());
-            if (intent.hasExtra(ImsManager.EXTRA_PHONE_ID)) {
-                int extraPhoneId = intent.getIntExtra(ImsManager.EXTRA_PHONE_ID,
-                        SubscriptionManager.INVALID_PHONE_INDEX);
-                Rlog.d(LOG_TAG, "mImsIntentReceiver: extraPhoneId = " + extraPhoneId);
-                if (extraPhoneId == SubscriptionManager.INVALID_PHONE_INDEX ||
-                        extraPhoneId != getPhoneId()) {
-                    return;
-                }
-            }
-
-            synchronized (Phone.lockForRadioTechnologyChange) {
-                if (intent.getAction().equals(ImsManager.ACTION_IMS_SERVICE_UP)) {
-                    mImsServiceReady = true;
-                    updateImsPhone();
-                    ImsManager.getInstance(mContext, mPhoneId).updateImsServiceConfig(false);
-                } else if (intent.getAction().equals(ImsManager.ACTION_IMS_SERVICE_DOWN)) {
-                    mImsServiceReady = false;
-                    updateImsPhone();
-                }
-            }
-        }
-    };
 
     // Key used to read and write the saved network selection numeric value
     public static final String NETWORK_SELECTION_KEY = "network_selection_key";
@@ -198,9 +178,11 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     // other
     protected static final int EVENT_SET_NETWORK_AUTOMATIC          = 28;
     protected static final int EVENT_ICC_RECORD_EVENTS              = 29;
-    private static final int EVENT_ICC_CHANGED                      = 30;
+    @VisibleForTesting
+    protected static final int EVENT_ICC_CHANGED                    = 30;
     // Single Radio Voice Call Continuity
-    private static final int EVENT_SRVCC_STATE_CHANGED              = 31;
+    @VisibleForTesting
+    protected static final int EVENT_SRVCC_STATE_CHANGED             = 31;
     private static final int EVENT_INITIATE_SILENT_REDIAL           = 32;
     private static final int EVENT_RADIO_NOT_AVAILABLE              = 33;
     private static final int EVENT_UNSOL_OEM_HOOK_RAW               = 34;
@@ -224,9 +206,15 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     protected static final int EVENT_DEVICE_PROVISIONING_DATA_SETTING_CHANGE = 50;
     protected static final int EVENT_GET_AVAILABLE_NETWORKS_DONE    = 51;
 
-    private static final int EVENT_ALL_DATA_DISCONNECTED         = 52;
+    private static final int EVENT_ALL_DATA_DISCONNECTED                  = 52;
+    protected static final int EVENT_UICC_APPS_ENABLEMENT_STATUS_CHANGED  = 53;
+    protected static final int EVENT_UICC_APPS_ENABLEMENT_SETTING_CHANGED = 54;
+    protected static final int EVENT_GET_UICC_APPS_ENABLEMENT_DONE        = 55;
+    protected static final int EVENT_REAPPLY_UICC_APPS_ENABLEMENT_DONE    = 56;
+    protected static final int EVENT_REGISTRATION_FAILED = 57;
+    protected static final int EVENT_BARRING_INFO_CHANGED = 58;
 
-    protected static final int EVENT_LAST = EVENT_ALL_DATA_DISCONNECTED;
+    protected static final int EVENT_LAST = EVENT_BARRING_INFO_CHANGED;
 
     // For shared prefs.
     private static final String GSM_ROAMING_LIST_OVERRIDE_PREFIX = "gsm_roaming_list_";
@@ -235,7 +223,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     private static final String CDMA_NON_ROAMING_LIST_OVERRIDE_PREFIX = "cdma_non_roaming_list_";
 
     // Key used to read/write current CLIR setting
-    public static final String CLIR_KEY = "clir_key";
+    public static final String CLIR_KEY = "clir_sub_key";
 
     // Key used for storing voice mail count
     private static final String VM_COUNT = "vm_count_key";
@@ -265,11 +253,23 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      * if we are looking for automatic selection. operatorAlphaLong is the
      * corresponding operator name.
      */
-    private static class NetworkSelectMessage {
+    protected static class NetworkSelectMessage {
         public Message message;
         public String operatorNumeric;
         public String operatorAlphaLong;
         public String operatorAlphaShort;
+    }
+
+    public static class SilentRedialParam {
+        public String dialString;
+        public int causeCode;
+        public DialArgs dialArgs;
+
+        public SilentRedialParam(String dialString, int causeCode, DialArgs dialArgs) {
+            this.dialString = dialString;
+            this.causeCode = causeCode;
+            this.dialArgs = dialArgs;
+        }
     }
 
     /* Instance Variables */
@@ -295,6 +295,9 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     // Keep track of whether or not the phone is in Emergency Callback Mode for Phone and
     // subclasses
     protected boolean mIsPhoneInEcmState = false;
+    // Keep track of the case where ECM was cancelled to place another outgoing emergency call.
+    // We will need to restart it after the emergency call ends.
+    protected boolean mEcmCanceledForEmergency = false;
     private volatile long mTimeLastEmergencySmsSentMs = EMERGENCY_SMS_NO_TIME_RECORDED;
 
     // Variable to cache the video capability. When RAT changes, we lose this info and are unable
@@ -315,6 +318,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     private final String mActionDetached;
     private final String mActionAttached;
     protected DeviceStateMonitor mDeviceStateMonitor;
+    protected DisplayInfoController mDisplayInfoController;
     protected TransportManager mTransportManager;
     protected DataEnabledSettings mDataEnabledSettings;
     // Used for identify the carrier of current subscription
@@ -323,7 +327,6 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     @UnsupportedAppUsage
     protected int mPhoneId;
 
-    private boolean mImsServiceReady = false;
     @UnsupportedAppUsage
     protected Phone mImsPhone = null;
 
@@ -342,8 +345,20 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      * TODO: Replace this with a proper exception; {@link CallStateException} doesn't make sense.
      */
     public static final String CS_FALLBACK = "cs_fallback";
-    public static final String EXTRA_KEY_ALERT_TITLE = "alertTitle";
-    public static final String EXTRA_KEY_ALERT_MESSAGE = "alertMessage";
+    /**
+     * @deprecated Use {@link android.telephony.ims.ImsManager#EXTRA_WFC_REGISTRATION_FAILURE_TITLE}
+     * instead.
+     */
+    @Deprecated
+    public static final String EXTRA_KEY_ALERT_TITLE =
+            android.telephony.ims.ImsManager.EXTRA_WFC_REGISTRATION_FAILURE_TITLE;
+    /**
+     * @deprecated Use
+     * {@link android.telephony.ims.ImsManager#EXTRA_WFC_REGISTRATION_FAILURE_MESSAGE} instead.
+     */
+    @Deprecated
+    public static final String EXTRA_KEY_ALERT_MESSAGE =
+            android.telephony.ims.ImsManager.EXTRA_WFC_REGISTRATION_FAILURE_MESSAGE;
     public static final String EXTRA_KEY_ALERT_SHOW = "alertShow";
     public static final String EXTRA_KEY_NOTIFICATION_MESSAGE = "notificationMessage";
 
@@ -380,6 +395,14 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
 
     private final RegistrantList mCellInfoRegistrants = new RegistrantList();
 
+    private final RegistrantList mRedialRegistrants = new RegistrantList();
+
+    private final RegistrantList mPhysicalChannelConfigRegistrants = new RegistrantList();
+
+    private final RegistrantList mOtaspRegistrants = new RegistrantList();
+
+    private final RegistrantList mPreferredNetworkTypeRegistrants = new RegistrantList();
+
     protected Registrant mPostDialHandler;
 
     protected final LocalLog mLocalLog;
@@ -400,6 +423,10 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     protected SimulatedRadioControl mSimulatedRadioControl;
 
     private boolean mUnitTestMode;
+    private Map<Integer, Long> mAllowedNetworkTypesForReasons = new HashMap<>();
+    private final CarrierPrivilegesTracker mCarrierPrivilegesTracker;
+
+    protected VoiceCallSessionStats mVoiceCallSessionStats;
 
     public IccRecords getIccRecords() {
         return mIccRecords.get();
@@ -447,27 +474,6 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      */
     public String getActionAttached() {
         return mActionAttached;
-    }
-
-    /**
-     * Set a system property for the current phone, unless we're in unit test mode
-     */
-    // CAF_MSIM TODO this need to be replated with TelephonyManager API ?
-    public void setSystemProperty(String property, String value) {
-        if (getUnitTestMode()) {
-            return;
-        }
-        TelephonyManager.setTelephonyProperty(mPhoneId, property, value);
-    }
-
-    /**
-     * Set a system property for all phones, unless we're in unit test mode
-     */
-    public void setGlobalSystemProperty(String property, String value) {
-        if (getUnitTestMode()) {
-            return;
-        }
-        TelephonyManager.setTelephonyProperty(property, value);
     }
 
     /**
@@ -524,7 +530,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
                 .makeAppSmsManager(context);
         mLocalLog = new LocalLog(64);
 
-        if (Build.IS_DEBUGGABLE) {
+        if (TelephonyUtils.IS_DEBUGGABLE) {
             mTelephonyTester = new TelephonyTester(this);
         }
 
@@ -540,8 +546,10 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         * This will be false on "data only" devices which can't make voice
         * calls and don't support any in-call UI.
         */
-        mIsVoiceCapable = mContext.getResources().getBoolean(
-                com.android.internal.R.bool.config_voice_capable);
+        mIsVoiceCapable = ((TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE))
+                .isVoiceCapable();
+
+        mCarrierPrivilegesTracker = new CarrierPrivilegesTracker(mLooper, this, mContext);
 
         /**
          *  Some RIL's don't always send RIL_UNSOL_CALL_RING so it needs
@@ -553,33 +561,15 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
          * the RIL_UNSOL_CALL_RING so the default if there is no property is
          * true.
          */
-        mDoesRilSendMultipleCallRing = SystemProperties.getBoolean(
-                TelephonyProperties.PROPERTY_RIL_SENDS_MULTIPLE_CALL_RING, true);
+        mDoesRilSendMultipleCallRing = TelephonyProperties.ril_sends_multiple_call_ring()
+                .orElse(true);
         Rlog.d(LOG_TAG, "mDoesRilSendMultipleCallRing=" + mDoesRilSendMultipleCallRing);
 
-        mCallRingDelay = SystemProperties.getInt(
-                TelephonyProperties.PROPERTY_CALL_RING_DELAY, 3000);
+        mCallRingDelay = TelephonyProperties.call_ring_delay().orElse(3000);
         Rlog.d(LOG_TAG, "mCallRingDelay=" + mCallRingDelay);
 
         if (getPhoneType() == PhoneConstants.PHONE_TYPE_IMS) {
             return;
-        }
-
-        // The locale from the "ro.carrier" system property or R.array.carrier_properties.
-        // This will be overwritten by the Locale from the SIM language settings (EF-PL, EF-LI)
-        // if applicable.
-        final Locale carrierLocale = getLocaleFromCarrierProperties(mContext);
-        if (carrierLocale != null && !TextUtils.isEmpty(carrierLocale.getCountry())) {
-            final String country = carrierLocale.getCountry();
-            try {
-                Settings.Global.getInt(mContext.getContentResolver(),
-                        Settings.Global.WIFI_COUNTRY_CODE);
-            } catch (Settings.SettingNotFoundException e) {
-                // note this is not persisting
-                WifiManager wM = (WifiManager)
-                        mContext.getSystemService(Context.WIFI_SERVICE);
-                wM.setCountryCode(country);
-            }
         }
 
         // Initialize device storage and outgoing SMS usage monitors for SMSDispatchers.
@@ -596,40 +586,25 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         if (getPhoneType() != PhoneConstants.PHONE_TYPE_SIP) {
             mCi.registerForSrvccStateChanged(this, EVENT_SRVCC_STATE_CHANGED, null);
         }
-        mCi.setOnUnsolOemHookRaw(this, EVENT_UNSOL_OEM_HOOK_RAW, null);
         mCi.startLceService(DEFAULT_REPORT_INTERVAL_MS, LCE_PULL_MODE,
                 obtainMessage(EVENT_CONFIG_LCE));
     }
 
     /**
-     * Start listening for IMS service UP/DOWN events. If using the new ImsResolver APIs, we should
-     * always be setting up ImsPhones.
+     * Start setup of ImsPhone, which will start trying to connect to the ImsResolver. Will not be
+     * called if this device does not support FEATURE_IMS_TELEPHONY.
      */
-    public void startMonitoringImsService() {
+    public void createImsPhone() {
         if (getPhoneType() == PhoneConstants.PHONE_TYPE_SIP) {
             return;
         }
 
         synchronized(Phone.lockForRadioTechnologyChange) {
-            IntentFilter filter = new IntentFilter();
-            ImsManager imsManager = ImsManager.getInstance(mContext, getPhoneId());
-            // Don't listen to deprecated intents using the new dynamic binding.
-            if (imsManager != null && !imsManager.isDynamicBinding()) {
-                filter.addAction(ImsManager.ACTION_IMS_SERVICE_UP);
-                filter.addAction(ImsManager.ACTION_IMS_SERVICE_DOWN);
-                mContext.registerReceiver(mImsIntentReceiver, filter);
-            }
-
-            // Monitor IMS service - but first poll to see if already up (could miss
-            // intent). Also, when using new ImsResolver APIs, the service will be available soon,
-            // so start trying to bind.
-            if (imsManager != null) {
-                // If it is dynamic binding, kick off ImsPhone creation now instead of waiting for
-                // the service to be available.
-                if (imsManager.isDynamicBinding() || imsManager.isServiceAvailable()) {
-                    mImsServiceReady = true;
-                    updateImsPhone();
-                }
+            if (mImsPhone == null) {
+                mImsPhone = PhoneFactory.makeImsPhone(mNotifier, this);
+                CallManager.getInstance().registerPhone(mImsPhone);
+                mImsPhone.registerForSilentRedial(
+                        this, EVENT_INITIATE_SILENT_REDIAL, null);
             }
         }
     }
@@ -656,6 +631,24 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             // Default value set in CarrierConfigManager
             return false;
         }
+    }
+
+    /**
+     * Check if sending CLIR activation("*31#") and deactivation("#31#") code only without dialing
+     * number is prevented.
+     *
+     * @return {@code true} when carrier config
+     * "KEY_PREVENT_CLIR_ACTIVATION_AND_DEACTIVATION_CODE_BOOL" is set to {@code true}
+     */
+    public boolean isClirActivationAndDeactivationPrevented() {
+        CarrierConfigManager configManager = (CarrierConfigManager)
+                getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle b = configManager.getConfigForSubId(getSubId());
+        if (b == null) {
+            b = CarrierConfigManager.getDefaultConfig();
+        }
+        return b.getBoolean(
+                CarrierConfigManager.KEY_PREVENT_CLIR_ACTIVATION_AND_DEACTIVATION_CODE_BOOL);
     }
 
     /**
@@ -715,9 +708,17 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
                     String dialString = (String) ar.result;
                     if (TextUtils.isEmpty(dialString)) return;
                     try {
-                        dialInternal(dialString, new DialArgs.Builder().build());
+                        Connection cn = dialInternal(dialString, new DialArgs.Builder().build());
+                        Rlog.d(LOG_TAG, "Notify redial connection changed cn: " + cn);
+                        if (mImsPhone != null) {
+                            // Don't care it is null or not.
+                            mImsPhone.notifyRedialConnectionChanged(cn);
+                        }
                     } catch (CallStateException e) {
                         Rlog.e(LOG_TAG, "silent redial failed: " + e);
+                        if (mImsPhone != null) {
+                            mImsPhone.notifyRedialConnectionChanged(null);
+                        }
                     }
                 }
                 break;
@@ -732,13 +733,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
                 break;
 
             case EVENT_UNSOL_OEM_HOOK_RAW:
-                ar = (AsyncResult)msg.obj;
-                if (ar.exception == null) {
-                    byte[] data = (byte[])ar.result;
-                    mNotifier.notifyOemHookRawEventForSubscriber(this, data);
-                } else {
-                    Rlog.e(LOG_TAG, "OEM hook raw exception: " + ar.exception);
-                }
+                // deprecated, ignore
                 break;
 
             case EVENT_CONFIG_LCE:
@@ -777,6 +772,12 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     public void unregisterForSilentRedial(Handler h) {
+    }
+
+    public void registerForVolteSilentRedial(Handler h, int what, Object obj) {
+    }
+
+    public void unregisterForVolteSilentRedial(Handler h) {
     }
 
     private void handleSrvccStateChanged(int[] ret) {
@@ -912,6 +913,30 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
        mHandoverRegistrants.notifyRegistrants(ar);
     }
 
+    /**
+     * Notifies when a Handover happens due to Silent Redial
+     */
+    public void registerForRedialConnectionChanged(Handler h, int what, Object obj) {
+        checkCorrectThread(h);
+        mRedialRegistrants.addUnique(h, what, obj);
+    }
+
+    /**
+     * Unregisters for redial connection notifications
+     */
+    public void unregisterForRedialConnectionChanged(Handler h) {
+        mRedialRegistrants.remove(h);
+    }
+
+    /**
+     * Subclasses of Phone probably want to replace this with a
+     * version scoped to their packages
+     */
+    public void notifyRedialConnectionChanged(Connection cn) {
+        AsyncResult ar = new AsyncResult(null, cn, null);
+        mRedialRegistrants.notifyRegistrants(ar);
+    }
+
     protected void setIsInEmergencyCall() {
     }
 
@@ -983,14 +1008,20 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         migrate(mUnknownConnectionRegistrants, from.mUnknownConnectionRegistrants);
         migrate(mSuppServiceFailedRegistrants, from.mSuppServiceFailedRegistrants);
         migrate(mCellInfoRegistrants, from.mCellInfoRegistrants);
+        migrate(mRedialRegistrants, from.mRedialRegistrants);
         // The emergency state of IMS phone will be cleared in ImsPhone#notifySrvccState after
         // receive SRVCC completed
         if (from.isInEmergencyCall()) {
             setIsInEmergencyCall();
         }
+        setEcmCanceledForEmergency(from.isEcmCanceledForEmergency());
     }
 
     protected void migrate(RegistrantList to, RegistrantList from) {
+        if (from == null) {
+            // May be null in some cases, such as testing.
+            return;
+        }
         from.removeCleared();
         for (int i = 0, n = from.size(); i < n; i++) {
             Registrant r = (Registrant) from.get(i);
@@ -1390,12 +1421,13 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         nsm.operatorAlphaShort = network.getOperatorAlphaShort();
 
         Message msg = obtainMessage(EVENT_SET_NETWORK_MANUAL_COMPLETE, nsm);
-        mCi.setNetworkSelectionModeManual(network.getOperatorNumeric(), msg);
+        mCi.setNetworkSelectionModeManual(network.getOperatorNumeric(), network.getRan(), msg);
 
         if (persistSelection) {
             updateSavedNetworkOperator(nsm);
         } else {
             clearSavedNetworkSelection();
+            updateManualNetworkSelection(nsm);
         }
     }
 
@@ -1438,6 +1470,15 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /**
+     * Update non-perisited manual network selection.
+     *
+     * @param nsm PLMN info of the selected network
+     */
+    protected void updateManualNetworkSelection(NetworkSelectMessage nsm)  {
+        Rlog.e(LOG_TAG, "updateManualNetworkSelection() should be overridden");
+    }
+
+    /**
      * Used to track the settings upon completion of the network change.
      */
     private void handleSetSelectNetwork(AsyncResult ar) {
@@ -1461,7 +1502,8 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     /**
      * Method to retrieve the saved operator from the Shared Preferences
      */
-    private OperatorInfo getSavedNetworkSelection() {
+    @NonNull
+    public OperatorInfo getSavedNetworkSelection() {
         // open the shared preferences and search with our key.
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
         String numeric = sp.getString(NETWORK_SELECTION_KEY + getSubId(), "");
@@ -1506,9 +1548,9 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         // Open the shared preferences editor, and write the value.
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
         SharedPreferences.Editor editor = sp.edit();
-        editor.putInt(CLIR_KEY + getPhoneId(), commandInterfaceCLIRMode);
-        Rlog.i(LOG_TAG, "saveClirSetting: " + CLIR_KEY + getPhoneId() + "=" +
-                commandInterfaceCLIRMode);
+        editor.putInt(CLIR_KEY + getSubId(), commandInterfaceCLIRMode);
+        Rlog.i(LOG_TAG, "saveClirSetting: " + CLIR_KEY + getSubId() + "="
+                + commandInterfaceCLIRMode);
 
         // Commit and log the result.
         if (!editor.commit()) {
@@ -1677,18 +1719,36 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         }
     }
 
+    private @TelephonyManager.NetworkTypeBitMask long getAllowedNetworkTypes() {
+        long allowedNetworkTypes = TelephonyManager.getAllNetworkTypesBitmask();
+        if (SubscriptionController.getInstance() != null) {
+            String result = SubscriptionController.getInstance().getSubscriptionProperty(
+                    getSubId(),
+                    SubscriptionManager.ALLOWED_NETWORK_TYPES);
+
+            if (result != null) {
+                try {
+                    allowedNetworkTypes = Long.parseLong(result);
+                } catch (NumberFormatException err) {
+                    Rlog.e(LOG_TAG, "allowedNetworkTypes NumberFormat exception");
+                }
+            }
+        }
+        return allowedNetworkTypes;
+    }
     /**
      * Set the properties by matching the carrier string in
      * a string-array resource
      */
-    private static Locale getLocaleFromCarrierProperties(Context ctx) {
+    @Nullable Locale getLocaleFromCarrierProperties() {
         String carrier = SystemProperties.get("ro.carrier");
 
         if (null == carrier || 0 == carrier.length() || "unknown".equals(carrier)) {
             return null;
         }
 
-        CharSequence[] carrierLocales = ctx.getResources().getTextArray(R.array.carrier_properties);
+        CharSequence[] carrierLocales = mContext.getResources().getTextArray(
+                R.array.carrier_properties);
 
         for (int i = 0; i < carrierLocales.length; i+=3) {
             String c = carrierLocales[i].toString();
@@ -1774,6 +1834,20 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      * @return The instance of transport manager
      */
     public TransportManager getTransportManager() {
+        return null;
+    }
+
+    /**
+     * Retrieves the DeviceStateMonitor of the phone instance.
+     */
+    public DeviceStateMonitor getDeviceStateMonitor() {
+        return null;
+    }
+
+    /**
+     * Retrieves the DisplayInfoController of the phone instance.
+     */
+    public DisplayInfoController getDisplayInfoController() {
         return null;
     }
 
@@ -1882,17 +1956,16 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     /**
      * @return the current cell location if known
      */
-    @UnsupportedAppUsage
-    public CellLocation getCellLocation() {
-        return getServiceStateTracker().getCellLocation();
+    public CellIdentity getCellIdentity() {
+        return getServiceStateTracker().getCellIdentity();
     }
 
     /**
      * @param workSource calling WorkSource
      * @param rspMsg the response message containing the cell location
      */
-    public void getCellLocation(WorkSource workSource, Message rspMsg) {
-        getServiceStateTracker().requestCellLocation(workSource, rspMsg);
+    public void getCellIdentity(WorkSource workSource, Message rspMsg) {
+        getServiceStateTracker().requestCellIdentity(workSource, rspMsg);
     }
 
     /**
@@ -1919,6 +1992,14 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     public boolean getMessageWaitingIndicator() {
         return mVmCount != 0;
     }
+
+    /**
+     *  Retrieves manually selected network info.
+     */
+    public String getManualNetworkSelectionPlmn() {
+        return "";
+    }
+
 
     private int getCallForwardingIndicatorFromSharedPref() {
         int status = IccRecords.CALL_FORWARDING_STATUS_DISABLED;
@@ -1972,18 +2053,40 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         editor.apply();
     }
 
+    private @TelephonyManager.NetworkTypeBitMask long getAllowedNetworkTypesForAllReasons() {
+        long allowedNetworkTypes = TelephonyManager.getAllNetworkTypesBitmask();
+        synchronized (mAllowedNetworkTypesForReasons) {
+            for (long networkTypes: mAllowedNetworkTypesForReasons.values()) {
+                allowedNetworkTypes = allowedNetworkTypes & networkTypes;
+            }
+        }
+        return allowedNetworkTypes;
+    }
+
     public void setVoiceCallForwardingFlag(int line, boolean enable, String number) {
         setCallForwardingIndicatorInSharedPref(enable);
-        IccRecords r = mIccRecords.get();
+        IccRecords r = getIccRecords();
         if (r != null) {
             r.setVoiceCallForwardingFlag(line, enable, number);
         }
+        notifyCallForwardingIndicator();
     }
 
-    protected void setVoiceCallForwardingFlag(IccRecords r, int line, boolean enable,
+    /**
+     * Set the voice call forwarding flag for GSM/UMTS and the like SIMs
+     *
+     * @param r to enable/disable
+     * @param line to enable/disable
+     * @param enable
+     * @param number to which CFU is enabled
+     */
+    public void setVoiceCallForwardingFlag(IccRecords r, int line, boolean enable,
                                               String number) {
         setCallForwardingIndicatorInSharedPref(enable);
-        r.setVoiceCallForwardingFlag(line, enable, number);
+        if (r != null) {
+            r.setVoiceCallForwardingFlag(line, enable, number);
+        }
+        notifyCallForwardingIndicator();
     }
 
     /**
@@ -1997,7 +2100,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             Rlog.e(LOG_TAG, "getCallForwardingIndicator: not possible in CDMA");
             return false;
         }
-        IccRecords r = mIccRecords.get();
+        IccRecords r = getIccRecords();
         int callForwardingIndicator = IccRecords.CALL_FORWARDING_STATUS_UNKNOWN;
         if (r != null) {
             callForwardingIndicator = r.getVoiceCallForwardingFlag();
@@ -2075,6 +2178,55 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /**
+     * Get the effective allowed network types on the device.
+     * @return effective network type
+     */
+    public @TelephonyManager.NetworkTypeBitMask long getEffectiveAllowedNetworkTypes() {
+        long allowedNetworkTypes = getAllowedNetworkTypes();
+        return allowedNetworkTypes & getAllowedNetworkTypesForAllReasons();
+    }
+
+    /**
+     * Get the allowed network types for a certain reason.
+     * @param reason reason to configure allowed network types
+     * @return the allowed network types.
+     */
+    public @TelephonyManager.NetworkTypeBitMask long getAllowedNetworkTypes(
+            @TelephonyManager.AllowedNetworkTypesReason int reason) {
+        synchronized (mAllowedNetworkTypesForReasons) {
+            switch (reason) {
+                case TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER:
+                    return mAllowedNetworkTypesForReasons.getOrDefault(
+                            TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER,
+                            TelephonyManager.getAllNetworkTypesBitmask());
+                default:
+                    Rlog.e(LOG_TAG, "Invalid allowed network type reason: " + reason);
+                    return TelephonyManager.getAllNetworkTypesBitmask();
+            }
+        }
+    }
+
+    /**
+     * Requests to set the allowed network types for a specific reason
+     * @param reason reason to configure allowed network type
+     * @param networkTypes one of the network types
+     */
+    public void setAllowedNetworkTypes(@TelephonyManager.AllowedNetworkTypesReason int reason,
+            @TelephonyManager.NetworkTypeBitMask long networkTypes) {
+        synchronized (mAllowedNetworkTypesForReasons) {
+            switch (reason) {
+                case TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER:
+                    mAllowedNetworkTypesForReasons.put(
+                            TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER, networkTypes);
+                    break;
+                default:
+                    Rlog.e(LOG_TAG, "Invalid allowed network type reason: " + reason);
+                    break;
+            }
+        }
+    }
+
+    /**
      *  Requests to set the preferred network type for searching and registering
      * (CS/PS domain, RAT, and operation mode)
      * @param networkType one of  NT_*_TYPE
@@ -2086,6 +2238,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         int modemRaf = getRadioAccessFamily();
         int rafFromType = RadioAccessFamily.getRafFromNetworkType(networkType);
 
+        long allowedNetworkTypes = getAllowedNetworkTypes();
         if (modemRaf == RadioAccessFamily.RAF_UNKNOWN
                 || rafFromType == RadioAccessFamily.RAF_UNKNOWN) {
             Rlog.d(LOG_TAG, "setPreferredNetworkType: Abort, unknown RAF: "
@@ -2100,24 +2253,61 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             return;
         }
 
-        int filteredRaf = (rafFromType & modemRaf);
+        int filteredRaf = (int) (rafFromType & modemRaf & allowedNetworkTypes
+                & getAllowedNetworkTypesForAllReasons());
         int filteredType = RadioAccessFamily.getNetworkTypeFromRaf(filteredRaf);
-
+        long powerAllowedNetworkTypes = getAllowedNetworkTypes(
+                TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER);
         Rlog.d(LOG_TAG, "setPreferredNetworkType: networkType = " + networkType
                 + " modemRaf = " + modemRaf
                 + " rafFromType = " + rafFromType
+                + " allowedNetworkTypes = " + allowedNetworkTypes
+                + " power allowedNetworkTypes = " + powerAllowedNetworkTypes
                 + " filteredType = " + filteredType);
 
         mCi.setPreferredNetworkType(filteredType, response);
+        mPreferredNetworkTypeRegistrants.notifyRegistrants();
     }
 
     /**
-     *  Query the preferred network type setting
+     * Query the preferred network type setting
      *
      * @param response is callback message to report one of  NT_*_TYPE
      */
     public void getPreferredNetworkType(Message response) {
         mCi.getPreferredNetworkType(response);
+    }
+
+    /**
+     * Register for preferred network type changes
+     *
+     * @param h Handler that receives the notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForPreferredNetworkTypeChanged(Handler h, int what, Object obj) {
+        checkCorrectThread(h);
+        mPreferredNetworkTypeRegistrants.addUnique(h, what, obj);
+    }
+
+    /**
+     * Unregister for preferred network type changes.
+     *
+     * @param h Handler that should be unregistered.
+     */
+    public void unregisterForPreferredNetworkTypeChanged(Handler h) {
+        mPreferredNetworkTypeRegistrants.remove(h);
+    }
+
+    /**
+     * Get the cached value of the preferred network type setting
+     */
+    public int getCachedPreferredNetworkType() {
+        if (mCi != null && mCi instanceof BaseCommands) {
+            return ((BaseCommands) mCi).mPreferredNetworkType;
+        } else {
+            return RILConstants.PREFERRED_NETWORK_MODE;
+        }
     }
 
     /**
@@ -2318,6 +2508,20 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mCi.nvResetConfig(3 /* factory NV reset */, response);
     }
 
+    /**
+     * Perform modem configuration erase. Used for network reset
+     *
+     * @param response Callback message.
+     */
+    public void eraseModemConfig(Message response) {
+        mCi.nvResetConfig(2 /* erase NV */, response);
+    }
+
+    public void setSystemSelectionChannels(List<RadioAccessSpecifier> specifiers,
+            Message response) {
+        mCi.setSystemSelectionChannels(specifiers, response);
+    }
+
     public void notifyDataActivity() {
         mNotifier.notifyDataActivity(this);
     }
@@ -2331,23 +2535,22 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mNotifier.notifyMessageWaitingChanged(this);
     }
 
+    /** Send notification with an updated PreciseDataConnectionState to a single data connection */
     public void notifyDataConnection(String apnType) {
-        mNotifier.notifyDataConnection(this, apnType, getDataConnectionState(apnType));
+        mNotifier.notifyDataConnection(this, apnType, getPreciseDataConnectionState(apnType));
     }
 
-    public void notifyDataConnection() {
+    /** Send notification with an updated PreciseDataConnectionState to all data connections */
+    public void notifyAllActiveDataConnections() {
         String types[] = getActiveApnTypes();
-        if (types != null) {
-            for (String apnType : types) {
-                mNotifier.notifyDataConnection(this, apnType,
-                        getDataConnectionState(apnType));
-            }
+        for (String apnType : types) {
+            mNotifier.notifyDataConnection(this, apnType, getPreciseDataConnectionState(apnType));
         }
     }
 
     @UnsupportedAppUsage
     public void notifyOtaspChanged(int otaspMode) {
-        mNotifier.notifyOtaspChanged(this, otaspMode);
+        mOtaspRegistrants.notifyRegistrants(new AsyncResult(null, otaspMode, null));
     }
 
     public void notifyVoiceActivationStateChanged(int state) {
@@ -2362,12 +2565,22 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mNotifier.notifyUserMobileDataStateChanged(this, state);
     }
 
+    /** Send notification that display info has changed. */
+    public void notifyDisplayInfoChanged(TelephonyDisplayInfo telephonyDisplayInfo) {
+        mNotifier.notifyDisplayInfoChanged(this, telephonyDisplayInfo);
+    }
+
     public void notifySignalStrength() {
         mNotifier.notifySignalStrength(this);
     }
 
     public PhoneConstants.DataState getDataConnectionState(String apnType) {
         return PhoneConstants.DataState.DISCONNECTED;
+    }
+
+    /** Default implementation to get the PreciseDataConnectionState */
+    public @Nullable PreciseDataConnectionState getPreciseDataConnectionState(String apnType) {
+        return null;
     }
 
     public void notifyCellInfo(List<CellInfo> cellInfo) {
@@ -2377,9 +2590,34 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mNotifier.notifyCellInfo(this, cellInfo);
     }
 
+    /**
+     * Registration point for PhysicalChannelConfig change.
+     * @param h handler to notify
+     * @param what what code of message when delivered
+     * @param obj placed in Message.obj.userObj
+     */
+    public void registerForPhysicalChannelConfig(Handler h, int what, Object obj) {
+        checkCorrectThread(h);
+        Registrant registrant = new Registrant(h, what, obj);
+        mPhysicalChannelConfigRegistrants.add(registrant);
+        // notify first
+        List<PhysicalChannelConfig> physicalChannelConfigs = getPhysicalChannelConfigList();
+        if (physicalChannelConfigs != null) {
+            registrant.notifyRegistrant(new AsyncResult(null, physicalChannelConfigs, null));
+        }
+    }
+
+    public void unregisterForPhysicalChannelConfig(Handler h) {
+        mPhysicalChannelConfigRegistrants.remove(h);
+    }
+
     /** Notify {@link PhysicalChannelConfig} changes. */
     public void notifyPhysicalChannelConfiguration(List<PhysicalChannelConfig> configs) {
-        mNotifier.notifyPhysicalChannelConfiguration(this, configs);
+        mPhysicalChannelConfigRegistrants.notifyRegistrants(new AsyncResult(null, configs, null));
+    }
+
+    public List<PhysicalChannelConfig> getPhysicalChannelConfigList() {
+        return null;
     }
 
     /**
@@ -2394,6 +2632,16 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mNotifier.notifyEmergencyNumberList(this);
     }
 
+    /** Notify the outgoing call {@link EmergencyNumber} changes. */
+    public void notifyOutgoingEmergencyCall(EmergencyNumber emergencyNumber) {
+        mNotifier.notifyOutgoingEmergencyCall(this, emergencyNumber);
+    }
+
+    /** Notify the outgoing Sms {@link EmergencyNumber} changes. */
+    public void notifyOutgoingEmergencySms(EmergencyNumber emergencyNumber) {
+        mNotifier.notifyOutgoingEmergencySms(this, emergencyNumber);
+    }
+
     /**
      * @return true if a mobile originating emergency call is active
      */
@@ -2404,7 +2652,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     // This property is used to handle phone process crashes, and is the same for CDMA and IMS
     // phones
     protected static boolean getInEcmMode() {
-        return SystemProperties.getBoolean(TelephonyProperties.PROPERTY_INECM_MODE, false);
+        return TelephonyProperties.in_ecm_mode().orElse(false);
     }
 
     /**
@@ -2416,9 +2664,33 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         return mIsPhoneInEcmState;
     }
 
+    public boolean isInImsEcm() {
+        return false;
+    }
+
     public void setIsInEcm(boolean isInEcm) {
-        setGlobalSystemProperty(TelephonyProperties.PROPERTY_INECM_MODE, String.valueOf(isInEcm));
+        if (!getUnitTestMode()) {
+            TelephonyProperties.in_ecm_mode(isInEcm);
+        }
         mIsPhoneInEcmState = isInEcm;
+    }
+
+    /**
+     * @return true if this Phone is in an emergency call that caused emergency callback mode to be
+     * canceled, false if not.
+     */
+    public boolean isEcmCanceledForEmergency() {
+        return mEcmCanceledForEmergency;
+    }
+
+    /**
+     * Set whether or not this Phone has an active emergency call that was placed during emergency
+     * callback mode and caused it to be temporarily canceled.
+     * @param isCanceled true if an emergency call was placed that caused ECM to be canceled, false
+     *                   if it is not in this state.
+     */
+    public void setEcmCanceledForEmergency(boolean isCanceled) {
+        mEcmCanceledForEmergency = isCanceled;
     }
 
     @UnsupportedAppUsage
@@ -2566,7 +2838,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             options.setBackgroundActivityStartsAllowed(true);
             Intent intent = new Intent(TelephonyIntents.SECRET_CODE_ACTION,
                     Uri.parse("android_secret_code://" + code));
-            intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+            intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             mContext.sendBroadcast(intent, null, options.toBundle());
 
             // {@link TelephonyManager.ACTION_SECRET_CODE} will replace {@link
@@ -2574,7 +2846,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             // that both of these two actions will be broadcast.
             Intent secrectCodeIntent = new Intent(TelephonyManager.ACTION_SECRET_CODE,
                     Uri.parse("android_secret_code://" + code));
-            secrectCodeIntent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+            secrectCodeIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
             mContext.sendBroadcast(secrectCodeIntent, null, options.toBundle());
         }
     }
@@ -2742,6 +3014,42 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      */
     public  boolean isOtaSpNumber(String dialStr) {
         return false;
+    }
+
+    /**
+     * Register for notifications when OTA Service Provisioning mode has changed.
+     *
+     * <p>The mode is integer. {@link TelephonyManager#OTASP_UNKNOWN}
+     * means the value is currently unknown and the system should wait until
+     * {@link TelephonyManager#OTASP_NEEDED} or {@link TelephonyManager#OTASP_NOT_NEEDED} is
+     * received before making the decision to perform OTASP or not.
+     *
+     * @param h Handler that receives the notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForOtaspChange(Handler h, int what, Object obj) {
+        checkCorrectThread(h);
+        mOtaspRegistrants.addUnique(h, what, obj);
+        // notify first
+        new Registrant(h, what, obj).notifyRegistrant(new AsyncResult(null, getOtasp(), null));
+    }
+
+    /**
+     * Unegister for notifications when OTA Service Provisioning mode has changed.
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForOtaspChange(Handler h) {
+        mOtaspRegistrants.remove(h);
+    }
+
+    /**
+     * Returns the current OTA Service Provisioning mode.
+     *
+     * @see registerForOtaspChange
+     */
+    public int getOtasp() {
+        return TelephonyManager.OTASP_UNKNOWN;
     }
 
     /**
@@ -2991,26 +3299,26 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
 
     /**
      * Returns an array of string identifiers for the APN types serviced by the
-     * currently active.
+     * currently active subscription.
      *
      * @return The string array of APN types. Return null if no active APN types.
      */
     @UnsupportedAppUsage
-    @Nullable
+    @NonNull
     public String[] getActiveApnTypes() {
-        if (mTransportManager != null) {
-            List<String> typesList = new ArrayList<>();
-            for (int transportType : mTransportManager.getAvailableTransports()) {
-                if (getDcTracker(transportType) != null) {
-                    typesList.addAll(Arrays.asList(
-                            getDcTracker(transportType).getActiveApnTypes()));
-                }
-            }
-
-            return typesList.toArray(new String[typesList.size()]);
+        if (mTransportManager == null || mDcTrackers == null)  {
+            Rlog.e(LOG_TAG, "Invalid state for Transport/DcTrackers");
+            return new String[0];
         }
 
-        return null;
+        Set<String> activeApnTypes = new HashSet<String>();
+        for (int transportType : mTransportManager.getAvailableTransports()) {
+            DcTracker dct = getDcTracker(transportType);
+            if (dct == null) continue; // TODO: should this ever happen?
+            activeApnTypes.addAll(Arrays.asList(dct.getActiveApnTypes()));
+        }
+
+        return activeApnTypes.toArray(new String[activeApnTypes.size()]);
     }
 
     /**
@@ -3186,6 +3494,17 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /**
+     * Enable or disable always reporting signal strength changes from radio.
+     *
+     * @param isEnable {@code true} for enabling; {@code false} for disabling.
+     */
+    public void setAlwaysReportSignalStrength(boolean isEnable) {
+        if (mDeviceStateMonitor != null) {
+            mDeviceStateMonitor.setAlwaysReportSignalStrength(isEnable);
+        }
+    }
+
+    /**
      * TODO: Adding a function for each property is not good.
      * A fucntion of type getPhoneProp(propType) where propType is an
      * enum of GSM+CDMA+LTE props would be a better approach.
@@ -3240,13 +3559,10 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     public void notifyCallForwardingIndicator() {
     }
 
-    public void notifyDataConnectionFailed(String apnType) {
-        mNotifier.notifyDataConnectionFailed(this, apnType);
-    }
-
-    public void notifyPreciseDataConnectionFailed(String apnType, String apn,
-            @DataFailCause.FailCause int failCause) {
-        mNotifier.notifyPreciseDataConnectionFailed(this, apnType, apn, failCause);
+    /** Send a notification that a particular data connection has failed with specified cause. */
+    public void notifyDataConnectionFailed(
+            String apnType, String apn, @DataFailureCause int failCause) {
+        mNotifier.notifyDataConnectionFailed(this, apnType, apn, failCause);
     }
 
     /**
@@ -3367,6 +3683,10 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         return TelephonyManager.UNKNOWN_CARRIER_ID_LIST_VERSION;
     }
 
+    public int getEmergencyNumberDbVersion() {
+        return TelephonyManager.INVALID_EMERGENCY_NUMBER_DB_VERSION;
+    }
+
     public void resolveSubscriptionCarrierId(String simState) {
     }
 
@@ -3392,28 +3712,6 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
 
     @UnsupportedAppUsage
     public void dispose() {
-    }
-
-    private void updateImsPhone() {
-        Rlog.d(LOG_TAG, "updateImsPhone"
-                + " mImsServiceReady=" + mImsServiceReady);
-
-        if (mImsServiceReady && (mImsPhone == null)) {
-            mImsPhone = PhoneFactory.makeImsPhone(mNotifier, this);
-            CallManager.getInstance().registerPhone(mImsPhone);
-            mImsPhone.registerForSilentRedial(
-                    this, EVENT_INITIATE_SILENT_REDIAL, null);
-        } else if (!mImsServiceReady && (mImsPhone != null)) {
-            CallManager.getInstance().unregisterPhone(mImsPhone);
-            mImsPhone.unregisterForSilentRedial(this);
-
-            mImsPhone.dispose();
-            // Potential GC issue if someone keeps a reference to ImsPhone.
-            // However: this change will make sure that such a reference does
-            // not access functions through NULL pointer.
-            //mImsPhone.removeReferences();
-            mImsPhone = null;
-        }
     }
 
     /**
@@ -3564,7 +3862,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
      * @return true if the IMS capability for the registration technology specified is available,
      * false otherwise.
      */
-    public boolean isImsCapabilityAvailable(int capability, int regTech) {
+    public boolean isImsCapabilityAvailable(int capability, int regTech) throws ImsException {
         Phone imsPhone = mImsPhone;
         boolean isAvailable = false;
         if (imsPhone != null) {
@@ -3601,6 +3899,31 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         Rlog.d(LOG_TAG, "getImsRegistrationTechnology =" + regTech);
         return regTech;
     }
+
+    /**
+     * Get the IMS MmTel Registration technology for this Phone, defined in
+     * {@link ImsRegistrationImplBase}.
+     */
+    public void getImsRegistrationTech(Consumer<Integer> callback) {
+        Phone imsPhone = mImsPhone;
+        if (imsPhone != null) {
+            imsPhone.getImsRegistrationTech(callback);
+        } else {
+            callback.accept(ImsRegistrationImplBase.REGISTRATION_TECH_NONE);
+        }
+    }
+
+    /**
+     * Asynchronously get the IMS MmTel Registration state for this Phone.
+     */
+    public void getImsRegistrationState(Consumer<Integer> callback) {
+        Phone imsPhone = mImsPhone;
+        if (imsPhone != null) {
+            imsPhone.getImsRegistrationState(callback);
+        }
+        callback.accept(RegistrationManager.REGISTRATION_STATE_NOT_REGISTERED);
+    }
+
 
     private boolean getRoamingOverrideHelper(String prefix, String key) {
         String iccId = getIccSerialNumber();
@@ -3821,7 +4144,8 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /** Sets the SignalStrength reporting criteria. */
-    public void setSignalStrengthReportingCriteria(int[] thresholds, int ran) {
+    public void setSignalStrengthReportingCriteria(
+            int signalStrengthMeasure, int[] thresholds, int ran, boolean isEnabled) {
         // no-op default implementation
     }
 
@@ -3847,17 +4171,7 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             return new Locale(records.getSimLanguage());
         }
 
-        return getLocaleFromCarrierProperties(mContext);
-    }
-
-    public void updateDataConnectionTracker() {
-        if (mTransportManager != null) {
-            for (int transport : mTransportManager.getAvailableTransports()) {
-                if (getDcTracker(transport) != null) {
-                    getDcTracker(transport).update();
-                }
-            }
-        }
+        return getLocaleFromCarrierProperties();
     }
 
     public boolean updateCurrentCarrierInProvider() {
@@ -3963,18 +4277,6 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /**
-     * Get aggregated video call data usage since boot.
-     * Permissions android.Manifest.permission.READ_NETWORK_USAGE_HISTORY is required.
-     *
-     * @param perUidStats True if requesting data usage per uid, otherwise overall usage.
-     * @return Snapshot of video call data usage
-     */
-    public NetworkStats getVtDataUsage(boolean perUidStats) {
-        if (mImsPhone == null) return null;
-        return mImsPhone.getVtDataUsage(perUidStats);
-    }
-
-    /**
      * SIP URIs aliased to the current subscriber given by the IMS implementation.
      * Applicable only on IMS; used in absence of line1number.
      * @return array of SIP URIs aliased to the current subscriber
@@ -3998,14 +4300,31 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         mCi.setSimCardPower(state, null, workSource);
     }
 
-    public void setRadioIndicationUpdateMode(int filters, int mode) {
-        if (mDeviceStateMonitor != null) {
-            mDeviceStateMonitor.setIndicationUpdateMode(filters, mode);
-        }
-    }
-
     public void setCarrierTestOverride(String mccmnc, String imsi, String iccid, String gid1,
             String gid2, String pnn, String spn, String carrierPrivilegeRules, String apn) {
+    }
+
+    /**
+     * Check if the device can only make the emergency call. The device is emergency call only if
+     * none of the phone is in service, and one of them has the capability to make the emergency
+     * call.
+     *
+     * @return {@code True} if the device is emergency call only, otherwise return {@code False}.
+     */
+    public static boolean isEmergencyCallOnly() {
+        boolean isEmergencyCallOnly = false;
+        for (Phone phone : PhoneFactory.getPhones()) {
+            if (phone != null) {
+                ServiceState ss = phone.getServiceStateTracker().getServiceState();
+                // One of the phone is in service, hence the device is not emergency call only.
+                if (ss.getState() == ServiceState.STATE_IN_SERVICE
+                        || ss.getDataRegistrationState() == ServiceState.STATE_IN_SERVICE) {
+                    return false;
+                }
+                isEmergencyCallOnly |= ss.isEmergencyOnly();
+            }
+        }
+        return isEmergencyCallOnly;
     }
 
     /**
@@ -4024,6 +4343,20 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
     }
 
     /**
+     * Enable or disable uicc applications.
+     * @param enable whether to enable or disable uicc applications.
+     * @param onCompleteMessage callback for async operation. Ignored if blockingCall is true.
+     */
+    public void enableUiccApplications(boolean enable, Message onCompleteMessage) {}
+
+    /**
+     * Whether disabling a physical subscription is supported or not.
+     */
+    public boolean canDisablePhysicalSubscription() {
+        return false;
+    }
+
+    /**
      * Get the HAL version.
      *
      * @return the current HalVersion
@@ -4033,6 +4366,32 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             return ((RIL) mCi).getHalVersion();
         }
         return RIL.RADIO_HAL_VERSION_UNKNOWN;
+    }
+
+    /**
+     * Get the SIM's MCC/MNC
+     *
+     * @return MCC/MNC in string format, empty string if not available.
+     */
+    @NonNull
+    public String getOperatorNumeric() {
+        return "";
+    }
+
+    /** Returns the {@link VoiceCallSessionStats} for this phone ID. */
+    public VoiceCallSessionStats getVoiceCallSessionStats() {
+        return mVoiceCallSessionStats;
+    }
+
+    /** Sets the {@link VoiceCallSessionStats} mock for this phone ID during unit testing. */
+    @VisibleForTesting
+    public void setVoiceCallSessionStats(VoiceCallSessionStats voiceCallSessionStats) {
+        mVoiceCallSessionStats = voiceCallSessionStats;
+    }
+
+    /** @hide */
+    public CarrierPrivilegesTracker getCarrierPrivilegesTracker() {
+        return mCarrierPrivilegesTracker;
     }
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
@@ -4070,6 +4429,8 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         pw.println(" getActiveApnTypes()=" + getActiveApnTypes());
         pw.println(" needsOtaServiceProvisioning=" + needsOtaServiceProvisioning());
         pw.println(" isInEmergencySmsMode=" + isInEmergencySmsMode());
+        pw.println(" isEcmCanceledForEmergency=" + isEcmCanceledForEmergency());
+        pw.println(" service state=" + getServiceState());
         pw.flush();
         pw.println("++++++++++++++++++++++++++++++++");
 
@@ -4108,6 +4469,17 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
         if (getEmergencyNumberTracker() != null) {
             try {
                 getEmergencyNumberTracker().dump(fd, pw, args);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            pw.flush();
+            pw.println("++++++++++++++++++++++++++++++++");
+        }
+
+        if (getDisplayInfoController() != null) {
+            try {
+                getDisplayInfoController().dump(fd, pw, args);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -4189,6 +4561,12 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
             }
 
             pw.flush();
+            pw.println("++++++++++++++++++++++++++++++++");
+        }
+
+        if (getCarrierPrivilegesTracker() != null) {
+            pw.println("CarrierPrivilegesTracker:");
+            getCarrierPrivilegesTracker().dump(fd, pw, args);
             pw.println("++++++++++++++++++++++++++++++++");
         }
 

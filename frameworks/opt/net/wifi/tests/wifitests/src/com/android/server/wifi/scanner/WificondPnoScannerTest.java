@@ -30,14 +30,15 @@ import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.internal.R;
 import com.android.server.wifi.Clock;
 import com.android.server.wifi.MockResources;
 import com.android.server.wifi.MockWifiMonitor;
 import com.android.server.wifi.ScanResults;
+import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiMonitor;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +53,7 @@ import java.util.Set;
  * Unit tests for {@link com.android.server.wifi.scanner.WificondScannerImpl.setPnoList}.
  */
 @SmallTest
-public class WificondPnoScannerTest {
+public class WificondPnoScannerTest extends WifiBaseTest {
     private static final String IFACE_NAME = "a_test_interface_name";
 
     @Mock Context mContext;
@@ -76,7 +77,8 @@ public class WificondPnoScannerTest {
         setupMockChannels(mWifiNative,
                 new int[]{2400, 2450},
                 new int[]{5150, 5175},
-                new int[]{5600, 5650});
+                new int[]{5600, 5650},
+                new int[]{5945, 5985});
 
         when(mWifiNative.getClientInterfaceName()).thenReturn(IFACE_NAME);
         when(mContext.getSystemService(Context.ALARM_SERVICE))
@@ -101,6 +103,28 @@ public class WificondPnoScannerTest {
         // Start PNO scan
         startSuccessfulPnoScan(null, pnoSettings, null, pnoEventHandler);
         expectSuccessfulHwDisconnectedPnoScan(order, pnoSettings, pnoEventHandler, scanResults);
+        verifyNoMoreInteractions(pnoEventHandler);
+    }
+
+    /**
+     * Verify that the HW disconnected PNO scan triggers a wificond PNO scan and invokes the
+     * OnPnoScanFailed callback when the scan fails.
+     */
+    @Test
+    public void startHwDisconnectedPnoScanFailure() {
+        createScannerWithHwPnoScanSupport();
+
+        WifiNative.PnoEventHandler pnoEventHandler = mock(WifiNative.PnoEventHandler.class);
+        WifiNative.PnoSettings pnoSettings = createDummyPnoSettings(false);
+
+        InOrder order = inOrder(pnoEventHandler, mWifiNative);
+
+        // Fail PNO scan
+        when(mWifiNative.startPnoScan(eq(IFACE_NAME), any(WifiNative.PnoSettings.class)))
+                .thenReturn(false);
+        assertTrue(mScanner.setHwPnoList(pnoSettings, pnoEventHandler));
+        order.verify(mWifiNative).startPnoScan(any(), any(WifiNative.PnoSettings.class));
+        order.verify(pnoEventHandler).onPnoScanFailed();
         verifyNoMoreInteractions(pnoEventHandler);
     }
 

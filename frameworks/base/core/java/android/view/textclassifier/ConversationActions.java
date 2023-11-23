@@ -27,15 +27,13 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.SpannedString;
 
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.util.Preconditions;
-
 import java.lang.annotation.Retention;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Represents a list of actions suggested by a {@link TextClassifier} on a given conversation.
@@ -64,7 +62,7 @@ public final class ConversationActions implements Parcelable {
     public ConversationActions(
             @NonNull List<ConversationAction> conversationActions, @Nullable String id) {
         mConversationActions =
-                Collections.unmodifiableList(Preconditions.checkNotNull(conversationActions));
+                Collections.unmodifiableList(Objects.requireNonNull(conversationActions));
         mId = id;
     }
 
@@ -147,7 +145,7 @@ public final class ConversationActions implements Parcelable {
             mAuthor = author;
             mReferenceTime = referenceTime;
             mText = text;
-            mExtras = Preconditions.checkNotNull(bundle);
+            mExtras = Objects.requireNonNull(bundle);
         }
 
         private Message(Parcel in) {
@@ -241,7 +239,7 @@ public final class ConversationActions implements Parcelable {
              *               {@link #PERSON_USER_OTHERS} to represent a remote user.
              */
             public Builder(@NonNull Person author) {
-                mAuthor = Preconditions.checkNotNull(author);
+                mAuthor = Objects.requireNonNull(author);
             }
 
             /** Sets the text of this message. */
@@ -314,10 +312,9 @@ public final class ConversationActions implements Parcelable {
         @NonNull
         @Hint
         private final List<String> mHints;
-        @Nullable
-        private String mCallingPackageName;
         @NonNull
         private Bundle mExtras;
+        @Nullable private SystemTextClassifierMetadata mSystemTcMetadata;
 
         private Request(
                 @NonNull List<Message> conversation,
@@ -325,8 +322,8 @@ public final class ConversationActions implements Parcelable {
                 int maxSuggestions,
                 @Nullable @Hint List<String> hints,
                 @NonNull Bundle extras) {
-            mConversation = Preconditions.checkNotNull(conversation);
-            mTypeConfig = Preconditions.checkNotNull(typeConfig);
+            mConversation = Objects.requireNonNull(conversation);
+            mTypeConfig = Objects.requireNonNull(typeConfig);
             mMaxSuggestions = maxSuggestions;
             mHints = hints;
             mExtras = extras;
@@ -339,15 +336,16 @@ public final class ConversationActions implements Parcelable {
             int maxSuggestions = in.readInt();
             List<String> hints = new ArrayList<>();
             in.readStringList(hints);
-            String callingPackageName = in.readString();
             Bundle extras = in.readBundle();
+            SystemTextClassifierMetadata systemTcMetadata = in.readParcelable(null);
+
             Request request = new Request(
                     conversation,
                     typeConfig,
                     maxSuggestions,
                     hints,
                     extras);
-            request.setCallingPackageName(callingPackageName);
+            request.setSystemTextClassifierMetadata(systemTcMetadata);
             return request;
         }
 
@@ -357,8 +355,8 @@ public final class ConversationActions implements Parcelable {
             parcel.writeParcelable(mTypeConfig, flags);
             parcel.writeInt(mMaxSuggestions);
             parcel.writeStringList(mHints);
-            parcel.writeString(mCallingPackageName);
             parcel.writeBundle(mExtras);
+            parcel.writeParcelable(mSystemTcMetadata, flags);
         }
 
         @Override
@@ -408,23 +406,31 @@ public final class ConversationActions implements Parcelable {
         }
 
         /**
-         * Sets the name of the package that is sending this request.
-         * <p>
-         * Package-private for SystemTextClassifier's use.
-         * @hide
-         */
-        @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-        public void setCallingPackageName(@Nullable String callingPackageName) {
-            mCallingPackageName = callingPackageName;
-        }
-
-        /**
          * Returns the name of the package that sent this request.
          * This returns {@code null} if no calling package name is set.
          */
         @Nullable
         public String getCallingPackageName() {
-            return mCallingPackageName;
+            return mSystemTcMetadata != null ? mSystemTcMetadata.getCallingPackageName() : null;
+        }
+
+        /**
+         * Sets the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        void setSystemTextClassifierMetadata(@Nullable SystemTextClassifierMetadata systemTcData) {
+            mSystemTcMetadata = systemTcData;
+        }
+
+        /**
+         * Returns the information about the {@link SystemTextClassifier} that sent this request.
+         *
+         * @hide
+         */
+        @Nullable
+        public SystemTextClassifierMetadata getSystemTextClassifierMetadata() {
+            return mSystemTcMetadata;
         }
 
         /**
@@ -457,7 +463,7 @@ public final class ConversationActions implements Parcelable {
              *     actions for.
              */
             public Builder(@NonNull List<Message> conversation) {
-                mConversation = Preconditions.checkNotNull(conversation);
+                mConversation = Objects.requireNonNull(conversation);
             }
 
             /**
@@ -483,7 +489,11 @@ public final class ConversationActions implements Parcelable {
              */
             @NonNull
             public Builder setMaxSuggestions(@IntRange(from = -1) int maxSuggestions) {
-                mMaxSuggestions = Preconditions.checkArgumentNonnegative(maxSuggestions);
+                if (maxSuggestions < -1) {
+                    throw new IllegalArgumentException("maxSuggestions has to be greater than or "
+                            + "equal to -1.");
+                }
+                mMaxSuggestions = maxSuggestions;
                 return this;
             }
 

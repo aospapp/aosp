@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import com.google.android.collect.Sets;
 
@@ -48,7 +50,7 @@ import java.util.Set;
  * Unit tests for {@link WakeupConfigStoreData}.
  */
 @SmallTest
-public class WakeupConfigStoreDataTest {
+public class WakeupConfigStoreDataTest extends WifiBaseTest {
 
     @Mock private WakeupConfigStoreData.DataSource<Boolean> mActiveDataSource;
     @Mock private WakeupConfigStoreData.DataSource<Boolean> mIsOnboardedDataSource;
@@ -74,7 +76,7 @@ public class WakeupConfigStoreDataTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mWakeupConfigData.serializeData(out);
+        mWakeupConfigData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
         out.flush();
         return outputStream.toByteArray();
     }
@@ -88,7 +90,9 @@ public class WakeupConfigStoreDataTest {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mWakeupConfigData.deserializeData(in, in.getDepth());
+        mWakeupConfigData.deserializeData(in, in.getDepth(),
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
     }
 
     /**
@@ -177,7 +181,9 @@ public class WakeupConfigStoreDataTest {
      */
     @Test
     public void hasBeenReadIsTrueWhenUserStoreIsLoaded() throws Exception {
-        mWakeupConfigData.deserializeData(null /* in */, 0 /* outerTagDepth */);
+        mWakeupConfigData.deserializeData(null /* in */, 0 /* outerTagDepth */,
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
         assertTrue(mWakeupConfigData.hasBeenRead());
     }
 

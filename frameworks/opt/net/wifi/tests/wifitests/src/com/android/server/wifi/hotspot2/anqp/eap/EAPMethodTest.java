@@ -22,6 +22,8 @@ import android.net.wifi.EAPConstants;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.net.ProtocolException;
@@ -36,7 +38,7 @@ import java.util.Set;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.eap.EAPMethod}.
  */
 @SmallTest
-public class EAPMethodTest {
+public class EAPMethodTest extends WifiBaseTest {
     /**
      * Setup basic test data - contained multiple parameters of the same type.
      */

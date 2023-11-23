@@ -21,16 +21,17 @@
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
-
+#include <mediautils/LimitProcessMemory.h>
 #include <string>
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <utils/misc.h>
 
+#include <bionic/reserved_signals.h>
+
 // from LOCAL_C_INCLUDES
 #include "MediaExtractorService.h"
-#include "MediaUtils.h"
 #include "minijail.h"
 
 using namespace android;
@@ -48,6 +49,10 @@ int main(int argc __unused, char** argv)
         20 /* upper limit as percentage of physical RAM */);
 
     signal(SIGPIPE, SIG_IGN);
+
+    // Do not assist platform profilers (relevant only on debug builds).
+    // Otherwise, the signal handler can violate the seccomp policy.
+    signal(BIONIC_SIGNAL_PROFILER, SIG_IGN);
 
     //b/62255959: this forces libutis.so to dlopen vendor version of libutils.so
     //before minijail is on. This is dirty but required since some syscalls such

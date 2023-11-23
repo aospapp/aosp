@@ -17,18 +17,19 @@
 #pragma once
 
 #include <EngineConfig.h>
-#include <AudioPolicyManagerInterface.h>
+#include <EngineInterface.h>
 #include <ProductStrategy.h>
 #include <VolumeGroup.h>
+#include <LastRemovableMediaDevices.h>
 
 namespace android {
 namespace audio_policy {
 
-class EngineBase : public AudioPolicyManagerInterface
+class EngineBase : public EngineInterface
 {
 public:
     ///
-    /// from AudioPolicyManagerInterface
+    /// from EngineInterface
     ///
     android::status_t initCheck() override;
 
@@ -49,10 +50,8 @@ public:
         return mForceUse[usage];
     }
     android::status_t setDeviceConnectionState(const sp<DeviceDescriptor> /*devDesc*/,
-                                               audio_policy_dev_state_t /*state*/) override
-    {
-        return NO_ERROR;
-    }
+                                               audio_policy_dev_state_t /*state*/) override;
+
     product_strategy_t getProductStrategyForAttributes(
             const audio_attributes_t &attr) const override;
 
@@ -86,8 +85,21 @@ public:
 
     status_t listAudioVolumeGroups(AudioVolumeGroupVector &groups) const override;
 
+    std::vector<audio_devices_t> getLastRemovableMediaDevices(
+            device_out_group_t group = GROUP_NONE) const
+    {
+        return mLastRemovableMediaDevices.getLastRemovableMediaDevices(group);
+    }
+
     void dump(String8 *dst) const override;
 
+    status_t setPreferredDeviceForStrategy(product_strategy_t strategy,
+            const AudioDeviceTypeAddr &device) override;
+
+    status_t removePreferredDeviceForStrategy(product_strategy_t strategy) override;
+
+    status_t getPreferredDeviceForStrategy(product_strategy_t strategy,
+            AudioDeviceTypeAddr &device) const override;
 
     engineConfig::ParsingResult loadAudioPolicyEngineConfig();
 
@@ -115,11 +127,13 @@ public:
 
     status_t restoreOriginVolumeCurve(audio_stream_type_t stream);
 
- private:
+private:
     AudioPolicyManagerObserver *mApmObserver = nullptr;
 
     ProductStrategyMap mProductStrategies;
+    ProductStrategyPreferredRoutingMap mProductStrategyPreferredDevices;
     VolumeGroupMap mVolumeGroups;
+    LastRemovableMediaDevices mLastRemovableMediaDevices;
     audio_mode_t mPhoneState = AUDIO_MODE_NORMAL;  /**< current phone state. */
 
     /** current forced use configuration. */

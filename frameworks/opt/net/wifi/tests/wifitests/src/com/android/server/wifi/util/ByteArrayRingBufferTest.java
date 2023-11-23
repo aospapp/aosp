@@ -23,13 +23,15 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.ByteArrayRingBuffer}.
  */
 @SmallTest
-public class ByteArrayRingBufferTest {
+public class ByteArrayRingBufferTest extends WifiBaseTest {
     private static final int MAX_BYTES = 10;
 
     @Test

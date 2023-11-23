@@ -15,7 +15,6 @@
  */
 package com.android.car.setupwizardlib;
 
-import android.animation.ValueAnimator;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -61,11 +60,9 @@ import java.util.Objects;
 @Deprecated
 public class CarSetupWizardLayout extends LinearLayout {
     private static final String TAG = CarSetupWizardLayout.class.getSimpleName();
-    private static final int ANIMATION_DURATION_MS = 100;
 
     private View mBackButton;
     private View mTitleBar;
-    private Float mTitleBarElevation;
     private TextView mToolbarTitle;
     private PartnerConfigHelper mPartnerConfigHelper;
 
@@ -178,8 +175,6 @@ public class CarSetupWizardLayout extends LinearLayout {
 
         // Se the title bar.
         setTitleBar(findViewById(R.id.application_bar));
-        mTitleBarElevation =
-                getContext().getResources().getDimension(R.dimen.title_bar_drop_shadow_elevation);
         int toolbarBgColor =
                 mPartnerConfigHelper.getColor(getContext(), PartnerConfig.CONFIG_TOOLBAR_BG_COLOR);
         if (toolbarBgColor != 0) {
@@ -532,48 +527,6 @@ public class CarSetupWizardLayout extends LinearLayout {
 
         mSecondaryToolbarButton.setTextLocale(locale);
         mSecondaryToolbarButton.setLayoutDirection(direction);
-    }
-
-    /**
-     * Adds elevation to the title bar in order to produce a drop shadow. An animation can be used
-     * in cases where a direct elevation changes would be too jarring.
-     *
-     * @param animate True when a smooth animation is wanted for the adding of the elevation.
-     */
-    public void addElevationToTitleBar(boolean animate) {
-        if (animate) {
-            ValueAnimator elevationAnimator =
-                    ValueAnimator.ofFloat(mTitleBar.getElevation(), mTitleBarElevation);
-            elevationAnimator
-                    .setDuration(ANIMATION_DURATION_MS)
-                    .addUpdateListener(
-                            animation -> mTitleBar.setElevation(
-                                    (float) animation.getAnimatedValue()));
-            elevationAnimator.start();
-        } else {
-            mTitleBar.setElevation(mTitleBarElevation);
-        }
-    }
-
-    /**
-     * Removes the elevation from the title bar, an animation can be used in cases where a direct
-     * elevation changes would be too jarring.
-     *
-     * @param animate True when a smooth animation is wanted for the removal of the elevation.
-     */
-    public void removeElevationFromTitleBar(boolean animate) {
-        if (animate) {
-            ValueAnimator elevationAnimator =
-                    ValueAnimator.ofFloat(mTitleBar.getElevation(), 0f);
-            elevationAnimator
-                    .setDuration(ANIMATION_DURATION_MS)
-                    .addUpdateListener(
-                            animation -> mTitleBar.setElevation(
-                                    (float) animation.getAnimatedValue()));
-            elevationAnimator.start();
-        } else {
-            mTitleBar.setElevation(0f);
-        }
     }
 
     /**

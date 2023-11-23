@@ -21,6 +21,7 @@
 
 #include <binder/IPCThreadState.h>
 #include <binder/IResultReceiver.h>
+#include <binder/Stability.h>
 #include <cutils/compiler.h>
 #include <utils/Log.h>
 
@@ -137,6 +138,7 @@ BpBinder* BpBinder::create(int32_t handle) {
 
 BpBinder::BpBinder(int32_t handle, int32_t trackedUid)
     : mHandle(handle)
+    , mStability(0)
     , mAlive(1)
     , mObitsSent(0)
     , mObituaries(nullptr)
@@ -146,6 +148,10 @@ BpBinder::BpBinder(int32_t handle, int32_t trackedUid)
 
     extendObjectLifetime(OBJECT_LIFETIME_WEAK);
     IPCThreadState::self()->incWeakHandle(handle, this);
+}
+
+int32_t BpBinder::handle() const {
+    return mHandle;
 }
 
 bool BpBinder::isDescriptorCached() const {
@@ -186,10 +192,7 @@ status_t BpBinder::pingBinder()
 {
     Parcel send;
     Parcel reply;
-    status_t err = transact(PING_TRANSACTION, send, &reply);
-    if (err != NO_ERROR) return err;
-    if (reply.dataSize() < sizeof(status_t)) return NOT_ENOUGH_DATA;
-    return (status_t)reply.readInt32();
+    return transact(PING_TRANSACTION, send, &reply);
 }
 
 status_t BpBinder::dump(int fd, const Vector<String16>& args)
@@ -212,9 +215,29 @@ status_t BpBinder::transact(
 {
     // Once a binder has died, it will never come back to life.
     if (mAlive) {
+        bool privateVendor = flags & FLAG_PRIVATE_VENDOR;
+        // don't send userspace flags to the kernel
+        flags = flags & ~FLAG_PRIVATE_VENDOR;
+
+        // user transactions require a given stability level
+        if (code >= FIRST_CALL_TRANSACTION && code <= LAST_CALL_TRANSACTION) {
+            using android::internal::Stability;
+
+            auto stability = Stability::get(this);
+            auto required = privateVendor ? Stability::VENDOR : Stability::kLocalStability;
+
+            if (CC_UNLIKELY(!Stability::check(stability, required))) {
+                ALOGE("Cannot do a user transaction on a %s binder in a %s context.",
+                    Stability::stabilityString(stability).c_str(),
+                    Stability::stabilityString(required).c_str());
+                return BAD_TYPE;
+            }
+        }
+
         status_t status = IPCThreadState::self()->transact(
             mHandle, code, data, reply, flags);
         if (status == DEAD_OBJECT) mAlive = 0;
+
         return status;
     }
 
@@ -387,21 +410,6 @@ BpBinder::~BpBinder()
         }
     }
 
-    mLock.lock();
-    Vector<Obituary>* obits = mObituaries;
-    if(obits != nullptr) {
-        if (ipc) ipc->clearDeathNotification(mHandle, this);
-        mObituaries = nullptr;
-    }
-    mLock.unlock();
-
-    if (obits != nullptr) {
-        // XXX Should we tell any remaining DeathRecipient
-        // objects that the last strong ref has gone away, so they
-        // are no longer linked?
-        delete obits;
-    }
-
     if (ipc) {
         ipc->expungeHandle(mHandle, this);
         ipc->decWeakHandle(mHandle);
@@ -423,6 +431,26 @@ void BpBinder::onLastStrongRef(const void* /*id*/)
     }
     IPCThreadState* ipc = IPCThreadState::self();
     if (ipc) ipc->decStrongHandle(mHandle);
+
+    mLock.lock();
+    Vector<Obituary>* obits = mObituaries;
+    if(obits != nullptr) {
+        if (!obits->isEmpty()) {
+            ALOGI("onLastStrongRef automatically unlinking death recipients: %s",
+                  mDescriptorCache.size() ? String8(mDescriptorCache).c_str() : "<uncached descriptor>");
+        }
+
+        if (ipc) ipc->clearDeathNotification(mHandle, this);
+        mObituaries = nullptr;
+    }
+    mLock.unlock();
+
+    if (obits != nullptr) {
+        // XXX Should we tell any remaining DeathRecipient
+        // objects that the last strong ref has gone away, so they
+        // are no longer linked?
+        delete obits;
+    }
 }
 
 bool BpBinder::onIncStrongAttempted(uint32_t /*flags*/, const void* /*id*/)
@@ -470,4 +498,4 @@ void BpBinder::setBinderProxyCountWatermarks(int high, int low) {
 
 // ---------------------------------------------------------------------------
 
-}; // namespace android
+} // namespace android

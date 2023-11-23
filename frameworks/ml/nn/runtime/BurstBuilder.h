@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_ML_NN_RUNTIME_BURST_BUILDER_H
-#define ANDROID_ML_NN_RUNTIME_BURST_BUILDER_H
+#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_BURST_BUILDER_H
+#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_BURST_BUILDER_H
 
 #include <atomic>
 #include <memory>
@@ -31,10 +31,10 @@ class CompilationBuilder;
  * TODO: Could we "hide" the per-step burst controller instance inside
  * StepExecutor? Today it's exposed as a "sibling" to StepExecutor:
  * ExecutionPlan::next both generates a StepExecutor instance and finds a
- * pointer to a burst controller; and StepExecutor::startCompute is passed a
- * pointer to a burst controller. Instead, could ExecutionPlan::next stash the
- * burst controller in the StepExecutor, so that it doesn't have to be passed
- * to any of the StepExecutor methods?
+ * pointer to a burst controller; and StepExecutor::compute is passed a pointer
+ * to a burst controller. Instead, could ExecutionPlan::next stash the burst
+ * controller in the StepExecutor, so that it doesn't have to be passed to any
+ * of the StepExecutor methods?
  */
 
 class BurstBuilder {
@@ -57,4 +57,4 @@ class BurstBuilder {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_ML_NN_RUNTIME_BURST_BUILDER_H
+#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_BURST_BUILDER_H

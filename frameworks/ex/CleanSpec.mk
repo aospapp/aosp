@@ -49,3 +49,6 @@
 # ************************************************
 
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/android-ex-camera2-portability_intermediates/)
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib/libframesequence.so)
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib64/libframesequence.so)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/app/FrameSequenceSample)

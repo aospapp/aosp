@@ -16,89 +16,39 @@
 
 package com.android.tools.layoutlib.create;
 
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Map;
 
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.commons.ClassRemapper;
+import org.objectweb.asm.commons.Remapper;
 
-public class RefactorClassAdapter extends AbstractClassAdapter {
+public class RefactorClassAdapter extends ClassRemapper {
 
-    private final HashMap<String, String> mRefactorClasses;
-
-    RefactorClassAdapter(ClassVisitor cv, HashMap<String, String> refactorClasses) {
-        super(cv);
-        mRefactorClasses = refactorClasses;
+    RefactorClassAdapter(ClassVisitor cv, Map<String, String> refactorClasses) {
+        super(cv, new RefactorRemapper(refactorClasses));
     }
 
-    @Override
-    public MethodVisitor visitMethod(int access, String name, String desc, String signature,
-            String[] exceptions) {
-        MethodVisitor mw = super.visitMethod(access, name, desc, signature, exceptions);
+    private static class RefactorRemapper extends Remapper {
+        private final Map<String, String> mRefactorClasses;
 
-        return new RefactorStackMapAdapter(mw);
-    }
-
-    @Override
-    protected String renameInternalType(String oldClassName) {
-        if (oldClassName != null) {
-            String newName = mRefactorClasses.get(oldClassName);
-            if (newName != null) {
-                return newName;
-            }
-            int pos = oldClassName.indexOf('$');
-            if (pos > 0) {
-                newName = mRefactorClasses.get(oldClassName.substring(0, pos));
-                if (newName != null) {
-                    return newName + oldClassName.substring(pos);
-                }
-            }
-        }
-        return oldClassName;
-    }
-
-    /**
-     * A method visitor that renames all references from an old class name to a new class name in
-     * the stackmap of the method.
-     */
-    private class RefactorStackMapAdapter extends MethodVisitor {
-
-        private RefactorStackMapAdapter(MethodVisitor mv) {
-            super(Main.ASM_VERSION, mv);
-        }
-
-
-        private Object[] renameFrame(Object[] elements) {
-            if (elements == null) {
-                return null;
-            }
-
-            // The input array cannot be modified. We only copy the source array on write
-            boolean copied = false;
-            for (int i = 0; i < elements.length; i++) {
-                if (!(elements[i] instanceof String)) {
-                    continue;
-                }
-
-                if (!copied) {
-                    elements = Arrays.copyOf(elements, elements.length);
-                    copied = true;
-                }
-
-                String type = (String)elements[i];
-                if (type.indexOf(';') > 0) {
-                    elements[i] = renameTypeDesc(type);
-                } else {
-                    elements[i] = renameInternalType(type);
-                }
-            }
-
-            return elements;
+        private RefactorRemapper(Map<String, String> refactorClasses) {
+            mRefactorClasses = refactorClasses;
         }
 
         @Override
-        public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
-            super.visitFrame(type, nLocal, renameFrame(local), nStack, renameFrame(stack));
+        public String map(String typeName) {
+            String newName = mRefactorClasses.get(typeName);
+            if (newName != null) {
+                return newName;
+            }
+            int pos = typeName.indexOf('$');
+            if (pos > 0) {
+                newName = mRefactorClasses.get(typeName.substring(0, pos));
+                if (newName != null) {
+                    return newName + typeName.substring(pos);
+                }
+            }
+            return null;
         }
     }
 }

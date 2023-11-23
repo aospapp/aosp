@@ -22,11 +22,13 @@
 #include PATH(android/hardware/audio/FILE_VERSION/IPrimaryDevice.h)
 #include <cutils/native_handle.h>
 #include <hwbinder/IPCThreadState.h>
+#include <media/AudioContainers.h>
 #include <utils/Log.h>
 
 #include <common/all-versions/VersionUtils.h>
 
 #include "DeviceHalHidl.h"
+#include "EffectHalHidl.h"
 #include "HidlUtils.h"
 #include "StreamHalHidl.h"
 #include "VersionUtils.h"
@@ -42,6 +44,8 @@ namespace CPP_VERSION {
 using namespace ::android::hardware::audio::common::CPP_VERSION;
 using namespace ::android::hardware::audio::CPP_VERSION;
 
+using EffectHalHidl = ::android::effect::CPP_VERSION::EffectHalHidl;
+
 namespace {
 
 status_t deviceAddressFromHal(
@@ -51,42 +55,32 @@ status_t deviceAddressFromHal(
     if (halAddress == nullptr || strnlen(halAddress, AUDIO_DEVICE_MAX_ADDRESS_LEN) == 0) {
         return OK;
     }
-    const bool isInput = (device & AUDIO_DEVICE_BIT_IN) != 0;
-    if (isInput) device &= ~AUDIO_DEVICE_BIT_IN;
-    if ((!isInput && (device & AUDIO_DEVICE_OUT_ALL_A2DP) != 0)
-            || (isInput && (device & AUDIO_DEVICE_IN_BLUETOOTH_A2DP) != 0)) {
+    if (getAudioDeviceOutAllA2dpSet().count(device) > 0
+            || device == AUDIO_DEVICE_IN_BLUETOOTH_A2DP) {
         int status = sscanf(halAddress,
                 "%hhX:%hhX:%hhX:%hhX:%hhX:%hhX",
                 &address->address.mac[0], &address->address.mac[1], &address->address.mac[2],
                 &address->address.mac[3], &address->address.mac[4], &address->address.mac[5]);
         return status == 6 ? OK : BAD_VALUE;
-    } else if ((!isInput && (device & AUDIO_DEVICE_OUT_IP) != 0)
-            || (isInput && (device & AUDIO_DEVICE_IN_IP) != 0)) {
+    } else if (device == AUDIO_DEVICE_OUT_IP || device == AUDIO_DEVICE_IN_IP) {
         int status = sscanf(halAddress,
                 "%hhu.%hhu.%hhu.%hhu",
                 &address->address.ipv4[0], &address->address.ipv4[1],
                 &address->address.ipv4[2], &address->address.ipv4[3]);
         return status == 4 ? OK : BAD_VALUE;
-    } else if ((!isInput && (device & AUDIO_DEVICE_OUT_ALL_USB)) != 0
-            || (isInput && (device & AUDIO_DEVICE_IN_ALL_USB)) != 0) {
+    } else if (getAudioDeviceOutAllUsbSet().count(device) > 0
+            || getAudioDeviceInAllUsbSet().count(device) > 0) {
         int status = sscanf(halAddress,
                 "card=%d;device=%d",
                 &address->address.alsa.card, &address->address.alsa.device);
         return status == 2 ? OK : BAD_VALUE;
-    } else if ((!isInput && (device & AUDIO_DEVICE_OUT_BUS) != 0)
-            || (isInput && (device & AUDIO_DEVICE_IN_BUS) != 0)) {
-        if (halAddress != NULL) {
-            address->busAddress = halAddress;
-            return OK;
-        }
-        return BAD_VALUE;
-    } else if ((!isInput && (device & AUDIO_DEVICE_OUT_REMOTE_SUBMIX)) != 0
-            || (isInput && (device & AUDIO_DEVICE_IN_REMOTE_SUBMIX) != 0)) {
-        if (halAddress != NULL) {
-            address->rSubmixAddress = halAddress;
-            return OK;
-        }
-        return BAD_VALUE;
+    } else if (device == AUDIO_DEVICE_OUT_BUS || device == AUDIO_DEVICE_IN_BUS) {
+        address->busAddress = halAddress;
+        return OK;
+    } else if (device == AUDIO_DEVICE_OUT_REMOTE_SUBMIX
+            || device == AUDIO_DEVICE_IN_REMOTE_SUBMIX) {
+        address->rSubmixAddress = halAddress;
+        return OK;
     }
     return OK;
 }
@@ -100,8 +94,12 @@ DeviceHalHidl::DeviceHalHidl(const sp<IDevice>& device)
 
 DeviceHalHidl::~DeviceHalHidl() {
     if (mDevice != 0) {
+#if MAJOR_VERSION <= 5
         mDevice.clear();
         hardware::IPCThreadState::self()->flushCommands();
+#elif MAJOR_VERSION >= 6
+        mDevice->close();
+#endif
     }
 }
 
@@ -229,14 +227,14 @@ status_t DeviceHalHidl::getInputBufferSize(
 
 status_t DeviceHalHidl::openOutputStream(
         audio_io_handle_t handle,
-        audio_devices_t devices,
+        audio_devices_t deviceType,
         audio_output_flags_t flags,
         struct audio_config *config,
         const char *address,
         sp<StreamOutHalInterface> *outStream) {
     if (mDevice == 0) return NO_INIT;
     DeviceAddress hidlDevice;
-    status_t status = deviceAddressFromHal(devices, address, &hidlDevice);
+    status_t status = deviceAddressFromHal(deviceType, address, &hidlDevice);
     if (status != OK) return status;
     AudioConfig hidlConfig;
     HidlUtils::audioConfigFromHal(*config, &hidlConfig);
@@ -294,6 +292,10 @@ status_t DeviceHalHidl::openInputStream(
         sinkMetadata.tracks[0].destination.device(std::move(hidlOutputDevice));
     }
 #endif
+#if MAJOR_VERSION <= 5
+    // Some flags were specific to framework and must not leak to the HAL.
+    flags = static_cast<audio_input_flags_t>(flags & ~AUDIO_INPUT_FLAG_DIRECT);
+#endif
     Return<void> ret = mDevice->openInputStream(
             handle,
             hidlDevice,
@@ -322,19 +324,47 @@ status_t DeviceHalHidl::createAudioPatch(
         const struct audio_port_config *sinks,
         audio_patch_handle_t *patch) {
     if (mDevice == 0) return NO_INIT;
+    if (patch == nullptr) return BAD_VALUE;
+
+#if MAJOR_VERSION < 6
+    if (*patch != AUDIO_PATCH_HANDLE_NONE) {
+        status_t status = releaseAudioPatch(*patch);
+        ALOGW_IF(status != NO_ERROR, "%s error %d releasing patch handle %d",
+            __func__, status, *patch);
+        *patch = AUDIO_PATCH_HANDLE_NONE;
+    }
+#endif
+
     hidl_vec<AudioPortConfig> hidlSources, hidlSinks;
     HidlUtils::audioPortConfigsFromHal(num_sources, sources, &hidlSources);
     HidlUtils::audioPortConfigsFromHal(num_sinks, sinks, &hidlSinks);
-    Result retval;
-    Return<void> ret = mDevice->createAudioPatch(
-            hidlSources, hidlSinks,
-            [&](Result r, AudioPatchHandle hidlPatch) {
-                retval = r;
-                if (retval == Result::OK) {
-                    *patch = static_cast<audio_patch_handle_t>(hidlPatch);
-                }
-            });
-    return processReturn("createAudioPatch", ret, retval);
+    Result retval = Result::OK;
+    Return<void> ret;
+    std::string methodName = "createAudioPatch";
+    if (*patch == AUDIO_PATCH_HANDLE_NONE) {  // always true for MAJOR_VERSION < 6
+        ret = mDevice->createAudioPatch(
+                hidlSources, hidlSinks,
+                [&](Result r, AudioPatchHandle hidlPatch) {
+                    retval = r;
+                    if (retval == Result::OK) {
+                        *patch = static_cast<audio_patch_handle_t>(hidlPatch);
+                    }
+                });
+    } else {
+#if MAJOR_VERSION >= 6
+        ret = mDevice->updateAudioPatch(
+                *patch,
+                hidlSources, hidlSinks,
+                [&](Result r, AudioPatchHandle hidlPatch) {
+                    retval = r;
+                    if (retval == Result::OK) {
+                        *patch = static_cast<audio_patch_handle_t>(hidlPatch);
+                    }
+                });
+        methodName = "updateAudioPatch";
+#endif
+    }
+    return processReturn(methodName.c_str(), ret, retval);
 }
 
 status_t DeviceHalHidl::releaseAudioPatch(audio_patch_handle_t patch) {
@@ -387,6 +417,36 @@ status_t DeviceHalHidl::getMicrophones(std::vector<media::MicrophoneInfo> *micro
         }
     });
     return processReturn("getMicrophones", ret, retval);
+}
+#endif
+
+#if MAJOR_VERSION >= 6
+status_t DeviceHalHidl::addDeviceEffect(
+        audio_port_handle_t device, sp<EffectHalInterface> effect) {
+    if (mDevice == 0) return NO_INIT;
+    return processReturn("addDeviceEffect", mDevice->addDeviceEffect(
+            static_cast<AudioPortHandle>(device),
+            static_cast<EffectHalHidl*>(effect.get())->effectId()));
+}
+#else
+status_t DeviceHalHidl::addDeviceEffect(
+        audio_port_handle_t device __unused, sp<EffectHalInterface> effect __unused) {
+    return INVALID_OPERATION;
+}
+#endif
+
+#if MAJOR_VERSION >= 6
+status_t DeviceHalHidl::removeDeviceEffect(
+        audio_port_handle_t device, sp<EffectHalInterface> effect) {
+    if (mDevice == 0) return NO_INIT;
+    return processReturn("removeDeviceEffect", mDevice->removeDeviceEffect(
+            static_cast<AudioPortHandle>(device),
+            static_cast<EffectHalHidl*>(effect.get())->effectId()));
+}
+#else
+status_t DeviceHalHidl::removeDeviceEffect(
+        audio_port_handle_t device __unused, sp<EffectHalInterface> effect __unused) {
+    return INVALID_OPERATION;
 }
 #endif
 

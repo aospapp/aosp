@@ -210,13 +210,9 @@ public abstract class AndroidKeyStoreKeyGeneratorSpi extends KeyGeneratorSpi {
                     }
                 }
                 if (mKeymasterAlgorithm == KeymasterDefs.KM_ALGORITHM_HMAC) {
-                    if (mKeySizeBits < 64) {
+                    if (mKeySizeBits < 64 || mKeySizeBits > 512) {
                         throw new InvalidAlgorithmParameterException(
-                            "HMAC key size must be at least 64 bits.");
-                    }
-                    if (mKeySizeBits > 512 && spec.isStrongBoxBacked()) {
-                        throw new InvalidAlgorithmParameterException(
-                            "StrongBox HMAC key size must be smaller than 512 bits.");
+                            "HMAC key sizes must be within 64-512 bits, inclusive.");
                     }
 
                     // JCA HMAC key algorithm implies a digest (e.g., HmacSHA256 key algorithm
@@ -311,6 +307,9 @@ public abstract class AndroidKeyStoreKeyGeneratorSpi extends KeyGeneratorSpi {
         int flags = 0;
         if (spec.isStrongBoxBacked()) {
             flags |= KeyStore.FLAG_STRONGBOX;
+        }
+        if (spec.isCriticalToDeviceEncryption()) {
+            flags |= KeyStore.FLAG_CRITICAL_TO_DEVICE_ENCRYPTION;
         }
         String keyAliasInKeystore = Credentials.USER_PRIVATE_KEY + spec.getKeystoreAlias();
         KeyCharacteristics resultingKeyCharacteristics = new KeyCharacteristics();

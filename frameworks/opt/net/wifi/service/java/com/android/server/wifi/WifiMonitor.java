@@ -28,10 +28,11 @@ import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Protocol;
+import com.android.server.wifi.MboOceController.BtmFrameData;
+import com.android.server.wifi.WifiCarrierInfoManager.SimAuthRequestData;
 import com.android.server.wifi.hotspot2.AnqpEvent;
 import com.android.server.wifi.hotspot2.IconEvent;
 import com.android.server.wifi.hotspot2.WnmData;
-import com.android.server.wifi.util.TelephonyUtil.SimAuthRequestData;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -85,6 +86,8 @@ public class WifiMonitor {
     /* Indicates assoc reject event */
     public static final int ASSOCIATION_REJECTION_EVENT          = BASE + 43;
     public static final int ANQP_DONE_EVENT                      = BASE + 44;
+    public static final int ASSOCIATED_BSSID_EVENT               = BASE + 45;
+    public static final int TARGET_BSSID_EVENT                   = BASE + 46;
 
     /* hotspot 2.0 ANQP events */
     public static final int GAS_QUERY_START_EVENT                = BASE + 51;
@@ -93,6 +96,12 @@ public class WifiMonitor {
 
     /* hotspot 2.0 events */
     public static final int HS20_REMEDIATION_EVENT               = BASE + 61;
+
+    /* MBO/OCE events */
+    public static final int MBO_OCE_BSS_TM_HANDLING_DONE         = BASE + 71;
+
+    /* Fils network connection completed */
+    public static final int FILS_NETWORK_CONNECTION_EVENT        = BASE + 62;
 
     /* WPS config errrors */
     private static final int CONFIG_MULTIPLE_PBC_DETECTED = 12;
@@ -473,7 +482,7 @@ public class WifiMonitor {
      * @param bssid BSSID of the access point.
      */
     public void broadcastAssociatedBssidEvent(String iface, String bssid) {
-        sendMessage(iface, ClientModeImpl.CMD_ASSOCIATED_BSSID, 0, 0, bssid);
+        sendMessage(iface, ASSOCIATED_BSSID_EVENT, 0, 0, bssid);
     }
 
     /**
@@ -483,7 +492,7 @@ public class WifiMonitor {
      * @param bssid BSSID of the access point.
      */
     public void broadcastTargetBssidEvent(String iface, String bssid) {
-        sendMessage(iface, ClientModeImpl.CMD_TARGET_BSSID, 0, 0, bssid);
+        sendMessage(iface, TARGET_BSSID_EVENT, 0, 0, bssid);
     }
 
     /**
@@ -495,6 +504,17 @@ public class WifiMonitor {
      */
     public void broadcastNetworkConnectionEvent(String iface, int networkId, String bssid) {
         sendMessage(iface, NETWORK_CONNECTION_EVENT, networkId, 0, bssid);
+    }
+
+    /**
+     * Broadcast the fils network connection event to all the handlers registered for this event.
+     *
+     * @param iface Name of iface on which this occurred.
+     * @param networkId ID of the network in wpa_supplicant.
+     * @param bssid BSSID of the access point.
+     */
+    public void broadcastFilsNetworkConnectionEvent(String iface, int networkId, String bssid) {
+        sendMessage(iface, FILS_NETWORK_CONNECTION_EVENT, networkId, 0, bssid);
     }
 
     /**
@@ -543,5 +563,15 @@ public class WifiMonitor {
      */
     public void broadcastSupplicantDisconnectionEvent(String iface) {
         sendMessage(iface, SUP_DISCONNECTION_EVENT);
+    }
+
+    /**
+     * Broadcast the bss transition management frame handling event
+     * to all the handlers registered for this event.
+     *
+     * @param iface Name of iface on which this occurred.
+     */
+    public void broadcastBssTmHandlingDoneEvent(String iface, BtmFrameData btmFrmData) {
+        sendMessage(iface, MBO_OCE_BSS_TM_HANDLING_DONE, btmFrmData);
     }
 }

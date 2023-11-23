@@ -21,6 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -35,7 +37,7 @@ import java.util.List;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.DomainNameElement}.
  */
 @SmallTest
-public class DomainNameElementTest {
+public class DomainNameElementTest extends WifiBaseTest {
     private static final String TEST_DOMAIN_NAME1 = "test1.com";
     private static final String TEST_DOMAIN_NAME2 = "test2.com";
 

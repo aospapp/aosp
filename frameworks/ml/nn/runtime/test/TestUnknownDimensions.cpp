@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include "TestHarness.h"
-#include "TestNeuralNetworksWrapper.h"
-
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <string>
 #include <tuple>
 #include <vector>
 
+#include "TestNeuralNetworksWrapper.h"
+
 using namespace android::nn::test_wrapper;
-using namespace test_helper;
 
 namespace {
 
 const uint32_t INTENDED_SIZE = 3;
-const uint32_t OTHER_SIZE    = 2;
-const uint32_t UNKNOWN_SIZE  = 0;
+const uint32_t OTHER_SIZE = 2;
+const uint32_t UNKNOWN_SIZE = 0;
 
 // We test three basic scenarios for each tensor dimension:
 //     INTENDED_AT_COMPILE_AND_EXECUTE: set the dimension at compile
@@ -58,19 +58,21 @@ const uint32_t UNKNOWN_SIZE  = 0;
 // infrastructure to handle correctly. However, running all 16k in one test
 // makes the ASAN version take so long that the automatic test runner things the
 // command has become unresponsinve, so we split on the first level.
-enum class DimensionKind { INTENDED_AT_COMPILE_AND_EXECUTE,
-                           INTENDED_AT_COMPILE_NOT_SET_AT_EXECUTE,
-                           UNKNOWN_AT_COMPILE_INTENDED_AT_EXECUTE,
-                           UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE };
+enum class DimensionKind {
+    INTENDED_AT_COMPILE_AND_EXECUTE,
+    INTENDED_AT_COMPILE_NOT_SET_AT_EXECUTE,
+    UNKNOWN_AT_COMPILE_INTENDED_AT_EXECUTE,
+    UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE
+};
 typedef std::tuple<DimensionKind, DimensionKind> OperandParams;
 std::vector<DimensionKind> ioDimensionValues = {
-    DimensionKind::INTENDED_AT_COMPILE_AND_EXECUTE,
-    DimensionKind::INTENDED_AT_COMPILE_NOT_SET_AT_EXECUTE,
-    DimensionKind::UNKNOWN_AT_COMPILE_INTENDED_AT_EXECUTE,
-    DimensionKind::UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE };
+        DimensionKind::INTENDED_AT_COMPILE_AND_EXECUTE,
+        DimensionKind::INTENDED_AT_COMPILE_NOT_SET_AT_EXECUTE,
+        DimensionKind::UNKNOWN_AT_COMPILE_INTENDED_AT_EXECUTE,
+        DimensionKind::UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE};
 std::vector<DimensionKind> constantDimensionValues = {
         DimensionKind::INTENDED_AT_COMPILE_NOT_SET_AT_EXECUTE,
-        DimensionKind::UNKNOWN_AT_COMPILE_INTENDED_AT_EXECUTE };
+        DimensionKind::UNKNOWN_AT_COMPILE_INTENDED_AT_EXECUTE};
 std::vector<OperandParams> Combine(const std::vector<DimensionKind>& firsts,
                                    const std::vector<DimensionKind>& seconds);
 auto ioValues = Combine(ioDimensionValues, ioDimensionValues);
@@ -85,34 +87,46 @@ class UnknownDimensionsTest : public ::testing::TestWithParam<OperandParams> {
     void TestAll();
 
     template <typename T>
-    void CompareResults(std::map<int, std::vector<T>>& expected,
-                        std::map<int, std::vector<T>>& actual);
+    void CompareResults(const std::vector<T>& expected, const std::vector<T>& actual);
 };
 
+template <typename T>
+void CompareGeneric(const std::vector<T>& golden, const std::vector<T>& test,
+                    std::function<void(T, T)> cmp) {
+    ASSERT_EQ(golden.size(), test.size());
+    for (uint32_t i = 0; i < golden.size(); i++) {
+        SCOPED_TRACE(testing::Message() << "When comparing element " << i);
+        cmp(golden[i], test[i]);
+    }
+}
+
+constexpr size_t gMaximumNumberOfErrorMessages = 10;
+
 template <>
-void UnknownDimensionsTest::CompareResults<float>(std::map<int, std::vector<float>>& golden,
-                                                  std::map<int, std::vector<float>>& test) {
+void UnknownDimensionsTest::CompareResults<float>(const std::vector<float>& golden,
+                                                  const std::vector<float>& test) {
     size_t totalNumberOfErrors = 0;
     float fpAtol = 1e-5f, fpRtol = 1e-5f;
-    compare_<float>(golden, test,
-                    [&totalNumberOfErrors, fpAtol, fpRtol](float expected, float actual) {
-                        // Compute the range based on both absolute tolerance and relative tolerance
-                        float fpRange = fpAtol + fpRtol * std::abs(expected);
-                        if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
-                            EXPECT_NEAR(expected, actual, fpRange);
-                        }
-                        if (std::abs(expected - actual) > fpRange) {
-                            totalNumberOfErrors++;
-                        }
-                    });
+    CompareGeneric<float>(golden, test,
+                          [&totalNumberOfErrors, fpAtol, fpRtol](float expected, float actual) {
+                              // Compute the range based on both absolute tolerance and relative
+                              // tolerance
+                              float fpRange = fpAtol + fpRtol * std::abs(expected);
+                              if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
+                                  EXPECT_NEAR(expected, actual, fpRange);
+                              }
+                              if (std::abs(expected - actual) > fpRange) {
+                                  totalNumberOfErrors++;
+                              }
+                          });
     EXPECT_EQ(size_t{0}, totalNumberOfErrors);
 }
 
 template <>
-void UnknownDimensionsTest::CompareResults<uint8_t>(std::map<int, std::vector<uint8_t>>& golden,
-                                                    std::map<int, std::vector<uint8_t>>& test) {
+void UnknownDimensionsTest::CompareResults<uint8_t>(const std::vector<uint8_t>& golden,
+                                                    const std::vector<uint8_t>& test) {
     size_t totalNumberOfErrors = 0;
-    compare_<uint8_t>(golden, test, [&totalNumberOfErrors](uint8_t expected, uint8_t actual) {
+    CompareGeneric<uint8_t>(golden, test, [&totalNumberOfErrors](uint8_t expected, uint8_t actual) {
         if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
             EXPECT_NEAR(expected, actual, 1);
         }
@@ -124,37 +138,40 @@ void UnknownDimensionsTest::CompareResults<uint8_t>(std::map<int, std::vector<ui
 }
 
 template <>
-void UnknownDimensionsTest::CompareResults<_Float16>(std::map<int, std::vector<_Float16>>& golden,
-                                                     std::map<int, std::vector<_Float16>>& test) {
+void UnknownDimensionsTest::CompareResults<_Float16>(const std::vector<_Float16>& golden,
+                                                     const std::vector<_Float16>& test) {
     size_t totalNumberOfErrors = 0;
     float fpAtol = 5.0f * 0.0009765625f, fpRtol = 5.0f * 0.0009765625f;
-    compare_<_Float16>(golden, test,
-                       [&totalNumberOfErrors, fpAtol, fpRtol](_Float16 expected, _Float16 actual) {
-                           // Compute the range based on both absolute tolerance and relative
-                           // tolerance
-                           float fpRange = fpAtol + fpRtol * std::abs(static_cast<float>(expected));
-                           if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
-                               EXPECT_NEAR(expected, actual, fpRange);
-                           }
-                           if (std::abs(static_cast<float>(expected - actual)) > fpRange) {
-                               totalNumberOfErrors++;
-                           }
-                       });
+    CompareGeneric<_Float16>(
+            golden, test,
+            [&totalNumberOfErrors, fpAtol, fpRtol](_Float16 expected, _Float16 actual) {
+                // Compute the range based on both absolute tolerance and relative
+                // tolerance
+                float fpRange = fpAtol + fpRtol * std::abs(static_cast<float>(expected));
+                if (totalNumberOfErrors < gMaximumNumberOfErrorMessages) {
+                    EXPECT_NEAR(expected, actual, fpRange);
+                }
+                if (std::abs(static_cast<float>(expected - actual)) > fpRange) {
+                    totalNumberOfErrors++;
+                }
+            });
     EXPECT_EQ(size_t{0}, totalNumberOfErrors);
 }
 
-template<class T, Type TensorType> void UnknownDimensionsTest::TestOne(
-        const OperandParams& paramsForInput0, const OperandParams& paramsForInput1,
-        const OperandParams& paramsForConst, const OperandParams& paramsForOutput) {
+template <class T, Type TensorType>
+void UnknownDimensionsTest::TestOne(const OperandParams& paramsForInput0,
+                                    const OperandParams& paramsForInput1,
+                                    const OperandParams& paramsForConst,
+                                    const OperandParams& paramsForOutput) {
     typedef T IntendedMatrix[INTENDED_SIZE][INTENDED_SIZE];
-    static const IntendedMatrix ones = { { 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 } };
-    static const IntendedMatrix twos = { { 2, 2, 2 }, { 2, 2, 2 }, { 2, 2, 2 } };
-    static const IntendedMatrix fives = { { 5, 5, 5 }, { 5, 5, 5 }, { 5, 5, 5 } };
+    static const IntendedMatrix ones = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
+    static const IntendedMatrix twos = {{2, 2, 2}, {2, 2, 2}, {2, 2, 2}};
+    static const IntendedMatrix fives = {{5, 5, 5}, {5, 5, 5}, {5, 5, 5}};
     const float scale = TensorType == Type::TENSOR_QUANT8_ASYMM ? 1.f : 0.f;
 
     Model model;
-    std::string input0Scope("Input 0:"), input1Scope("Input 1:"),
-                constantScope("Constant:"), outputScope("Output:");
+    std::string input0Scope("Input 0:"), input1Scope("Input 1:"), constantScope("Constant:"),
+            outputScope("Output:");
 
     auto getDimForCompile = [](DimensionKind kind, std::string* scope) {
         switch (kind) {
@@ -176,8 +193,8 @@ template<class T, Type TensorType> void UnknownDimensionsTest::TestOne(
                                                          std::string* scope = nullptr) {
         OperandType matrixTypeWithPotentiallyUnknownDims(
                 TensorType,
-                { getDimForCompile(std::get<0>(params), scope),
-                  getDimForCompile(std::get<1>(params), scope) },
+                {getDimForCompile(std::get<0>(params), scope),
+                 getDimForCompile(std::get<1>(params), scope)},
                 scale);
         return model.addOperand(&matrixTypeWithPotentiallyUnknownDims);
     };
@@ -202,11 +219,9 @@ template<class T, Type TensorType> void UnknownDimensionsTest::TestOne(
 
     model.setOperandValue(activationOpd0, &activation, sizeof(activation));
     model.setOperandValue(constantOpd0, twos, sizeof(twos));
-    model.addOperation(ANEURALNETWORKS_ADD,
-                       {inputOpd0, inputOpd1, activationOpd0},
+    model.addOperation(ANEURALNETWORKS_ADD, {inputOpd0, inputOpd1, activationOpd0},
                        {intermediateOpd0});
-    model.addOperation(ANEURALNETWORKS_ADD,
-                       {intermediateOpd0, constantOpd0, activationOpd0},
+    model.addOperation(ANEURALNETWORKS_ADD, {intermediateOpd0, constantOpd0, activationOpd0},
                        {outputOpd0});
     model.identifyInputsAndOutputs({inputOpd0, inputOpd1}, {outputOpd0});
     if (std::get<0>(paramsForConst) == DimensionKind::INTENDED_AT_COMPILE_NOT_SET_AT_EXECUTE &&
@@ -224,7 +239,7 @@ template<class T, Type TensorType> void UnknownDimensionsTest::TestOne(
     Compilation compilation(&model);
     ASSERT_EQ(compilation.finish(), Result::NO_ERROR);
 
-    IntendedMatrix actual = { { 10, 10, 10 }, { 10, 10, 10 }, { 10, 10, 10 } };
+    IntendedMatrix actual = {{10, 10, 10}, {10, 10, 10}, {10, 10, 10}};
     Execution execution(&compilation);
 
     OperandType matrixTypeIntended(TensorType, {INTENDED_SIZE, INTENDED_SIZE}, scale);
@@ -261,19 +276,21 @@ template<class T, Type TensorType> void UnknownDimensionsTest::TestOne(
     // on OperandParams
     auto sizeAtSet = [](OperandParams params) {
         auto first = std::get<0>(params), second = std::get<1>(params);
-        size_t firstDim = (first == DimensionKind::UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE) ?
-            OTHER_SIZE : INTENDED_SIZE;
-        size_t secondDim = (second == DimensionKind::UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE) ?
-            OTHER_SIZE : INTENDED_SIZE;
+        size_t firstDim = (first == DimensionKind::UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE)
+                                  ? OTHER_SIZE
+                                  : INTENDED_SIZE;
+        size_t secondDim = (second == DimensionKind::UNKNOWN_AT_COMPILE_OTHER_AT_EXECUTE)
+                                   ? OTHER_SIZE
+                                   : INTENDED_SIZE;
         return firstDim * secondDim * sizeof(fives[0][0]);
     };
     ASSERT_EQ(execution.setInput(0, ones, sizeAtSet(paramsForInput0), typeAtSet(paramsForInput0)),
               Result::NO_ERROR);
     ASSERT_EQ(execution.setInput(1, twos, sizeAtSet(paramsForInput1), typeAtSet(paramsForInput1)),
               Result::NO_ERROR);
-    ASSERT_EQ(execution.setOutput(0, actual, sizeAtSet(paramsForOutput),
-                                  typeAtSet(paramsForOutput)),
-              Result::NO_ERROR);
+    ASSERT_EQ(
+            execution.setOutput(0, actual, sizeAtSet(paramsForOutput), typeAtSet(paramsForOutput)),
+            Result::NO_ERROR);
 
     if (allAreIntendedSizeAtExecution) {
         ASSERT_EQ(execution.compute(), Result::NO_ERROR);
@@ -284,32 +301,31 @@ template<class T, Type TensorType> void UnknownDimensionsTest::TestOne(
         return;
     }
 
-    typedef std::vector<T> vec;
-    typedef std::map<int, vec> Operands;
     constexpr size_t count = sizeof(fives) / sizeof(fives[0][0]);
-    Operands expected_opds{{0, vec{&fives[0][0], &fives[0][0] + count}}};
-    Operands actual_opds{{0, vec{&actual[0][0], &actual[0][0] + count}}};
+    std::vector<T> expected_opds(&fives[0][0], &fives[0][0] + count);
+    std::vector<T> actual_opds(&actual[0][0], &actual[0][0] + count);
     CompareResults(expected_opds, actual_opds);
 }
 
 std::vector<OperandParams> Combine(const std::vector<DimensionKind>& firsts,
                                    const std::vector<DimensionKind>& seconds) {
     std::vector<OperandParams> ret;
-    for (auto first: firsts) {
-        for (auto second: seconds) {
+    for (auto first : firsts) {
+        for (auto second : seconds) {
             ret.push_back({first, second});
         }
     }
     return ret;
 }
 
-template<class T, Type TensorType> void UnknownDimensionsTest::TestAll() {
+template <class T, Type TensorType>
+void UnknownDimensionsTest::TestAll() {
     const OperandParams paramsForInput0 = GetParam();
-    for (auto paramsForInput1: ioValues) {
-        for (auto paramsForConst: constantValues) {
-            for (auto paramsForOutput: ioValues) {
-                TestOne<T, TensorType>(paramsForInput0, paramsForInput1,
-                                       paramsForConst, paramsForOutput);
+    for (auto paramsForInput1 : ioValues) {
+        for (auto paramsForConst : constantValues) {
+            for (auto paramsForOutput : ioValues) {
+                TestOne<T, TensorType>(paramsForInput0, paramsForInput1, paramsForConst,
+                                       paramsForOutput);
             }
         }
     }

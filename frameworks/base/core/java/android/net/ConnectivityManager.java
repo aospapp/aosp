@@ -27,12 +27,15 @@ import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.PendingIntent;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
 import android.net.IpSecManager.UdpEncapsulationSocket;
 import android.net.SocketKeepalive.Callback;
+import android.net.TetheringManager.StartTetheringCallback;
+import android.net.TetheringManager.TetheringEventCallback;
+import android.net.TetheringManager.TetheringRequest;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
@@ -45,6 +48,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.ParcelFileDescriptor;
+import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
@@ -52,13 +56,12 @@ import android.os.ServiceManager;
 import android.os.ServiceSpecificException;
 import android.provider.Settings;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.SparseIntArray;
 
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.telephony.ITelephony;
-import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.util.Preconditions;
 import com.android.internal.util.Protocol;
 
@@ -76,6 +79,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -140,16 +144,6 @@ public class ConnectivityManager {
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     @Deprecated
     public static final String CONNECTIVITY_ACTION = "android.net.conn.CONNECTIVITY_CHANGE";
-
-    /**
-     * A temporary hack until SUPL system can get off the legacy APIS.
-     * They do too many network requests and the long list of apps listening
-     * and waking due to the CONNECTIVITY_ACTION broadcast makes it expensive.
-     * Use this broadcast intent instead for SUPL requests.
-     * @hide
-     */
-    public static final String CONNECTIVITY_ACTION_SUPL =
-            "android.net.conn.CONNECTIVITY_CHANGE_SUPL";
 
     /**
      * The device has connected to a network that has presented a captive
@@ -364,7 +358,7 @@ public class ConnectivityManager {
     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     @UnsupportedAppUsage
     public static final String ACTION_TETHER_STATE_CHANGED =
-            "android.net.conn.TETHER_STATE_CHANGED";
+            TetheringManager.ACTION_TETHER_STATE_CHANGED;
 
     /**
      * @hide
@@ -372,14 +366,14 @@ public class ConnectivityManager {
      * tethering and currently available for tethering.
      */
     @UnsupportedAppUsage
-    public static final String EXTRA_AVAILABLE_TETHER = "availableArray";
+    public static final String EXTRA_AVAILABLE_TETHER = TetheringManager.EXTRA_AVAILABLE_TETHER;
 
     /**
      * @hide
      * gives a String[] listing all the interfaces currently in local-only
      * mode (ie, has DHCPv4+IPv6-ULA support and no packet forwarding)
      */
-    public static final String EXTRA_ACTIVE_LOCAL_ONLY = "localOnlyArray";
+    public static final String EXTRA_ACTIVE_LOCAL_ONLY = TetheringManager.EXTRA_ACTIVE_LOCAL_ONLY;
 
     /**
      * @hide
@@ -387,7 +381,7 @@ public class ConnectivityManager {
      * (ie, has DHCPv4 support and packets potentially forwarded/NATed)
      */
     @UnsupportedAppUsage
-    public static final String EXTRA_ACTIVE_TETHER = "tetherArray";
+    public static final String EXTRA_ACTIVE_TETHER = TetheringManager.EXTRA_ACTIVE_TETHER;
 
     /**
      * @hide
@@ -396,7 +390,7 @@ public class ConnectivityManager {
      * for any interfaces listed here.
      */
     @UnsupportedAppUsage
-    public static final String EXTRA_ERRORED_TETHER = "erroredArray";
+    public static final String EXTRA_ERRORED_TETHER = TetheringManager.EXTRA_ERRORED_TETHER;
 
     /**
      * Broadcast Action: The captive portal tracker has finished its test.
@@ -446,7 +440,7 @@ public class ConnectivityManager {
      * @see #startTethering(int, boolean, OnStartTetheringCallback)
      * @hide
      */
-    public static final int TETHERING_INVALID   = -1;
+    public static final int TETHERING_INVALID   = TetheringManager.TETHERING_INVALID;
 
     /**
      * Wifi tethering type.
@@ -454,7 +448,7 @@ public class ConnectivityManager {
      * @hide
      */
     @SystemApi
-    public static final int TETHERING_WIFI      = 0;
+    public static final int TETHERING_WIFI      = TetheringManager.TETHERING_WIFI;
 
     /**
      * USB tethering type.
@@ -462,7 +456,7 @@ public class ConnectivityManager {
      * @hide
      */
     @SystemApi
-    public static final int TETHERING_USB       = 1;
+    public static final int TETHERING_USB       = TetheringManager.TETHERING_USB;
 
     /**
      * Bluetooth tethering type.
@@ -470,47 +464,56 @@ public class ConnectivityManager {
      * @hide
      */
     @SystemApi
-    public static final int TETHERING_BLUETOOTH = 2;
+    public static final int TETHERING_BLUETOOTH = TetheringManager.TETHERING_BLUETOOTH;
+
+    /**
+     * Wifi P2p tethering type.
+     * Wifi P2p tethering is set through events automatically, and don't
+     * need to start from #startTethering(int, boolean, OnStartTetheringCallback).
+     * @hide
+     */
+    public static final int TETHERING_WIFI_P2P = TetheringManager.TETHERING_WIFI_P2P;
 
     /**
      * Extra used for communicating with the TetherService. Includes the type of tethering to
      * enable if any.
      * @hide
      */
-    public static final String EXTRA_ADD_TETHER_TYPE = "extraAddTetherType";
+    public static final String EXTRA_ADD_TETHER_TYPE = TetheringConstants.EXTRA_ADD_TETHER_TYPE;
 
     /**
      * Extra used for communicating with the TetherService. Includes the type of tethering for
      * which to cancel provisioning.
      * @hide
      */
-    public static final String EXTRA_REM_TETHER_TYPE = "extraRemTetherType";
+    public static final String EXTRA_REM_TETHER_TYPE = TetheringConstants.EXTRA_REM_TETHER_TYPE;
 
     /**
      * Extra used for communicating with the TetherService. True to schedule a recheck of tether
      * provisioning.
      * @hide
      */
-    public static final String EXTRA_SET_ALARM = "extraSetAlarm";
+    public static final String EXTRA_SET_ALARM = TetheringConstants.EXTRA_SET_ALARM;
 
     /**
      * Tells the TetherService to run a provision check now.
      * @hide
      */
-    public static final String EXTRA_RUN_PROVISION = "extraRunProvision";
+    public static final String EXTRA_RUN_PROVISION = TetheringConstants.EXTRA_RUN_PROVISION;
 
     /**
      * Extra used for communicating with the TetherService. Contains the {@link ResultReceiver}
      * which will receive provisioning results. Can be left empty.
      * @hide
      */
-    public static final String EXTRA_PROVISION_CALLBACK = "extraProvisionCallback";
+    public static final String EXTRA_PROVISION_CALLBACK =
+            TetheringConstants.EXTRA_PROVISION_CALLBACK;
 
     /**
      * The absence of a connection type.
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 130143562)
+    @SystemApi
     public static final int TYPE_NONE        = -1;
 
     /**
@@ -655,7 +658,7 @@ public class ConnectivityManager {
      * {@hide}
      */
     @Deprecated
-    @UnsupportedAppUsage
+    @SystemApi
     public static final int TYPE_WIFI_P2P    = 13;
 
     /**
@@ -702,6 +705,42 @@ public class ConnectivityManager {
      */
     @Deprecated
     public static final int TYPE_TEST = 18; // TODO: Remove this once NetworkTypes are unused.
+
+    /**
+     * @deprecated Use {@link NetworkCapabilities} instead.
+     * @hide
+     */
+    @Deprecated
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "TYPE_" }, value = {
+                TYPE_NONE,
+                TYPE_MOBILE,
+                TYPE_WIFI,
+                TYPE_MOBILE_MMS,
+                TYPE_MOBILE_SUPL,
+                TYPE_MOBILE_DUN,
+                TYPE_MOBILE_HIPRI,
+                TYPE_WIMAX,
+                TYPE_BLUETOOTH,
+                TYPE_DUMMY,
+                TYPE_ETHERNET,
+                TYPE_MOBILE_FOTA,
+                TYPE_MOBILE_IMS,
+                TYPE_MOBILE_CBS,
+                TYPE_WIFI_P2P,
+                TYPE_MOBILE_IA,
+                TYPE_MOBILE_EMERGENCY,
+                TYPE_PROXY,
+                TYPE_VPN,
+                TYPE_TEST
+    })
+    public @interface LegacyNetworkType {}
+
+    // Deprecated constants for return values of startUsingNetworkFeature. They used to live
+    // in com.android.internal.telephony.PhoneConstants until they were made inaccessible.
+    private static final int DEPRECATED_PHONE_CONSTANT_APN_ALREADY_ACTIVE = 0;
+    private static final int DEPRECATED_PHONE_CONSTANT_APN_REQUEST_STARTED = 1;
+    private static final int DEPRECATED_PHONE_CONSTANT_APN_REQUEST_FAILED = 3;
 
     /** {@hide} */
     public static final int MAX_RADIO_TYPE = TYPE_TEST;
@@ -789,6 +828,7 @@ public class ConnectivityManager {
 
     private INetworkManagementService mNMService;
     private INetworkPolicyManager mNPManager;
+    private final TetheringManager mTetheringManager;
 
     /**
      * Tests if a given integer represents a valid network type.
@@ -993,7 +1033,7 @@ public class ConnectivityManager {
      *
      * @hide
      */
-    @RequiresPermission(android.Manifest.permission.CONNECTIVITY_INTERNAL)
+    @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
     @Nullable
     public Network getActiveNetworkForUid(int uid) {
         return getActiveNetworkForUid(uid, false);
@@ -1122,7 +1162,7 @@ public class ConnectivityManager {
      *
      * {@hide}
      */
-    @RequiresPermission(android.Manifest.permission.CONNECTIVITY_INTERNAL)
+    @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
     @UnsupportedAppUsage
     public NetworkInfo getActiveNetworkInfoForUid(int uid) {
         return getActiveNetworkInfoForUid(uid, false);
@@ -1259,7 +1299,8 @@ public class ConnectivityManager {
     @UnsupportedAppUsage
     public NetworkCapabilities[] getDefaultNetworkCapabilitiesForUser(int userId) {
         try {
-            return mService.getDefaultNetworkCapabilitiesForUser(userId);
+            return mService.getDefaultNetworkCapabilitiesForUser(
+                    userId, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -1341,7 +1382,7 @@ public class ConnectivityManager {
     @Nullable
     public NetworkCapabilities getNetworkCapabilities(@Nullable Network network) {
         try {
-            return mService.getNetworkCapabilities(network);
+            return mService.getNetworkCapabilities(network, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -1357,10 +1398,14 @@ public class ConnectivityManager {
      * The system network validation may be using different strategies to detect captive portals,
      * so this method does not necessarily return a URL used by the system. It only returns a URL
      * that may be relevant for other components trying to detect captive portals.
+     *
      * @hide
+     * @deprecated This API returns URL which is not guaranteed to be one of the URLs used by the
+     *             system.
      */
+    @Deprecated
     @SystemApi
-    @RequiresPermission(android.Manifest.permission.LOCAL_MAC_ADDRESS)
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
     public String getCaptivePortalServerUrl() {
         try {
             return mService.getCaptivePortalServerUrl();
@@ -1399,7 +1444,7 @@ public class ConnectivityManager {
         if (netCap == null) {
             Log.d(TAG, "Can't satisfy startUsingNetworkFeature for " + networkType + ", " +
                     feature);
-            return PhoneConstants.APN_REQUEST_FAILED;
+            return DEPRECATED_PHONE_CONSTANT_APN_REQUEST_FAILED;
         }
 
         NetworkRequest request = null;
@@ -1409,9 +1454,9 @@ public class ConnectivityManager {
                 Log.d(TAG, "renewing startUsingNetworkFeature request " + l.networkRequest);
                 renewRequestLocked(l);
                 if (l.currentNetwork != null) {
-                    return PhoneConstants.APN_ALREADY_ACTIVE;
+                    return DEPRECATED_PHONE_CONSTANT_APN_ALREADY_ACTIVE;
                 } else {
-                    return PhoneConstants.APN_REQUEST_STARTED;
+                    return DEPRECATED_PHONE_CONSTANT_APN_REQUEST_STARTED;
                 }
             }
 
@@ -1419,10 +1464,10 @@ public class ConnectivityManager {
         }
         if (request != null) {
             Log.d(TAG, "starting startUsingNetworkFeature for request " + request);
-            return PhoneConstants.APN_REQUEST_STARTED;
+            return DEPRECATED_PHONE_CONSTANT_APN_REQUEST_STARTED;
         } else {
             Log.d(TAG, " request Failed");
-            return PhoneConstants.APN_REQUEST_FAILED;
+            return DEPRECATED_PHONE_CONSTANT_APN_REQUEST_FAILED;
         }
     }
 
@@ -1491,84 +1536,6 @@ public class ConnectivityManager {
             return networkCapabilitiesForType(TYPE_WIFI_P2P);
         }
         return null;
-    }
-
-    /**
-     * Guess what the network request was trying to say so that the resulting
-     * network is accessible via the legacy (deprecated) API such as
-     * requestRouteToHost.
-     *
-     * This means we should try to be fairly precise about transport and
-     * capability but ignore things such as networkSpecifier.
-     * If the request has more than one transport or capability it doesn't
-     * match the old legacy requests (they selected only single transport/capability)
-     * so this function cannot map the request to a single legacy type and
-     * the resulting network will not be available to the legacy APIs.
-     *
-     * This code is only called from the requestNetwork API (L and above).
-     *
-     * Setting a legacy type causes CONNECTIVITY_ACTION broadcasts, which are expensive
-     * because they wake up lots of apps - see http://b/23350688 . So we currently only
-     * do this for SUPL requests, which are the only ones that we know need it. If
-     * omitting these broadcasts causes unacceptable app breakage, then for backwards
-     * compatibility we can send them:
-     *
-     * if (targetSdkVersion < Build.VERSION_CODES.M) &&        // legacy API unsupported >= M
-     *     targetSdkVersion >= Build.VERSION_CODES.LOLLIPOP))  // requestNetwork not present < L
-     *
-     * TODO - This should be removed when the legacy APIs are removed.
-     */
-    private int inferLegacyTypeForNetworkCapabilities(NetworkCapabilities netCap) {
-        if (netCap == null) {
-            return TYPE_NONE;
-        }
-
-        if (!netCap.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
-            return TYPE_NONE;
-        }
-
-        // Do this only for SUPL, until GnssLocationProvider is fixed. http://b/25876485 .
-        if (!netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_SUPL)) {
-            // NOTE: if this causes app breakage, we should not just comment out this early return;
-            // instead, we should make this early return conditional on the requesting app's target
-            // SDK version, as described in the comment above.
-            return TYPE_NONE;
-        }
-
-        String type = null;
-        int result = TYPE_NONE;
-
-        if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_CBS)) {
-            type = "enableCBS";
-            result = TYPE_MOBILE_CBS;
-        } else if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS)) {
-            type = "enableIMS";
-            result = TYPE_MOBILE_IMS;
-        } else if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_FOTA)) {
-            type = "enableFOTA";
-            result = TYPE_MOBILE_FOTA;
-        } else if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_DUN)) {
-            type = "enableDUN";
-            result = TYPE_MOBILE_DUN;
-        } else if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_SUPL)) {
-            type = "enableSUPL";
-            result = TYPE_MOBILE_SUPL;
-        // back out this hack for mms as they no longer need this and it's causing
-        // device slowdowns - b/23350688 (note, supl still needs this)
-        //} else if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_MMS)) {
-        //    type = "enableMMS";
-        //    result = TYPE_MOBILE_MMS;
-        } else if (netCap.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-            type = "enableHIPRI";
-            result = TYPE_MOBILE_HIPRI;
-        }
-        if (type != null) {
-            NetworkCapabilities testCap = networkCapabilitiesForFeature(TYPE_MOBILE, type);
-            if (testCap.equalsNetCapabilities(netCap) && testCap.equalsTransportTypes(netCap)) {
-                return result;
-            }
-        }
-        return TYPE_NONE;
     }
 
     private int legacyTypeForNetworkCapabilities(NetworkCapabilities netCap) {
@@ -1755,6 +1722,9 @@ public class ConnectivityManager {
 
     /** @hide */
     public static class PacketKeepaliveCallback {
+        @UnsupportedAppUsage
+        public PacketKeepaliveCallback() {
+        }
         /** The requested keepalive was successfully started. */
         @UnsupportedAppUsage
         public void onStarted() {}
@@ -2137,19 +2107,14 @@ public class ConnectivityManager {
     @Deprecated
     @UnsupportedAppUsage
     public boolean getMobileDataEnabled() {
-        IBinder b = ServiceManager.getService(Context.TELEPHONY_SERVICE);
-        if (b != null) {
-            try {
-                ITelephony it = ITelephony.Stub.asInterface(b);
-                int subId = SubscriptionManager.getDefaultDataSubscriptionId();
-                Log.d("ConnectivityManager", "getMobileDataEnabled()+ subId=" + subId);
-                boolean retVal = it.isUserDataEnabled(subId);
-                Log.d("ConnectivityManager", "getMobileDataEnabled()- subId=" + subId
-                        + " retVal=" + retVal);
-                return retVal;
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
+        TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
+        if (tm != null) {
+            int subId = SubscriptionManager.getDefaultDataSubscriptionId();
+            Log.d("ConnectivityManager", "getMobileDataEnabled()+ subId=" + subId);
+            boolean retVal = tm.createForSubscriptionId(subId).isDataEnabled();
+            Log.d("ConnectivityManager", "getMobileDataEnabled()- subId=" + subId
+                    + " retVal=" + retVal);
+            return retVal;
         }
         Log.d("ConnectivityManager", "getMobileDataEnabled()- remote exception retVal=false");
         return false;
@@ -2251,6 +2216,7 @@ public class ConnectivityManager {
     public ConnectivityManager(Context context, IConnectivityManager service) {
         mContext = Preconditions.checkNotNull(context, "missing context");
         mService = Preconditions.checkNotNull(service, "missing IConnectivityManager");
+        mTetheringManager = (TetheringManager) mContext.getSystemService(Context.TETHERING_SERVICE);
         sInstance = this;
     }
 
@@ -2278,26 +2244,6 @@ public class ConnectivityManager {
         int uid = Binder.getCallingUid();
         Settings.checkAndNoteChangeNetworkStateOperation(context, uid, Settings
                 .getPackageNameForUid(context, uid), true /* throwException */);
-    }
-
-    /** {@hide} */
-    public static final void enforceTetherChangePermission(Context context, String callingPkg) {
-        Preconditions.checkNotNull(context, "Context cannot be null");
-        Preconditions.checkNotNull(callingPkg, "callingPkg cannot be null");
-
-        if (context.getResources().getStringArray(
-                com.android.internal.R.array.config_mobile_hotspot_provision_app).length == 2) {
-            // Have a provisioning app - must only let system apps (which check this app)
-            // turn on tethering
-            context.enforceCallingOrSelfPermission(
-                    android.Manifest.permission.TETHER_PRIVILEGED, "ConnectivityService");
-        } else {
-            int uid = Binder.getCallingUid();
-            // If callingPkg's uid is not same as Binder.getCallingUid(),
-            // AppOpsService throws SecurityException.
-            Settings.checkAndNoteWriteSettingsOperation(context, uid, callingPkg,
-                    true /* throwException */);
-        }
     }
 
     /**
@@ -2330,16 +2276,14 @@ public class ConnectivityManager {
      *
      * @return an array of 0 or more Strings of tetherable interface names.
      *
+     * @deprecated Use {@link TetheringEventCallback#onTetherableInterfacesChanged(List)} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public String[] getTetherableIfaces() {
-        try {
-            return mService.getTetherableIfaces();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.getTetherableIfaces();
     }
 
     /**
@@ -2347,16 +2291,14 @@ public class ConnectivityManager {
      *
      * @return an array of 0 or more String of currently tethered interface names.
      *
+     * @deprecated Use {@link TetheringEventCallback#onTetherableInterfacesChanged(List)} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public String[] getTetheredIfaces() {
-        try {
-            return mService.getTetheredIfaces();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.getTetheredIfaces();
     }
 
     /**
@@ -2370,30 +2312,27 @@ public class ConnectivityManager {
      * @return an array of 0 or more String indicating the interface names
      *        which failed to tether.
      *
+     * @deprecated Use {@link TetheringEventCallback#onError(String, int)} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public String[] getTetheringErroredIfaces() {
-        try {
-            return mService.getTetheringErroredIfaces();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.getTetheringErroredIfaces();
     }
 
     /**
      * Get the set of tethered dhcp ranges.
      *
-     * @return an array of 0 or more {@code String} of tethered dhcp ranges.
+     * @deprecated This method is not supported.
+     * TODO: remove this function when all of clients are removed.
      * {@hide}
      */
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
+    @Deprecated
     public String[] getTetheredDhcpRanges() {
-        try {
-            return mService.getTetheredDhcpRanges();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        throw new UnsupportedOperationException("getTetheredDhcpRanges is not supported");
     }
 
     /**
@@ -2417,18 +2356,14 @@ public class ConnectivityManager {
      *
      * @param iface the interface name to tether.
      * @return error a {@code TETHER_ERROR} value indicating success or failure type
+     * @deprecated Use {@link TetheringManager#startTethering} instead
      *
      * {@hide}
      */
     @UnsupportedAppUsage
+    @Deprecated
     public int tether(String iface) {
-        try {
-            String pkgName = mContext.getOpPackageName();
-            Log.i(TAG, "tether caller:" + pkgName);
-            return mService.tether(iface, pkgName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.tether(iface);
     }
 
     /**
@@ -2450,14 +2385,9 @@ public class ConnectivityManager {
      * {@hide}
      */
     @UnsupportedAppUsage
+    @Deprecated
     public int untether(String iface) {
-        try {
-            String pkgName = mContext.getOpPackageName();
-            Log.i(TAG, "untether caller:" + pkgName);
-            return mService.untether(iface, pkgName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.untether(iface);
     }
 
     /**
@@ -2476,29 +2406,24 @@ public class ConnectivityManager {
      *
      * @return a boolean - {@code true} indicating Tethering is supported.
      *
+     * @deprecated Use {@link TetheringEventCallback#onTetheringSupported(boolean)} instead.
      * {@hide}
      */
     @SystemApi
     @RequiresPermission(anyOf = {android.Manifest.permission.TETHER_PRIVILEGED,
             android.Manifest.permission.WRITE_SETTINGS})
     public boolean isTetheringSupported() {
-        String pkgName = mContext.getOpPackageName();
-        try {
-            return mService.isTetheringSupported(pkgName);
-        } catch (SecurityException e) {
-            // This API is not available to this caller, but for backward-compatibility
-            // this will just return false instead of throwing.
-            return false;
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.isTetheringSupported();
     }
 
     /**
      * Callback for use with {@link #startTethering} to find out whether tethering succeeded.
+     *
+     * @deprecated Use {@link TetheringManager.StartTetheringCallback} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     public static abstract class OnStartTetheringCallback {
         /**
          * Called when tethering has been successfully started.
@@ -2515,9 +2440,12 @@ public class ConnectivityManager {
      * Convenient overload for
      * {@link #startTethering(int, boolean, OnStartTetheringCallback, Handler)} which passes a null
      * handler to run on the current thread's {@link Looper}.
+     *
+     * @deprecated Use {@link TetheringManager#startTethering} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     @RequiresPermission(android.Manifest.permission.TETHER_PRIVILEGED)
     public void startTethering(int type, boolean showProvisioningUi,
             final OnStartTetheringCallback callback) {
@@ -2541,33 +2469,44 @@ public class ConnectivityManager {
      * @param callback an {@link OnStartTetheringCallback} which will be called to notify the caller
      *         of the result of trying to tether.
      * @param handler {@link Handler} to specify the thread upon which the callback will be invoked.
+     *
+     * @deprecated Use {@link TetheringManager#startTethering} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     @RequiresPermission(android.Manifest.permission.TETHER_PRIVILEGED)
     public void startTethering(int type, boolean showProvisioningUi,
             final OnStartTetheringCallback callback, Handler handler) {
         Preconditions.checkNotNull(callback, "OnStartTetheringCallback cannot be null.");
 
-        ResultReceiver wrappedCallback = new ResultReceiver(handler) {
+        final Executor executor = new Executor() {
             @Override
-            protected void onReceiveResult(int resultCode, Bundle resultData) {
-                if (resultCode == TETHER_ERROR_NO_ERROR) {
-                    callback.onTetheringStarted();
+            public void execute(Runnable command) {
+                if (handler == null) {
+                    command.run();
                 } else {
-                    callback.onTetheringFailed();
+                    handler.post(command);
                 }
             }
         };
 
-        try {
-            String pkgName = mContext.getOpPackageName();
-            Log.i(TAG, "startTethering caller:" + pkgName);
-            mService.startTethering(type, wrappedCallback, showProvisioningUi, pkgName);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Exception trying to start tethering.", e);
-            wrappedCallback.send(TETHER_ERROR_SERVICE_UNAVAIL, null);
-        }
+        final StartTetheringCallback tetheringCallback = new StartTetheringCallback() {
+            @Override
+            public void onTetheringStarted() {
+                callback.onTetheringStarted();
+            }
+
+            @Override
+            public void onTetheringFailed(final int error) {
+                callback.onTetheringFailed();
+            }
+        };
+
+        final TetheringRequest request = new TetheringRequest.Builder(type)
+                .setShouldShowEntitlementUi(showProvisioningUi).build();
+
+        mTetheringManager.startTethering(request, executor, tetheringCallback);
     }
 
     /**
@@ -2578,27 +2517,26 @@ public class ConnectivityManager {
      *         {@link ConnectivityManager.TETHERING_WIFI},
      *         {@link ConnectivityManager.TETHERING_USB}, or
      *         {@link ConnectivityManager.TETHERING_BLUETOOTH}.
+     *
+     * @deprecated Use {@link TetheringManager#stopTethering} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     @RequiresPermission(android.Manifest.permission.TETHER_PRIVILEGED)
     public void stopTethering(int type) {
-        try {
-            String pkgName = mContext.getOpPackageName();
-            Log.i(TAG, "stopTethering caller:" + pkgName);
-            mService.stopTethering(type, pkgName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        mTetheringManager.stopTethering(type);
     }
 
     /**
      * Callback for use with {@link registerTetheringEventCallback} to find out tethering
      * upstream status.
      *
-     *@hide
+     * @deprecated Use {@link TetheringManager#OnTetheringEventCallback} instead.
+     * @hide
      */
     @SystemApi
+    @Deprecated
     public abstract static class OnTetheringEventCallback {
 
         /**
@@ -2612,7 +2550,7 @@ public class ConnectivityManager {
     }
 
     @GuardedBy("mTetheringEventCallbacks")
-    private final ArrayMap<OnTetheringEventCallback, ITetheringEventCallback>
+    private final ArrayMap<OnTetheringEventCallback, TetheringEventCallback>
             mTetheringEventCallbacks = new ArrayMap<>();
 
     /**
@@ -2623,35 +2561,29 @@ public class ConnectivityManager {
      *
      * @param executor the executor on which callback will be invoked.
      * @param callback the callback to be called when tethering has change events.
+     *
+     * @deprecated Use {@link TetheringManager#registerTetheringEventCallback} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     @RequiresPermission(android.Manifest.permission.TETHER_PRIVILEGED)
     public void registerTetheringEventCallback(
             @NonNull @CallbackExecutor Executor executor,
             @NonNull final OnTetheringEventCallback callback) {
         Preconditions.checkNotNull(callback, "OnTetheringEventCallback cannot be null.");
 
+        final TetheringEventCallback tetherCallback =
+                new TetheringEventCallback() {
+                    @Override
+                    public void onUpstreamChanged(@Nullable Network network) {
+                        callback.onUpstreamChanged(network);
+                    }
+                };
+
         synchronized (mTetheringEventCallbacks) {
-            Preconditions.checkArgument(!mTetheringEventCallbacks.containsKey(callback),
-                    "callback was already registered.");
-            ITetheringEventCallback remoteCallback = new ITetheringEventCallback.Stub() {
-                @Override
-                public void onUpstreamChanged(Network network) throws RemoteException {
-                    Binder.withCleanCallingIdentity(() ->
-                            executor.execute(() -> {
-                                callback.onUpstreamChanged(network);
-                            }));
-                }
-            };
-            try {
-                String pkgName = mContext.getOpPackageName();
-                Log.i(TAG, "registerTetheringUpstreamCallback:" + pkgName);
-                mService.registerTetheringEventCallback(remoteCallback, pkgName);
-                mTetheringEventCallbacks.put(callback, remoteCallback);
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
+            mTetheringEventCallbacks.put(callback, tetherCallback);
+            mTetheringManager.registerTetheringEventCallback(executor, tetherCallback);
         }
     }
 
@@ -2660,22 +2592,20 @@ public class ConnectivityManager {
      * {@link #registerTetheringEventCallback}.
      *
      * @param callback previously registered callback.
+     *
+     * @deprecated Use {@link TetheringManager#unregisterTetheringEventCallback} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     @RequiresPermission(android.Manifest.permission.TETHER_PRIVILEGED)
     public void unregisterTetheringEventCallback(
             @NonNull final OnTetheringEventCallback callback) {
+        Objects.requireNonNull(callback, "The callback must be non-null");
         synchronized (mTetheringEventCallbacks) {
-            ITetheringEventCallback remoteCallback = mTetheringEventCallbacks.remove(callback);
-            Preconditions.checkNotNull(remoteCallback, "callback was not registered.");
-            try {
-                String pkgName = mContext.getOpPackageName();
-                Log.i(TAG, "unregisterTetheringEventCallback:" + pkgName);
-                mService.unregisterTetheringEventCallback(remoteCallback, pkgName);
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
+            final TetheringEventCallback tetherCallback =
+                    mTetheringEventCallbacks.remove(callback);
+            mTetheringManager.unregisterTetheringEventCallback(tetherCallback);
         }
     }
 
@@ -2688,16 +2618,14 @@ public class ConnectivityManager {
      * @return an array of 0 or more regular expression Strings defining
      *        what interfaces are considered tetherable usb interfaces.
      *
+     * @deprecated Use {@link TetheringEventCallback#onTetherableInterfaceRegexpsChanged} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public String[] getTetherableUsbRegexs() {
-        try {
-            return mService.getTetherableUsbRegexs();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.getTetherableUsbRegexs();
     }
 
     /**
@@ -2708,16 +2636,14 @@ public class ConnectivityManager {
      * @return an array of 0 or more regular expression Strings defining
      *        what interfaces are considered tetherable wifi interfaces.
      *
+     * @deprecated Use {@link TetheringEventCallback#onTetherableInterfaceRegexpsChanged} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public String[] getTetherableWifiRegexs() {
-        try {
-            return mService.getTetherableWifiRegexs();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.getTetherableWifiRegexs();
     }
 
     /**
@@ -2728,16 +2654,15 @@ public class ConnectivityManager {
      * @return an array of 0 or more regular expression Strings defining
      *        what interfaces are considered tetherable bluetooth interfaces.
      *
+     * @deprecated Use {@link TetheringEventCallback#onTetherableInterfaceRegexpsChanged(
+     *TetheringManager.TetheringInterfaceRegexps)} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public String[] getTetherableBluetoothRegexs() {
-        try {
-            return mService.getTetherableBluetoothRegexs();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.getTetherableBluetoothRegexs();
     }
 
     /**
@@ -2754,51 +2679,115 @@ public class ConnectivityManager {
      *
      * @param enable a boolean - {@code true} to enable tethering
      * @return error a {@code TETHER_ERROR} value indicating success or failure type
+     * @deprecated Use {@link TetheringManager#startTethering} instead
      *
      * {@hide}
      */
     @UnsupportedAppUsage
+    @Deprecated
     public int setUsbTethering(boolean enable) {
-        try {
-            String pkgName = mContext.getOpPackageName();
-            Log.i(TAG, "setUsbTethering caller:" + pkgName);
-            return mService.setUsbTethering(enable, pkgName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        return mTetheringManager.setUsbTethering(enable);
     }
 
-    /** {@hide} */
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_NO_ERROR}.
+     * {@hide}
+     */
     @SystemApi
-    public static final int TETHER_ERROR_NO_ERROR           = 0;
-    /** {@hide} */
-    public static final int TETHER_ERROR_UNKNOWN_IFACE      = 1;
-    /** {@hide} */
-    public static final int TETHER_ERROR_SERVICE_UNAVAIL    = 2;
-    /** {@hide} */
-    public static final int TETHER_ERROR_UNSUPPORTED        = 3;
-    /** {@hide} */
-    public static final int TETHER_ERROR_UNAVAIL_IFACE      = 4;
-    /** {@hide} */
-    public static final int TETHER_ERROR_MASTER_ERROR       = 5;
-    /** {@hide} */
-    public static final int TETHER_ERROR_TETHER_IFACE_ERROR = 6;
-    /** {@hide} */
-    public static final int TETHER_ERROR_UNTETHER_IFACE_ERROR = 7;
-    /** {@hide} */
-    public static final int TETHER_ERROR_ENABLE_NAT_ERROR     = 8;
-    /** {@hide} */
-    public static final int TETHER_ERROR_DISABLE_NAT_ERROR    = 9;
-    /** {@hide} */
-    public static final int TETHER_ERROR_IFACE_CFG_ERROR      = 10;
-    /** {@hide} */
+    @Deprecated
+    public static final int TETHER_ERROR_NO_ERROR = TetheringManager.TETHER_ERROR_NO_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_UNKNOWN_IFACE}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_UNKNOWN_IFACE =
+            TetheringManager.TETHER_ERROR_UNKNOWN_IFACE;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_SERVICE_UNAVAIL}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_SERVICE_UNAVAIL =
+            TetheringManager.TETHER_ERROR_SERVICE_UNAVAIL;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_UNSUPPORTED}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_UNSUPPORTED = TetheringManager.TETHER_ERROR_UNSUPPORTED;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_UNAVAIL_IFACE}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_UNAVAIL_IFACE =
+            TetheringManager.TETHER_ERROR_UNAVAIL_IFACE;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_INTERNAL_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_MASTER_ERROR =
+            TetheringManager.TETHER_ERROR_INTERNAL_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_TETHER_IFACE_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_TETHER_IFACE_ERROR =
+            TetheringManager.TETHER_ERROR_TETHER_IFACE_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_UNTETHER_IFACE_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_UNTETHER_IFACE_ERROR =
+            TetheringManager.TETHER_ERROR_UNTETHER_IFACE_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_ENABLE_FORWARDING_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_ENABLE_NAT_ERROR =
+            TetheringManager.TETHER_ERROR_ENABLE_FORWARDING_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_DISABLE_FORWARDING_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_DISABLE_NAT_ERROR =
+            TetheringManager.TETHER_ERROR_DISABLE_FORWARDING_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_IFACE_CFG_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_IFACE_CFG_ERROR =
+            TetheringManager.TETHER_ERROR_IFACE_CFG_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_PROVISIONING_FAILED}.
+     * {@hide}
+     */
     @SystemApi
-    public static final int TETHER_ERROR_PROVISION_FAILED     = 11;
-    /** {@hide} */
-    public static final int TETHER_ERROR_DHCPSERVER_ERROR     = 12;
-    /** {@hide} */
+    @Deprecated
+    public static final int TETHER_ERROR_PROVISION_FAILED =
+            TetheringManager.TETHER_ERROR_PROVISIONING_FAILED;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_DHCPSERVER_ERROR}.
+     * {@hide}
+     */
+    @Deprecated
+    public static final int TETHER_ERROR_DHCPSERVER_ERROR =
+            TetheringManager.TETHER_ERROR_DHCPSERVER_ERROR;
+    /**
+     * @deprecated Use {@link TetheringManager#TETHER_ERROR_ENTITLEMENT_UNKNOWN}.
+     * {@hide}
+     */
     @SystemApi
-    public static final int TETHER_ERROR_ENTITLEMENT_UNKONWN  = 13;
+    @Deprecated
+    public static final int TETHER_ERROR_ENTITLEMENT_UNKONWN =
+            TetheringManager.TETHER_ERROR_ENTITLEMENT_UNKNOWN;
 
     /**
      * Get a more detailed error code after a Tethering or Untethering
@@ -2808,16 +2797,21 @@ public class ConnectivityManager {
      * @return error The error code of the last error tethering or untethering the named
      *               interface
      *
+     * @deprecated Use {@link TetheringEventCallback#onError(String, int)} instead.
      * {@hide}
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     @UnsupportedAppUsage
+    @Deprecated
     public int getLastTetherError(String iface) {
-        try {
-            return mService.getLastTetherError(iface);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+        int error = mTetheringManager.getLastTetherError(iface);
+        if (error == TetheringManager.TETHER_ERROR_UNKNOWN_TYPE) {
+            // TETHER_ERROR_UNKNOWN_TYPE was introduced with TetheringManager and has never been
+            // returned by ConnectivityManager. Convert it to the legacy TETHER_ERROR_UNKNOWN_IFACE
+            // instead.
+            error = TetheringManager.TETHER_ERROR_UNKNOWN_IFACE;
         }
+        return error;
     }
 
     /** @hide */
@@ -2833,9 +2827,12 @@ public class ConnectivityManager {
     /**
      * Callback for use with {@link #getLatestTetheringEntitlementResult} to find out whether
      * entitlement succeeded.
+     *
+     * @deprecated Use {@link TetheringManager#OnTetheringEntitlementResultListener} instead.
      * @hide
      */
     @SystemApi
+    @Deprecated
     public interface OnTetheringEntitlementResultListener  {
         /**
          * Called to notify entitlement result.
@@ -2865,9 +2862,11 @@ public class ConnectivityManager {
      * @param listener an {@link OnTetheringEntitlementResultListener} which will be called to
      *         notify the caller of the result of entitlement check. The listener may be called zero
      *         or one time.
+     * @deprecated Use {@link TetheringManager#requestLatestTetheringEntitlementResult} instead.
      * {@hide}
      */
     @SystemApi
+    @Deprecated
     @RequiresPermission(android.Manifest.permission.TETHER_PRIVILEGED)
     public void getLatestTetheringEntitlementResult(int type, boolean showEntitlementUi,
             @NonNull @CallbackExecutor Executor executor,
@@ -2883,14 +2882,8 @@ public class ConnectivityManager {
             }
         };
 
-        try {
-            String pkgName = mContext.getOpPackageName();
-            Log.i(TAG, "getLatestTetheringEntitlementResult:" + pkgName);
-            mService.getLatestTetheringEntitlementResult(type, wrappedListener,
-                    showEntitlementUi, pkgName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
+        mTetheringManager.requestLatestTetheringEntitlementResult(type, wrappedListener,
+                    showEntitlementUi);
     }
 
     /**
@@ -2967,7 +2960,7 @@ public class ConnectivityManager {
      *        HTTP proxy.  A {@code null} value will clear the global HTTP proxy.
      * @hide
      */
-    @RequiresPermission(android.Manifest.permission.CONNECTIVITY_INTERNAL)
+    @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
     public void setGlobalProxy(ProxyInfo p) {
         try {
             mService.setGlobalProxy(p);
@@ -3112,6 +3105,7 @@ public class ConnectivityManager {
      * Get the mobile provisioning url.
      * {@hide}
      */
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
     public String getMobileProvisioningUrl() {
         try {
             return mService.getMobileProvisioningUrl();
@@ -3144,6 +3138,7 @@ public class ConnectivityManager {
      * @hide
      */
     @RequiresPermission(anyOf = {
+            android.Manifest.permission.NETWORK_AIRPLANE_MODE,
             android.Manifest.permission.NETWORK_SETTINGS,
             android.Manifest.permission.NETWORK_SETUP_WIZARD,
             android.Manifest.permission.NETWORK_STACK})
@@ -3158,6 +3153,9 @@ public class ConnectivityManager {
 
     /** {@hide} - returns the factory serial number */
     @UnsupportedAppUsage
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
     public int registerNetworkFactory(Messenger messenger, String name) {
         try {
             return mService.registerNetworkFactory(messenger, name);
@@ -3168,9 +3166,73 @@ public class ConnectivityManager {
 
     /** {@hide} */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
     public void unregisterNetworkFactory(Messenger messenger) {
         try {
             mService.unregisterNetworkFactory(messenger);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Registers the specified {@link NetworkProvider}.
+     * Each listener must only be registered once. The listener can be unregistered with
+     * {@link #unregisterNetworkProvider}.
+     *
+     * @param provider the provider to register
+     * @return the ID of the provider. This ID must be used by the provider when registering
+     *         {@link android.net.NetworkAgent}s.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
+    public int registerNetworkProvider(@NonNull NetworkProvider provider) {
+        if (provider.getProviderId() != NetworkProvider.ID_NONE) {
+            throw new IllegalStateException("NetworkProviders can only be registered once");
+        }
+
+        try {
+            int providerId = mService.registerNetworkProvider(provider.getMessenger(),
+                    provider.getName());
+            provider.setProviderId(providerId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+        return provider.getProviderId();
+    }
+
+    /**
+     * Unregisters the specified NetworkProvider.
+     *
+     * @param provider the provider to unregister
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
+    public void unregisterNetworkProvider(@NonNull NetworkProvider provider) {
+        try {
+            mService.unregisterNetworkProvider(provider.getMessenger());
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+        provider.setProviderId(NetworkProvider.ID_NONE);
+    }
+
+
+    /** @hide exposed via the NetworkProvider class. */
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
+    public void declareNetworkRequestUnfulfillable(@NonNull NetworkRequest request) {
+        try {
+            mService.declareNetworkRequestUnfulfillable(request);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -3183,24 +3245,28 @@ public class ConnectivityManager {
     /**
      * @hide
      * Register a NetworkAgent with ConnectivityService.
-     * @return NetID corresponding to NetworkAgent.
+     * @return Network corresponding to NetworkAgent.
      */
-    public int registerNetworkAgent(Messenger messenger, NetworkInfo ni, LinkProperties lp,
-            NetworkCapabilities nc, int score, NetworkMisc misc) {
-        return registerNetworkAgent(messenger, ni, lp, nc, score, misc,
-                NetworkFactory.SerialNumber.NONE);
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
+    public Network registerNetworkAgent(Messenger messenger, NetworkInfo ni, LinkProperties lp,
+            NetworkCapabilities nc, int score, NetworkAgentConfig config) {
+        return registerNetworkAgent(messenger, ni, lp, nc, score, config, NetworkProvider.ID_NONE);
     }
 
     /**
      * @hide
      * Register a NetworkAgent with ConnectivityService.
-     * @return NetID corresponding to NetworkAgent.
+     * @return Network corresponding to NetworkAgent.
      */
-    public int registerNetworkAgent(Messenger messenger, NetworkInfo ni, LinkProperties lp,
-            NetworkCapabilities nc, int score, NetworkMisc misc, int factorySerialNumber) {
+    @RequiresPermission(anyOf = {
+            NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK,
+            android.Manifest.permission.NETWORK_FACTORY})
+    public Network registerNetworkAgent(Messenger messenger, NetworkInfo ni, LinkProperties lp,
+            NetworkCapabilities nc, int score, NetworkAgentConfig config, int providerId) {
         try {
-            return mService.registerNetworkAgent(messenger, ni, lp, nc, score, misc,
-                    factorySerialNumber);
+            return mService.registerNetworkAgent(messenger, ni, lp, nc, score, config, providerId);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -3265,42 +3331,77 @@ public class ConnectivityManager {
 
         /**
          * Called when the framework connects and has declared a new network ready for use.
-         * This callback may be called more than once if the {@link Network} that is
-         * satisfying the request changes. This will always immediately be followed by a
-         * call to {@link #onCapabilitiesChanged(Network, NetworkCapabilities)} then by a
-         * call to {@link #onLinkPropertiesChanged(Network, LinkProperties)}, and a call to
-         * {@link #onBlockedStatusChanged(Network, boolean)}.
+         *
+         * <p>For callbacks registered with {@link #registerNetworkCallback}, multiple networks may
+         * be available at the same time, and onAvailable will be called for each of these as they
+         * appear.
+         *
+         * <p>For callbacks registered with {@link #requestNetwork} and
+         * {@link #registerDefaultNetworkCallback}, this means the network passed as an argument
+         * is the new best network for this request and is now tracked by this callback ; this
+         * callback will no longer receive method calls about other networks that may have been
+         * passed to this method previously. The previously-best network may have disconnected, or
+         * it may still be around and the newly-best network may simply be better.
+         *
+         * <p>Starting with {@link android.os.Build.VERSION_CODES#O}, this will always immediately
+         * be followed by a call to {@link #onCapabilitiesChanged(Network, NetworkCapabilities)}
+         * then by a call to {@link #onLinkPropertiesChanged(Network, LinkProperties)}, and a call
+         * to {@link #onBlockedStatusChanged(Network, boolean)}.
+         *
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or
+         * {@link #getLinkProperties(Network)} or other synchronous ConnectivityManager methods in
+         * this callback as this is prone to race conditions (there is no guarantee the objects
+         * returned by these methods will be current). Instead, wait for a call to
+         * {@link #onCapabilitiesChanged(Network, NetworkCapabilities)} and
+         * {@link #onLinkPropertiesChanged(Network, LinkProperties)} whose arguments are guaranteed
+         * to be well-ordered with respect to other callbacks.
          *
          * @param network The {@link Network} of the satisfying network.
          */
         public void onAvailable(@NonNull Network network) {}
 
         /**
-         * Called when the network is about to be disconnected.  Often paired with an
-         * {@link NetworkCallback#onAvailable} call with the new replacement network
-         * for graceful handover.  This may not be called if we have a hard loss
-         * (loss without warning).  This may be followed by either a
-         * {@link NetworkCallback#onLost} call or a
-         * {@link NetworkCallback#onAvailable} call for this network depending
-         * on whether we lose or regain it.
+         * Called when the network is about to be lost, typically because there are no outstanding
+         * requests left for it. This may be paired with a {@link NetworkCallback#onAvailable} call
+         * with the new replacement network for graceful handover. This method is not guaranteed
+         * to be called before {@link NetworkCallback#onLost} is called, for example in case a
+         * network is suddenly disconnected.
          *
-         * @param network The {@link Network} that is about to be disconnected.
-         * @param maxMsToLive The time in ms the framework will attempt to keep the
-         *                     network connected.  Note that the network may suffer a
-         *                     hard loss at any time.
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or
+         * {@link #getLinkProperties(Network)} or other synchronous ConnectivityManager methods in
+         * this callback as this is prone to race conditions ; calling these methods while in a
+         * callback may return an outdated or even a null object.
+         *
+         * @param network The {@link Network} that is about to be lost.
+         * @param maxMsToLive The time in milliseconds the system intends to keep the network
+         *                    connected for graceful handover; note that the network may still
+         *                    suffer a hard loss at any time.
          */
         public void onLosing(@NonNull Network network, int maxMsToLive) {}
 
         /**
-         * Called when the framework has a hard loss of the network or when the
-         * graceful failure ends.
+         * Called when a network disconnects or otherwise no longer satisfies this request or
+         * callback.
+         *
+         * <p>If the callback was registered with requestNetwork() or
+         * registerDefaultNetworkCallback(), it will only be invoked against the last network
+         * returned by onAvailable() when that network is lost and no other network satisfies
+         * the criteria of the request.
+         *
+         * <p>If the callback was registered with registerNetworkCallback() it will be called for
+         * each network which no longer satisfies the criteria of the callback.
+         *
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or
+         * {@link #getLinkProperties(Network)} or other synchronous ConnectivityManager methods in
+         * this callback as this is prone to race conditions ; calling these methods while in a
+         * callback may return an outdated or even a null object.
          *
          * @param network The {@link Network} lost.
          */
         public void onLost(@NonNull Network network) {}
 
         /**
-         * Called if no network is found in the timeout time specified in
+         * Called if no network is found within the timeout time specified in
          * {@link #requestNetwork(NetworkRequest, NetworkCallback, int)} call or if the
          * requested network request cannot be fulfilled (whether or not a timeout was
          * specified). When this callback is invoked the associated
@@ -3310,8 +3411,15 @@ public class ConnectivityManager {
         public void onUnavailable() {}
 
         /**
-         * Called when the network the framework connected to for this request
-         * changes capabilities but still satisfies the stated need.
+         * Called when the network corresponding to this request changes capabilities but still
+         * satisfies the requested criteria.
+         *
+         * <p>Starting with {@link android.os.Build.VERSION_CODES#O} this method is guaranteed
+         * to be called immediately after {@link #onAvailable}.
+         *
+         * <p>Do NOT call {@link #getLinkProperties(Network)} or other synchronous
+         * ConnectivityManager methods in this callback as this is prone to race conditions :
+         * calling these methods while in a callback may return an outdated or even a null object.
          *
          * @param network The {@link Network} whose capabilities have changed.
          * @param networkCapabilities The new {@link android.net.NetworkCapabilities} for this
@@ -3321,8 +3429,14 @@ public class ConnectivityManager {
                 @NonNull NetworkCapabilities networkCapabilities) {}
 
         /**
-         * Called when the network the framework connected to for this request
-         * changes {@link LinkProperties}.
+         * Called when the network corresponding to this request changes {@link LinkProperties}.
+         *
+         * <p>Starting with {@link android.os.Build.VERSION_CODES#O} this method is guaranteed
+         * to be called immediately after {@link #onAvailable}.
+         *
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or other synchronous
+         * ConnectivityManager methods in this callback as this is prone to race conditions :
+         * calling these methods while in a callback may return an outdated or even a null object.
          *
          * @param network The {@link Network} whose link properties have changed.
          * @param linkProperties The new {@link LinkProperties} for this network.
@@ -3331,12 +3445,20 @@ public class ConnectivityManager {
                 @NonNull LinkProperties linkProperties) {}
 
         /**
-         * Called when the network the framework connected to for this request
-         * goes into {@link NetworkInfo.State#SUSPENDED}.
-         * This generally means that while the TCP connections are still live,
-         * temporarily network data fails to transfer.  Specifically this is used
-         * on cellular networks to mask temporary outages when driving through
-         * a tunnel, etc.
+         * Called when the network the framework connected to for this request suspends data
+         * transmission temporarily.
+         *
+         * <p>This generally means that while the TCP connections are still live temporarily
+         * network data fails to transfer. To give a specific example, this is used on cellular
+         * networks to mask temporary outages when driving through a tunnel, etc. In general this
+         * means read operations on sockets on this network will block once the buffers are
+         * drained, and write operations will block once the buffers are full.
+         *
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or
+         * {@link #getLinkProperties(Network)} or other synchronous ConnectivityManager methods in
+         * this callback as this is prone to race conditions (there is no guarantee the objects
+         * returned by these methods will be current).
+         *
          * @hide
          */
         public void onNetworkSuspended(@NonNull Network network) {}
@@ -3345,12 +3467,23 @@ public class ConnectivityManager {
          * Called when the network the framework connected to for this request
          * returns from a {@link NetworkInfo.State#SUSPENDED} state. This should always be
          * preceded by a matching {@link NetworkCallback#onNetworkSuspended} call.
+
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or
+         * {@link #getLinkProperties(Network)} or other synchronous ConnectivityManager methods in
+         * this callback as this is prone to race conditions : calling these methods while in a
+         * callback may return an outdated or even a null object.
+         *
          * @hide
          */
         public void onNetworkResumed(@NonNull Network network) {}
 
         /**
          * Called when access to the specified network is blocked or unblocked.
+         *
+         * <p>Do NOT call {@link #getNetworkCapabilities(Network)} or
+         * {@link #getLinkProperties(Network)} or other synchronous ConnectivityManager methods in
+         * this callback as this is prone to race conditions : calling these methods while in a
+         * callback may return an outdated or even a null object.
          *
          * @param network The {@link Network} whose blocked status has changed.
          * @param blocked The blocked status of this {@link Network}.
@@ -3537,6 +3670,7 @@ public class ConnectivityManager {
         checkCallbackNotNull(callback);
         Preconditions.checkArgument(action == REQUEST || need != null, "null NetworkCapabilities");
         final NetworkRequest request;
+        final String callingPackageName = mContext.getOpPackageName();
         try {
             synchronized(sCallbacks) {
                 if (callback.networkRequest != null
@@ -3548,10 +3682,11 @@ public class ConnectivityManager {
                 Messenger messenger = new Messenger(handler);
                 Binder binder = new Binder();
                 if (action == LISTEN) {
-                    request = mService.listenForNetwork(need, messenger, binder);
+                    request = mService.listenForNetwork(
+                            need, messenger, binder, callingPackageName);
                 } else {
                     request = mService.requestNetwork(
-                            need, messenger, timeoutMs, binder, legacyType);
+                            need, messenger, timeoutMs, binder, legacyType, callingPackageName);
                 }
                 if (request != null) {
                     sCallbacks.put(request, callback);
@@ -3569,17 +3704,29 @@ public class ConnectivityManager {
     /**
      * Helper function to request a network with a particular legacy type.
      *
-     * This is temporarily public @hide so it can be called by system code that uses the
-     * NetworkRequest API to request networks but relies on CONNECTIVITY_ACTION broadcasts for
-     * instead network notifications.
+     * This API is only for use in internal system code that requests networks with legacy type and
+     * relies on CONNECTIVITY_ACTION broadcasts instead of NetworkCallbacks. New caller should use
+     * {@link #requestNetwork(NetworkRequest, NetworkCallback, Handler)} instead.
      *
-     * TODO: update said system code to rely on NetworkCallbacks and make this method private.
+     * @param request {@link NetworkRequest} describing this request.
+     * @param timeoutMs The time in milliseconds to attempt looking for a suitable network
+     *                  before {@link NetworkCallback#onUnavailable()} is called. The timeout must
+     *                  be a positive value (i.e. >0).
+     * @param legacyType to specify the network type(#TYPE_*).
+     * @param handler {@link Handler} to specify the thread upon which the callback will be invoked.
+     * @param networkCallback The {@link NetworkCallback} to be utilized for this request. Note
+     *                        the callback must not be shared - it uniquely specifies this request.
      *
      * @hide
      */
+    @SystemApi
+    @RequiresPermission(NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK)
     public void requestNetwork(@NonNull NetworkRequest request,
-            @NonNull NetworkCallback networkCallback, int timeoutMs, int legacyType,
-            @NonNull Handler handler) {
+            int timeoutMs, int legacyType, @NonNull Handler handler,
+            @NonNull NetworkCallback networkCallback) {
+        if (legacyType == TYPE_NONE) {
+            throw new IllegalArgumentException("TYPE_NONE is meaningless legacy type");
+        }
         CallbackHandler cbHandler = new CallbackHandler(handler);
         NetworkCapabilities nc = request.networkCapabilities;
         sendRequestForNetwork(nc, networkCallback, timeoutMs, REQUEST, legacyType, cbHandler);
@@ -3588,50 +3735,51 @@ public class ConnectivityManager {
     /**
      * Request a network to satisfy a set of {@link android.net.NetworkCapabilities}.
      *
-     * This {@link NetworkRequest} will live until released via
-     * {@link #unregisterNetworkCallback(NetworkCallback)} or the calling application exits. A
-     * version of the method which takes a timeout is
-     * {@link #requestNetwork(NetworkRequest, NetworkCallback, int)}.
-     * Status of the request can be followed by listening to the various
-     * callbacks described in {@link NetworkCallback}.  The {@link Network}
-     * can be used to direct traffic to the network.
-     * <p>It is presently unsupported to request a network with mutable
-     * {@link NetworkCapabilities} such as
-     * {@link NetworkCapabilities#NET_CAPABILITY_VALIDATED} or
-     * {@link NetworkCapabilities#NET_CAPABILITY_CAPTIVE_PORTAL}
-     * as these {@code NetworkCapabilities} represent states that a particular
-     * network may never attain, and whether a network will attain these states
-     * is unknown prior to bringing up the network so the framework does not
-     * know how to go about satisfing a request with these capabilities.
+     * <p>This method will attempt to find the best network that matches the passed
+     * {@link NetworkRequest}, and to bring up one that does if none currently satisfies the
+     * criteria. The platform will evaluate which network is the best at its own discretion.
+     * Throughput, latency, cost per byte, policy, user preference and other considerations
+     * may be factored in the decision of what is considered the best network.
      *
-     * <p>This method requires the caller to hold either the
-     * {@link android.Manifest.permission#CHANGE_NETWORK_STATE} permission
-     * or the ability to modify system settings as determined by
-     * {@link android.provider.Settings.System#canWrite}.</p>
+     * <p>As long as this request is outstanding, the platform will try to maintain the best network
+     * matching this request, while always attempting to match the request to a better network if
+     * possible. If a better match is found, the platform will switch this request to the now-best
+     * network and inform the app of the newly best network by invoking
+     * {@link NetworkCallback#onAvailable(Network)} on the provided callback. Note that the platform
+     * will not try to maintain any other network than the best one currently matching the request:
+     * a network not matching any network request may be disconnected at any time.
      *
-     * @param request {@link NetworkRequest} describing this request.
-     * @param networkCallback The {@link NetworkCallback} to be utilized for this request. Note
-     *                        the callback must not be shared - it uniquely specifies this request.
-     *                        The callback is invoked on the default internal Handler.
-     * @throws IllegalArgumentException if {@code request} contains invalid network capabilities.
-     * @throws SecurityException if missing the appropriate permissions.
-     * @throws RuntimeException if request limit per UID is exceeded.
-     */
-    public void requestNetwork(@NonNull NetworkRequest request,
-            @NonNull NetworkCallback networkCallback) {
-        requestNetwork(request, networkCallback, getDefaultHandler());
-    }
-
-    /**
-     * Request a network to satisfy a set of {@link android.net.NetworkCapabilities}.
+     * <p>For example, an application could use this method to obtain a connected cellular network
+     * even if the device currently has a data connection over Ethernet. This may cause the cellular
+     * radio to consume additional power. Or, an application could inform the system that it wants
+     * a network supporting sending MMSes and have the system let it know about the currently best
+     * MMS-supporting network through the provided {@link NetworkCallback}.
      *
-     * This {@link NetworkRequest} will live until released via
-     * {@link #unregisterNetworkCallback(NetworkCallback)} or the calling application exits. A
-     * version of the method which takes a timeout is
-     * {@link #requestNetwork(NetworkRequest, NetworkCallback, int)}.
-     * Status of the request can be followed by listening to the various
-     * callbacks described in {@link NetworkCallback}.  The {@link Network}
-     * can be used to direct traffic to the network.
+     * <p>The status of the request can be followed by listening to the various callbacks described
+     * in {@link NetworkCallback}. The {@link Network} object passed to the callback methods can be
+     * used to direct traffic to the network (although accessing some networks may be subject to
+     * holding specific permissions). Callers will learn about the specific characteristics of the
+     * network through
+     * {@link NetworkCallback#onCapabilitiesChanged(Network, NetworkCapabilities)} and
+     * {@link NetworkCallback#onLinkPropertiesChanged(Network, LinkProperties)}. The methods of the
+     * provided {@link NetworkCallback} will only be invoked due to changes in the best network
+     * matching the request at any given time; therefore when a better network matching the request
+     * becomes available, the {@link NetworkCallback#onAvailable(Network)} method is called
+     * with the new network after which no further updates are given about the previously-best
+     * network, unless it becomes the best again at some later time. All callbacks are invoked
+     * in order on the same thread, which by default is a thread created by the framework running
+     * in the app.
+     * {@see #requestNetwork(NetworkRequest, NetworkCallback, Handler)} to change where the
+     * callbacks are invoked.
+     *
+     * <p>This{@link NetworkRequest} will live until released via
+     * {@link #unregisterNetworkCallback(NetworkCallback)} or the calling application exits, at
+     * which point the system may let go of the network at any time.
+     *
+     * <p>A version of this method which takes a timeout is
+     * {@link #requestNetwork(NetworkRequest, NetworkCallback, int)}, that an app can use to only
+     * wait for a limited amount of time for the network to become unavailable.
+     *
      * <p>It is presently unsupported to request a network with mutable
      * {@link NetworkCapabilities} such as
      * {@link NetworkCapabilities#NET_CAPABILITY_VALIDATED} or
@@ -3646,19 +3794,48 @@ public class ConnectivityManager {
      * or the ability to modify system settings as determined by
      * {@link android.provider.Settings.System#canWrite}.</p>
      *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #registerNetworkCallback} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with
+     * {@link #unregisterNetworkCallback(NetworkCallback)}.
+     *
+     * @param request {@link NetworkRequest} describing this request.
+     * @param networkCallback The {@link NetworkCallback} to be utilized for this request. Note
+     *                        the callback must not be shared - it uniquely specifies this request.
+     *                        The callback is invoked on the default internal Handler.
+     * @throws IllegalArgumentException if {@code request} contains invalid network capabilities.
+     * @throws SecurityException if missing the appropriate permissions.
+     * @throws RuntimeException if the app already has too many callbacks registered.
+     */
+    public void requestNetwork(@NonNull NetworkRequest request,
+            @NonNull NetworkCallback networkCallback) {
+        requestNetwork(request, networkCallback, getDefaultHandler());
+    }
+
+    /**
+     * Request a network to satisfy a set of {@link android.net.NetworkCapabilities}.
+     *
+     * This method behaves identically to {@link #requestNetwork(NetworkRequest, NetworkCallback)}
+     * but runs all the callbacks on the passed Handler.
+     *
+     * <p>This method has the same permission requirements as
+     * {@link #requestNetwork(NetworkRequest, NetworkCallback)}, is subject to the same limitations,
+     * and throws the same exceptions in the same conditions.
+     *
      * @param request {@link NetworkRequest} describing this request.
      * @param networkCallback The {@link NetworkCallback} to be utilized for this request. Note
      *                        the callback must not be shared - it uniquely specifies this request.
      * @param handler {@link Handler} to specify the thread upon which the callback will be invoked.
-     * @throws IllegalArgumentException if {@code request} contains invalid network capabilities.
-     * @throws SecurityException if missing the appropriate permissions.
-     * @throws RuntimeException if request limit per UID is exceeded.
      */
     public void requestNetwork(@NonNull NetworkRequest request,
             @NonNull NetworkCallback networkCallback, @NonNull Handler handler) {
-        int legacyType = inferLegacyTypeForNetworkCapabilities(request.networkCapabilities);
         CallbackHandler cbHandler = new CallbackHandler(handler);
-        requestNetwork(request, networkCallback, 0, legacyType, cbHandler);
+        NetworkCapabilities nc = request.networkCapabilities;
+        sendRequestForNetwork(nc, networkCallback, 0, REQUEST, TYPE_NONE, cbHandler);
     }
 
     /**
@@ -3677,10 +3854,9 @@ public class ConnectivityManager {
      * timeout) - {@link #registerNetworkCallback(NetworkRequest, NetworkCallback)} is provided
      * for that purpose. Calling this method will attempt to bring up the requested network.
      *
-     * <p>This method requires the caller to hold either the
-     * {@link android.Manifest.permission#CHANGE_NETWORK_STATE} permission
-     * or the ability to modify system settings as determined by
-     * {@link android.provider.Settings.System#canWrite}.</p>
+     * <p>This method has the same permission requirements as
+     * {@link #requestNetwork(NetworkRequest, NetworkCallback)}, is subject to the same limitations,
+     * and throws the same exceptions in the same conditions.
      *
      * @param request {@link NetworkRequest} describing this request.
      * @param networkCallback The {@link NetworkCallback} to be utilized for this request. Note
@@ -3688,36 +3864,26 @@ public class ConnectivityManager {
      * @param timeoutMs The time in milliseconds to attempt looking for a suitable network
      *                  before {@link NetworkCallback#onUnavailable()} is called. The timeout must
      *                  be a positive value (i.e. >0).
-     * @throws IllegalArgumentException if {@code request} contains invalid network capabilities.
-     * @throws SecurityException if missing the appropriate permissions.
-     * @throws RuntimeException if request limit per UID is exceeded.
      */
     public void requestNetwork(@NonNull NetworkRequest request,
             @NonNull NetworkCallback networkCallback, int timeoutMs) {
         checkTimeout(timeoutMs);
-        int legacyType = inferLegacyTypeForNetworkCapabilities(request.networkCapabilities);
-        requestNetwork(request, networkCallback, timeoutMs, legacyType, getDefaultHandler());
+        NetworkCapabilities nc = request.networkCapabilities;
+        sendRequestForNetwork(nc, networkCallback, timeoutMs, REQUEST, TYPE_NONE,
+                getDefaultHandler());
     }
 
     /**
      * Request a network to satisfy a set of {@link android.net.NetworkCapabilities}, limited
      * by a timeout.
      *
-     * This function behaves identically to the version without timeout, but if a suitable
-     * network is not found within the given time (in milliseconds) the
-     * {@link NetworkCallback#onUnavailable} callback is called. The request can still be
-     * released normally by calling {@link #unregisterNetworkCallback(NetworkCallback)} but does
-     * not have to be released if timed-out (it is automatically released). Unregistering a
-     * request that timed out is not an error.
+     * This method behaves identically to
+     * {@link #requestNetwork(NetworkRequest, NetworkCallback, int)} but runs all the callbacks
+     * on the passed Handler.
      *
-     * <p>Do not use this method to poll for the existence of specific networks (e.g. with a small
-     * timeout) - {@link #registerNetworkCallback(NetworkRequest, NetworkCallback)} is provided
-     * for that purpose. Calling this method will attempt to bring up the requested network.
-     *
-     * <p>This method requires the caller to hold either the
-     * {@link android.Manifest.permission#CHANGE_NETWORK_STATE} permission
-     * or the ability to modify system settings as determined by
-     * {@link android.provider.Settings.System#canWrite}.</p>
+     * <p>This method has the same permission requirements as
+     * {@link #requestNetwork(NetworkRequest, NetworkCallback)}, is subject to the same limitations,
+     * and throws the same exceptions in the same conditions.
      *
      * @param request {@link NetworkRequest} describing this request.
      * @param networkCallback The {@link NetworkCallback} to be utilized for this request. Note
@@ -3725,16 +3891,13 @@ public class ConnectivityManager {
      * @param handler {@link Handler} to specify the thread upon which the callback will be invoked.
      * @param timeoutMs The time in milliseconds to attempt looking for a suitable network
      *                  before {@link NetworkCallback#onUnavailable} is called.
-     * @throws IllegalArgumentException if {@code request} contains invalid network capabilities.
-     * @throws SecurityException if missing the appropriate permissions.
-     * @throws RuntimeException if request limit per UID is exceeded.
      */
     public void requestNetwork(@NonNull NetworkRequest request,
             @NonNull NetworkCallback networkCallback, @NonNull Handler handler, int timeoutMs) {
         checkTimeout(timeoutMs);
-        int legacyType = inferLegacyTypeForNetworkCapabilities(request.networkCapabilities);
         CallbackHandler cbHandler = new CallbackHandler(handler);
-        requestNetwork(request, networkCallback, timeoutMs, legacyType, cbHandler);
+        NetworkCapabilities nc = request.networkCapabilities;
+        sendRequestForNetwork(nc, networkCallback, timeoutMs, REQUEST, TYPE_NONE, cbHandler);
     }
 
     /**
@@ -3789,6 +3952,15 @@ public class ConnectivityManager {
      * is unknown prior to bringing up the network so the framework does not
      * know how to go about satisfying a request with these capabilities.
      *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #registerNetworkCallback} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with {@link #unregisterNetworkCallback(PendingIntent)}
+     * or {@link #releaseNetworkRequest(PendingIntent)}.
+     *
      * <p>This method requires the caller to hold either the
      * {@link android.Manifest.permission#CHANGE_NETWORK_STATE} permission
      * or the ability to modify system settings as determined by
@@ -3800,14 +3972,15 @@ public class ConnectivityManager {
      *                  comes from {@link PendingIntent#getBroadcast}. Cannot be null.
      * @throws IllegalArgumentException if {@code request} contains invalid network capabilities.
      * @throws SecurityException if missing the appropriate permissions.
-     * @throws RuntimeException if request limit per UID is exceeded.
+     * @throws RuntimeException if the app already has too many callbacks registered.
      */
     public void requestNetwork(@NonNull NetworkRequest request,
             @NonNull PendingIntent operation) {
         printStackTrace();
         checkPendingIntentNotNull(operation);
         try {
-            mService.pendingRequestForNetwork(request.networkCapabilities, operation);
+            mService.pendingRequestForNetwork(
+                    request.networkCapabilities, operation, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         } catch (ServiceSpecificException e) {
@@ -3855,10 +4028,20 @@ public class ConnectivityManager {
      * either the application exits or {@link #unregisterNetworkCallback(NetworkCallback)} is
      * called.
      *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #requestNetwork} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with
+     * {@link #unregisterNetworkCallback(NetworkCallback)}.
+     *
      * @param request {@link NetworkRequest} describing this request.
      * @param networkCallback The {@link NetworkCallback} that the system will call as suitable
      *                        networks change state.
      *                        The callback is invoked on the default internal Handler.
+     * @throws RuntimeException if the app already has too many callbacks registered.
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     public void registerNetworkCallback(@NonNull NetworkRequest request,
@@ -3872,10 +4055,21 @@ public class ConnectivityManager {
      * either the application exits or {@link #unregisterNetworkCallback(NetworkCallback)} is
      * called.
      *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #requestNetwork} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with
+     * {@link #unregisterNetworkCallback(NetworkCallback)}.
+     *
+     *
      * @param request {@link NetworkRequest} describing this request.
      * @param networkCallback The {@link NetworkCallback} that the system will call as suitable
      *                        networks change state.
      * @param handler {@link Handler} to specify the thread upon which the callback will be invoked.
+     * @throws RuntimeException if the app already has too many callbacks registered.
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     public void registerNetworkCallback(@NonNull NetworkRequest request,
@@ -3909,10 +4103,21 @@ public class ConnectivityManager {
      * <p>
      * The request may be released normally by calling
      * {@link #unregisterNetworkCallback(android.app.PendingIntent)}.
+     *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #requestNetwork} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with {@link #unregisterNetworkCallback(PendingIntent)}
+     * or {@link #releaseNetworkRequest(PendingIntent)}.
+     *
      * @param request {@link NetworkRequest} describing this request.
      * @param operation Action to perform when the network is available (corresponds
      *                  to the {@link NetworkCallback#onAvailable} call.  Typically
      *                  comes from {@link PendingIntent#getBroadcast}. Cannot be null.
+     * @throws RuntimeException if the app already has too many callbacks registered.
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     public void registerNetworkCallback(@NonNull NetworkRequest request,
@@ -3920,7 +4125,8 @@ public class ConnectivityManager {
         printStackTrace();
         checkPendingIntentNotNull(operation);
         try {
-            mService.pendingListenForNetwork(request.networkCapabilities, operation);
+            mService.pendingListenForNetwork(
+                    request.networkCapabilities, operation, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         } catch (ServiceSpecificException e) {
@@ -3933,9 +4139,19 @@ public class ConnectivityManager {
      * will continue to be called until either the application exits or
      * {@link #unregisterNetworkCallback(NetworkCallback)} is called.
      *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #requestNetwork} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with
+     * {@link #unregisterNetworkCallback(NetworkCallback)}.
+     *
      * @param networkCallback The {@link NetworkCallback} that the system will call as the
      *                        system default network changes.
      *                        The callback is invoked on the default internal Handler.
+     * @throws RuntimeException if the app already has too many callbacks registered.
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     public void registerDefaultNetworkCallback(@NonNull NetworkCallback networkCallback) {
@@ -3947,9 +4163,19 @@ public class ConnectivityManager {
      * will continue to be called until either the application exits or
      * {@link #unregisterNetworkCallback(NetworkCallback)} is called.
      *
+     * <p>To avoid performance issues due to apps leaking callbacks, the system will limit the
+     * number of outstanding requests to 100 per app (identified by their UID), shared with
+     * all variants of this method, of {@link #requestNetwork} as well as
+     * {@link ConnectivityDiagnosticsManager#registerConnectivityDiagnosticsCallback}.
+     * Requesting a network with this method will count toward this limit. If this limit is
+     * exceeded, an exception will be thrown. To avoid hitting this issue and to conserve resources,
+     * make sure to unregister the callbacks with
+     * {@link #unregisterNetworkCallback(NetworkCallback)}.
+     *
      * @param networkCallback The {@link NetworkCallback} that the system will call as the
      *                        system default network changes.
      * @param handler {@link Handler} to specify the thread upon which the callback will be invoked.
+     * @throws RuntimeException if the app already has too many callbacks registered.
      */
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
     public void registerDefaultNetworkCallback(@NonNull NetworkCallback networkCallback,
@@ -4041,7 +4267,6 @@ public class ConnectivityManager {
      *                  Cannot be null.
      */
     public void unregisterNetworkCallback(@NonNull PendingIntent operation) {
-        checkPendingIntentNotNull(operation);
         releaseNetworkRequest(operation);
     }
 
@@ -4117,7 +4342,7 @@ public class ConnectivityManager {
      *
      * @hide
      */
-    @RequiresPermission(android.Manifest.permission.CONNECTIVITY_INTERNAL)
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
     public void startCaptivePortalApp(Network network) {
         try {
             mService.startCaptivePortalApp(network);
@@ -4233,9 +4458,11 @@ public class ConnectivityManager {
      * Resets all connectivity manager settings back to factory defaults.
      * @hide
      */
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
     public void factoryReset() {
         try {
             mService.factoryReset();
+            mTetheringManager.stopAllTethering();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -4481,19 +4708,19 @@ public class ConnectivityManager {
     /**
      * Returns the {@code uid} of the owner of a network connection.
      *
-     * @param protocol The protocol of the connection. Only {@code IPPROTO_TCP} and
-     * {@code IPPROTO_UDP} currently supported.
+     * @param protocol The protocol of the connection. Only {@code IPPROTO_TCP} and {@code
+     *     IPPROTO_UDP} currently supported.
      * @param local The local {@link InetSocketAddress} of a connection.
      * @param remote The remote {@link InetSocketAddress} of a connection.
-     *
      * @return {@code uid} if the connection is found and the app has permission to observe it
-     * (e.g., if it is associated with the calling VPN app's tunnel) or
-     * {@link android.os.Process#INVALID_UID} if the connection is not found.
-     * Throws {@link SecurityException} if the caller is not the active VPN for the current user.
-     * Throws {@link IllegalArgumentException} if an unsupported protocol is requested.
+     *     (e.g., if it is associated with the calling VPN app's VpnService tunnel) or {@link
+     *     android.os.Process#INVALID_UID} if the connection is not found.
+     * @throws {@link SecurityException} if the caller is not the active VpnService for the current
+     *     user.
+     * @throws {@link IllegalArgumentException} if an unsupported protocol is requested.
      */
-    public int getConnectionOwnerUid(int protocol, @NonNull InetSocketAddress local,
-            @NonNull InetSocketAddress remote) {
+    public int getConnectionOwnerUid(
+            int protocol, @NonNull InetSocketAddress local, @NonNull InetSocketAddress remote) {
         ConnectionInfo connectionInfo = new ConnectionInfo(protocol, local, remote);
         try {
             return mService.getConnectionOwnerUid(connectionInfo);
@@ -4514,6 +4741,30 @@ public class ConnectivityManager {
                 sb.append(" [").append(stackTrace).append("]");
             }
             Log.d(TAG, "StackLog:" + sb.toString());
+        }
+    }
+
+    /**
+     * Simulates a Data Stall for the specified Network.
+     *
+     * <p>The caller must be the owner of the specified Network.
+     *
+     * @param detectionMethod The detection method used to identify the Data Stall.
+     * @param timestampMillis The timestamp at which the stall 'occurred', in milliseconds.
+     * @param network The Network for which a Data Stall is being simluated.
+     * @param extras The PersistableBundle of extras included in the Data Stall notification.
+     * @throws SecurityException if the caller is not the owner of the given network.
+     * @hide
+     */
+    @TestApi
+    @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_TEST_NETWORKS,
+            android.Manifest.permission.NETWORK_STACK})
+    public void simulateDataStall(int detectionMethod, long timestampMillis,
+            @NonNull Network network, @NonNull PersistableBundle extras) {
+        try {
+            mService.simulateDataStall(detectionMethod, timestampMillis, network, extras);
+        } catch (RemoteException e) {
+            e.rethrowFromSystemServer();
         }
     }
 }

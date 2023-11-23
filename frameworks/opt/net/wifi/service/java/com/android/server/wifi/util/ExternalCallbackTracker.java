@@ -17,6 +17,7 @@
 package com.android.server.wifi.util;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -72,11 +73,11 @@ public class ExternalCallbackTracker<T> {
          * @return an instance of {@link ExternalCallbackHolder} if there are no failures, otherwise
          * null.
          */
-        public static <T> ExternalCallbackHolder createAndLinkToDeath(
+        public static <T> ExternalCallbackHolder<T> createAndLinkToDeath(
                 @NonNull IBinder binder, @NonNull T callbackObject,
                 @NonNull DeathCallback deathCallback) {
             ExternalCallbackHolder<T> externalCallback =
-                    new ExternalCallbackHolder<T>(binder, callbackObject, deathCallback);
+                    new ExternalCallbackHolder<>(binder, callbackObject, deathCallback);
             try {
                 binder.linkToDeath(externalCallback, 0);
             } catch (RemoteException e) {
@@ -131,8 +132,9 @@ public class ExternalCallbackTracker<T> {
                     });
                 });
         if (externalCallback == null) return false;
-        if (mCallbacks.containsKey(callbackIdentifier) && remove(callbackIdentifier)) {
+        if (mCallbacks.containsKey(callbackIdentifier)) {
             Log.d(TAG, "Replacing callback " + callbackIdentifier);
+            remove(callbackIdentifier);
         }
         mCallbacks.put(callbackIdentifier, externalCallback);
         if (mCallbacks.size() > NUM_CALLBACKS_WTF_LIMIT) {
@@ -145,16 +147,16 @@ public class ExternalCallbackTracker<T> {
 
     /**
      * Remove a callback object to tracker.
-     * @return true on success, false on failure.
+     * @return Removed object instance on success, null on failure.
      */
-    public boolean remove(int callbackIdentifier) {
+    public @Nullable T remove(int callbackIdentifier) {
         ExternalCallbackHolder<T> externalCallback = mCallbacks.remove(callbackIdentifier);
         if (externalCallback == null) {
             Log.w(TAG, "Unknown external callback " + callbackIdentifier);
-            return false;
+            return null;
         }
         externalCallback.reset();
-        return true;
+        return externalCallback.getCallback();
     }
 
     /**

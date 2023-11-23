@@ -26,7 +26,9 @@ LOCAL_REQUIRED_MODULES := \
 	AccentColorPurpleOverlay \
 	DisplayCutoutEmulationCornerOverlay \
 	DisplayCutoutEmulationDoubleOverlay \
+        DisplayCutoutEmulationHoleOverlay \
 	DisplayCutoutEmulationTallOverlay \
+	DisplayCutoutEmulationWaterfallOverlay \
 	FontNotoSerifSourceOverlay \
 	IconPackCircularAndroidOverlay \
 	IconPackCircularLauncherOverlay \
@@ -42,17 +44,19 @@ LOCAL_REQUIRED_MODULES := \
 	IconPackRoundedLauncherOverlay \
 	IconPackRoundedSettingsOverlay \
 	IconPackRoundedSystemUIOverlay \
-	IconPackRoundedThemePickerUIOverlay \
+	IconPackRoundedThemePickerOverlay \
+	IconShapePebbleOverlay \
 	IconShapeRoundedRectOverlay \
-	IconShapeSquareOverlay \
 	IconShapeSquircleOverlay \
+	IconShapeTaperedRectOverlay \
 	IconShapeTeardropOverlay \
+	IconShapeVesselOverlay \
 	NavigationBarMode3ButtonOverlay \
-	NavigationBarMode2ButtonOverlay \
 	NavigationBarModeGesturalOverlay \
 	NavigationBarModeGesturalOverlayNarrowBack \
 	NavigationBarModeGesturalOverlayWideBack \
-	NavigationBarModeGesturalOverlayExtraWideBack
+	NavigationBarModeGesturalOverlayExtraWideBack \
+	preinstalled-packages-platform-overlays.xml
 
 include $(BUILD_PHONY_PACKAGE)
 include $(CLEAR_VARS)

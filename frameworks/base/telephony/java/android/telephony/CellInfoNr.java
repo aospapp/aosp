@@ -19,6 +19,8 @@ package android.telephony;
 import android.annotation.NonNull;
 import android.os.Parcel;
 
+import dalvik.annotation.codegen.CovariantReturnType;
+
 import java.util.Objects;
 
 /**
@@ -43,9 +45,26 @@ public final class CellInfoNr extends CellInfo {
         mCellSignalStrength = other.mCellSignalStrength;
     }
 
+    /** @hide */
+    public CellInfoNr(android.hardware.radio.V1_4.CellInfo ci, long timeStamp) {
+        super(ci, timeStamp);
+        final android.hardware.radio.V1_4.CellInfoNr cil = ci.info.nr();
+        mCellIdentity = new CellIdentityNr(cil.cellidentity);
+        mCellSignalStrength = new CellSignalStrengthNr(cil.signalStrength);
+    }
+
+    /** @hide */
+    public CellInfoNr(android.hardware.radio.V1_5.CellInfo ci, long timeStamp) {
+        super(ci, timeStamp);
+        final android.hardware.radio.V1_5.CellInfoNr cil = ci.ratSpecificInfo.nr();
+        mCellIdentity = new CellIdentityNr(cil.cellIdentityNr);
+        mCellSignalStrength = new CellSignalStrengthNr(cil.signalStrengthNr);
+    }
+
     /**
      * @return a {@link CellIdentityNr} instance.
      */
+    @CovariantReturnType(returnType = CellIdentityNr.class, presentAfter = 29)
     @Override
     @NonNull
     public CellIdentity getCellIdentity() {
@@ -55,6 +74,7 @@ public final class CellInfoNr extends CellInfo {
     /**
      * @return a {@link CellSignalStrengthNr} instance.
      */
+    @CovariantReturnType(returnType = CellSignalStrengthNr.class, presentAfter = 29)
     @Override
     @NonNull
     public CellSignalStrength getCellSignalStrength() {

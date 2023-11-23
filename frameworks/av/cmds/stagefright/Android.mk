@@ -3,26 +3,30 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=       \
+        AudioPlayer.cpp \
         stagefright.cpp \
         jpeg.cpp        \
         SineSource.cpp
 
+LOCAL_HEADER_LIBRARIES := \
+        libmediametrics_headers \
+
 LOCAL_SHARED_LIBRARIES := \
-        libstagefright libmedia libmedia_omx libutils libbinder \
+        libstagefright libmedia libmedia_codeclist libutils libbinder \
         libstagefright_foundation libjpeg libui libgui libcutils liblog \
-        libhidlbase \
+        libhidlbase libdatasource libaudioclient \
         android.hardware.media.omx@1.0 \
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
         frameworks/av/media/libstagefright/include \
         frameworks/native/include/media/openmax \
-        external/jpeg \
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
 LOCAL_MODULE_TAGS := optional
 
+LOCAL_SYSTEM_EXT_MODULE:= true
 LOCAL_MODULE:= stagefright
 
 include $(BUILD_EXECUTABLE)
@@ -32,14 +36,19 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=         \
+        AudioPlayer.cpp \
         SineSource.cpp    \
         record.cpp
 
+LOCAL_HEADER_LIBRARIES := \
+        libmediametrics_headers \
+
 LOCAL_SHARED_LIBRARIES := \
         libstagefright libmedia liblog libutils libbinder \
-        libstagefright_foundation
+        libstagefright_foundation libdatasource libaudioclient
 
 LOCAL_C_INCLUDES:= \
+        frameworks/av/camera/include \
         frameworks/av/media/libstagefright \
         frameworks/native/include/media/openmax \
         frameworks/native/include/media/hardware
@@ -57,12 +66,15 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=         \
-        SineSource.cpp    \
+        AudioPlayer.cpp \
         recordvideo.cpp
+
+LOCAL_HEADER_LIBRARIES := \
+        libmediametrics_headers \
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright libmedia liblog libutils libbinder \
-        libstagefright_foundation
+        libstagefright_foundation libaudioclient
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
@@ -83,12 +95,16 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=         \
+        AudioPlayer.cpp \
         SineSource.cpp    \
         audioloop.cpp
 
+LOCAL_HEADER_LIBRARIES := \
+        libmediametrics_headers \
+
 LOCAL_SHARED_LIBRARIES := \
         libstagefright libmedia liblog libutils libbinder \
-        libstagefright_foundation
+        libstagefright_foundation libaudioclient
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
@@ -109,9 +125,12 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:=         \
         stream.cpp    \
 
+LOCAL_HEADER_LIBRARIES := \
+        libmediametrics_headers \
+
 LOCAL_SHARED_LIBRARIES := \
         libstagefright liblog libutils libbinder libui libgui \
-        libstagefright_foundation libmedia libcutils
+        libstagefright_foundation libmedia libcutils libdatasource
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
@@ -132,6 +151,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:=               \
         codec.cpp               \
         SimplePlayer.cpp        \
+
+LOCAL_HEADER_LIBRARIES := \
+        libmediadrm_headers \
+        libmediametrics_headers \
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright liblog libutils libbinder libstagefright_foundation \
@@ -154,10 +177,14 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:= \
-        filters/argbtorgba.rs \
-        filters/nightvision.rs \
-        filters/saturation.rs \
+        filters/argbtorgba.rscript \
+        filters/nightvision.rscript \
+        filters/saturation.rscript \
         mediafilter.cpp \
+
+LOCAL_HEADER_LIBRARIES := \
+        libmediadrm_headers \
+        libmediametrics_headers \
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright \
@@ -165,11 +192,9 @@ LOCAL_SHARED_LIBRARIES := \
         libutils \
         libbinder \
         libstagefright_foundation \
-        libmedia \
         libmedia_omx \
         libui \
         libgui \
-        libcutils \
         libRScpp \
 
 LOCAL_C_INCLUDES:= \
@@ -200,6 +225,9 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=               \
         muxer.cpp            \
+
+LOCAL_HEADER_LIBRARIES := \
+        libmediametrics_headers \
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright liblog libutils libbinder libstagefright_foundation \

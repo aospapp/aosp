@@ -24,7 +24,7 @@
 #include "AnotherPacketSource.h"
 #include "NuPlayerStreamListener.h"
 
-#include <media/MediaSource.h>
+#include <media/stagefright/MediaSource.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
@@ -79,6 +79,7 @@ void NuPlayer::StreamingSource::prepareAsync() {
 
 void NuPlayer::StreamingSource::start() {
     mStreamListener = new NuPlayerStreamListener(mSource, NULL);
+    mSource->setListener(mStreamListener);
 
     uint32_t sourceFlags = mSource->flags();
 
@@ -130,29 +131,32 @@ void NuPlayer::StreamingSource::onReadBuffer() {
         } else if (n < 0) {
             break;
         } else {
-            if (buffer[0] == 0x00) {
+            if (buffer[0] == 0x00) { // OK to access buffer[0] since n must be > 0 here
                 // XXX legacy
 
                 if (extra == NULL) {
                     extra = new AMessage;
                 }
 
-                uint8_t type = buffer[1];
+                uint8_t type = 0;
+                if (n > 1) {
+                    type = buffer[1];
 
-                if (type & 2) {
-                    int64_t mediaTimeUs;
-                    memcpy(&mediaTimeUs, &buffer[2], sizeof(mediaTimeUs));
+                    if ((type & 2) && (n >= 2 + sizeof(int64_t))) {
+                        int64_t mediaTimeUs;
+                        memcpy(&mediaTimeUs, &buffer[2], sizeof(mediaTimeUs));
 
-                    extra->setInt64(kATSParserKeyMediaTimeUs, mediaTimeUs);
+                        extra->setInt64(kATSParserKeyMediaTimeUs, mediaTimeUs);
+                    }
                 }
 
                 mTSParser->signalDiscontinuity(
                         ((type & 1) == 0)
-                            ? ATSParser::DISCONTINUITY_TIME
-                            : ATSParser::DISCONTINUITY_FORMATCHANGE,
+                                ? ATSParser::DISCONTINUITY_TIME
+                                : ATSParser::DISCONTINUITY_FORMATCHANGE,
                         extra);
             } else {
-                status_t err = mTSParser->feedTSPacket(buffer, sizeof(buffer));
+                status_t err = mTSParser->feedTSPacket(buffer, n);
 
                 if (err != OK) {
                     ALOGE("TS Parser returned error %d", err);

@@ -108,13 +108,6 @@ public class LayoutLibTestCallback extends LayoutlibCallback {
         return viewConstructor.newInstance(constructorArgs);
     }
 
-    @NonNull
-    @Override
-    public String getNamespace() {
-        return String.format(SdkConstants.NS_CUSTOM_RESOURCES_S,
-                PACKAGE_NAME);
-    }
-
     @Override
     public ResourceReference resolveResourceId(int id) {
         return mProjectResources.get(id);
@@ -155,11 +148,6 @@ public class LayoutLibTestCallback extends LayoutlibCallback {
     }
 
     @Override
-    public boolean supports(int ideFeature) {
-        return false;
-    }
-
-    @Override
     @Nullable
     public XmlPullParser createXmlParserForPsiFile(@NonNull String fileName) {
         return createXmlParserForFile(fileName);
@@ -196,32 +184,15 @@ public class LayoutLibTestCallback extends LayoutlibCallback {
         if (key.equals(RenderParamsFlags.FLAG_KEY_ADAPTIVE_ICON_MASK_PATH)) {
             return (T) mAdaptiveIconMaskPath;
         }
-        if (key.equals(RenderParamsFlags.FLAG_RENDER_HIGH_QUALITY_SHADOW)) {
-            return (T) new Boolean(mHighShadowQuality);
-        }
-        if (key.equals(RenderParamsFlags.FLAG_ENABLE_SHADOW)) {
-            return (T) new Boolean(mSetUseShadow);
-        }
         return null;
+    }
+
+    @Override
+    public Class<?> findClass(String name) throws ClassNotFoundException {
+        return mModuleClassLoader.loadClass(name);
     }
 
     public void setAdaptiveIconMaskPath(String adaptiveIconMaskPath) {
         mAdaptiveIconMaskPath = adaptiveIconMaskPath;
-    }
-
-    /**
-     * Enables shadow from rendering. Shadow rendering is enabled by default.
-     * @param useShadow true to enable shadow. False to disable.
-     */
-    public void setUseShadow(boolean useShadow) {
-        mSetUseShadow = useShadow;
-    }
-
-    /**
-     * Sets high quality shadow rendering. Turned off by default.
-     * @param useHighQuality true to use high quality shadow. False otherwise.
-     */
-    public void setShadowQuality(boolean useHighQuality) {
-        mHighShadowQuality = useHighQuality;
     }
 }

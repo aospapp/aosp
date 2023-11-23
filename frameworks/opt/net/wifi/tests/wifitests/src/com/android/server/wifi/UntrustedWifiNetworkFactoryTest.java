@@ -35,7 +35,7 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link com.android.server.wifi.UntrustedWifiNetworkFactory}.
  */
 @SmallTest
-public class UntrustedWifiNetworkFactoryTest {
+public class UntrustedWifiNetworkFactoryTest extends WifiBaseTest {
     @Mock WifiConnectivityManager mWifiConnectivityManager;
     @Mock Context mContext;
     NetworkCapabilities mNetworkCapabilities;

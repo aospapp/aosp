@@ -27,6 +27,8 @@ namespace android {
 namespace nn {
 namespace log_softmax {
 
+using namespace hal;
+
 constexpr char kOperationName[] = "LOG_SOFTMAX";
 
 constexpr uint32_t kNumInputs = 3;

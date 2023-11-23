@@ -18,13 +18,12 @@ package android.widget;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-import static android.view.WindowManager.LayoutParams
-        .PRIVATE_FLAG_LAYOUT_CHILD_WINDOW_IN_PARENT_FRAME;
+import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_LAYOUT_CHILD_WINDOW_IN_PARENT_FRAME;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_WILL_NOT_REPLACE_ON_RELAUNCH;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.PixelFormat;
@@ -1819,7 +1818,7 @@ public class PopupWindow {
         final int winOffsetY = screenLocationY - drawingLocationY;
         final int anchorTopInScreen = outParams.y + winOffsetY;
         final int spaceBelow = displayFrameBottom - anchorTopInScreen;
-        if (anchorTopInScreen >= 0 && height <= spaceBelow) {
+        if (anchorTopInScreen >= displayFrameTop && height <= spaceBelow) {
             return true;
         }
 
@@ -1881,7 +1880,7 @@ public class PopupWindow {
         final int winOffsetX = screenLocationX - drawingLocationX;
         final int anchorLeftInScreen = outParams.x + winOffsetX;
         final int spaceRight = displayFrameRight - anchorLeftInScreen;
-        if (anchorLeftInScreen >= 0 && width <= spaceRight) {
+        if (anchorLeftInScreen >= displayFrameLeft && width <= spaceRight) {
             return true;
         }
 

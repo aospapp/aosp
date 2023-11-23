@@ -72,6 +72,8 @@ cc_library_headers {
     vendor_available: true,
     export_include_dirs: ["."],
     host_supported: true,
+    // TODO(b/153609531): remove when no longer needed.
+    native_bridge_supported: true,
     target: {
         windows: {
 	    enabled: true,
@@ -190,6 +192,24 @@ cc_binary_host {
     product_variables: {
         unbundled_build: {
             enabled: false,
+        },
+    },
+}
+
+cc_binary_host {
+    name: "lld",
+    srcs: ["lld_main.cpp"],
+    ldflags: ["-static"],
+    stl: "libc++_static",
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        linux: {
+            enabled: false,
+        },
+        windows: {
+            enabled: true,
         },
     },
 }

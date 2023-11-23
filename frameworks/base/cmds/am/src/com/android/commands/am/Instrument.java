@@ -17,7 +17,8 @@
 package com.android.commands.am;
 
 import static android.app.ActivityManager.INSTR_FLAG_DISABLE_HIDDEN_API_CHECKS;
-import static android.app.ActivityManager.INSTR_FLAG_MOUNT_EXTERNAL_STORAGE_FULL;
+import static android.app.ActivityManager.INSTR_FLAG_DISABLE_ISOLATED_STORAGE;
+import static android.app.ActivityManager.INSTR_FLAG_DISABLE_TEST_API_CHECKS;
 
 import android.app.IActivityManager;
 import android.app.IInstrumentationWatcher;
@@ -85,6 +86,7 @@ public class Instrument {
     String logPath = null;
     public boolean noWindowAnimation = false;
     public boolean disableHiddenApiChecks = false;
+    public boolean disableTestApiChecks = true;
     public boolean disableIsolatedStorage = false;
     public String abi = null;
     public int userId = UserHandle.USER_CURRENT;
@@ -506,8 +508,11 @@ public class Instrument {
             if (disableHiddenApiChecks) {
                 flags |= INSTR_FLAG_DISABLE_HIDDEN_API_CHECKS;
             }
+            if (disableTestApiChecks) {
+                flags |= INSTR_FLAG_DISABLE_TEST_API_CHECKS;
+            }
             if (disableIsolatedStorage) {
-                flags |= INSTR_FLAG_MOUNT_EXTERNAL_STORAGE_FULL;
+                flags |= INSTR_FLAG_DISABLE_ISOLATED_STORAGE;
             }
             if (!mAm.startInstrumentation(cn, profileFile, flags, args, watcher, connection, userId,
                         abi)) {

@@ -20,6 +20,8 @@ android_test {
         "androidx.test.rules", "hamcrest-library",
         "mockito-target-inline-minus-junit4",
         "platform-test-annotations",
+        "platformprotosnano",
+        "statsdprotolite",
         "hamcrest-library",
         "testables",
         "truth-prebuilt",
@@ -28,6 +30,7 @@ android_test {
     libs: [
         "android.test.runner",
         "android.test.base",
+        "android.test.mock",
     ],
 
     dxflags: ["--multi-dex"],
@@ -46,7 +49,6 @@ android_test {
         "libbacktrace",
         "libbase",
         "libbinder",
-        "libbinderthreadstate",
         "libc++",
         "libcutils",
         "liblog",
@@ -55,6 +57,6 @@ android_test {
         "libui",
         "libunwindstack",
         "libutils",
-        "netd_aidl_interface-V2-cpp",
+        "netd_aidl_interface-cpp",
     ],
 }

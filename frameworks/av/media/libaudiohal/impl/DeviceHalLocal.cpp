@@ -104,7 +104,7 @@ status_t DeviceHalLocal::getInputBufferSize(
 
 status_t DeviceHalLocal::openOutputStream(
         audio_io_handle_t handle,
-        audio_devices_t devices,
+        audio_devices_t deviceType,
         audio_output_flags_t flags,
         struct audio_config *config,
         const char *address,
@@ -112,11 +112,11 @@ status_t DeviceHalLocal::openOutputStream(
     audio_stream_out_t *halStream;
     ALOGV("open_output_stream handle: %d devices: %x flags: %#x"
             "srate: %d format %#x channels %x address %s",
-            handle, devices, flags,
+            handle, deviceType, flags,
             config->sample_rate, config->format, config->channel_mask,
             address);
     int openResut = mDev->open_output_stream(
-            mDev, handle, devices, flags, config, &halStream, address);
+            mDev, handle, deviceType, flags, config, &halStream, address);
     if (openResut == OK) {
         *outStream = new StreamOutHalLocal(halStream, this);
     }
@@ -205,6 +205,17 @@ status_t DeviceHalLocal::getMicrophones(std::vector<media::MicrophoneInfo> *micr
     return status;
 }
 #endif
+
+// Local HAL implementation does not support effects
+status_t DeviceHalLocal::addDeviceEffect(
+        audio_port_handle_t device __unused, sp<EffectHalInterface> effect __unused) {
+    return INVALID_OPERATION;
+}
+
+status_t DeviceHalLocal::removeDeviceEffect(
+        audio_port_handle_t device __unused, sp<EffectHalInterface> effect __unused) {
+    return INVALID_OPERATION;
+}
 
 status_t DeviceHalLocal::dump(int fd) {
     return mDev->dump(mDev, fd);

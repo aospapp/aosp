@@ -72,6 +72,8 @@ public class StatusBarShellCommand extends ShellCommand {
                     return runDisableForSetup();
                 case "send-disable-flag":
                     return runSendDisableFlag();
+                case "tracing":
+                    return runTracing();
                 default:
                     return handleDefaultCommands(cmd);
             }
@@ -161,7 +163,15 @@ public class StatusBarShellCommand extends ShellCommand {
                 case "statusbar-expansion":
                     info.setStatusBarExpansionDisabled(true);
                     break;
-
+                case "system-icons":
+                    info.setSystemIconsDisabled(true);
+                    break;
+                case "clock":
+                    info.setClockDisabled(true);
+                    break;
+                case "notification-icons":
+                    info.setNotificationIconsDisabled(true);
+                    break;
                 default:
                     break;
             }
@@ -174,6 +184,18 @@ public class StatusBarShellCommand extends ShellCommand {
         mInterface.disable(flagPair.first, sToken, pkg);
         mInterface.disable2(flagPair.second, sToken, pkg);
 
+        return 0;
+    }
+
+    private int runTracing() {
+        switch (getNextArg()) {
+            case "start":
+                mInterface.startTracing();
+                break;
+            case "stop":
+                mInterface.stopTracing();
+                break;
+        }
         return 0;
     }
 
@@ -221,6 +243,12 @@ public class StatusBarShellCommand extends ShellCommand {
         pw.println("        recents             - disable recents/overview");
         pw.println("        notification-peek   - disable notification peeking");
         pw.println("        statusbar-expansion - disable status bar expansion");
+        pw.println("        system-icons        - disable system icons appearing in status bar");
+        pw.println("        clock               - disable clock appearing in status bar");
+        pw.println("        notification-icons  - disable notification icons from status bar");
+        pw.println("");
+        pw.println("  tracing (start | stop)");
+        pw.println("    Start or stop SystemUI tracing");
         pw.println("");
     }
 

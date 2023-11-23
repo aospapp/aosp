@@ -104,15 +104,11 @@ public class BridgeXmlPullAttributes extends XmlPullAttributes implements Resolv
             return Bridge.getResourceId(ResourceType.ATTR, name);
         }
 
-        // this is not an attribute in the android namespace, we query the customviewloader, if
-        // the namespaces match.
-        if (mContext.getLayoutlibCallback().getNamespace().equals(ns)) {
-            // TODO(namespaces): cache the namespace objects.
-            ResourceNamespace namespace = ResourceNamespace.fromNamespaceUri(ns);
-            if (namespace != null) {
-                return mContext.getLayoutlibCallback().getOrGenerateResourceId(
-                        ResourceReference.attr(namespace, name));
-            }
+        // TODO(b/156609434): cache the namespace objects.
+        ResourceNamespace namespace = ResourceNamespace.fromNamespaceUri(ns);
+        if (namespace != null) {
+            return mContext.getLayoutlibCallback().getOrGenerateResourceId(
+                    ResourceReference.attr(namespace, name));
         }
 
         return 0;

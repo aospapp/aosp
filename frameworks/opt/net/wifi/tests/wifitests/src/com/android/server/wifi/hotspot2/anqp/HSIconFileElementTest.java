@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -32,7 +34,7 @@ import java.nio.charset.StandardCharsets;
  * Unit tests for {@link com.android.server.wifi.hotspot2.anqp.HSIconFileElement}.
  */
 @SmallTest
-public class HSIconFileElementTest {
+public class HSIconFileElementTest extends WifiBaseTest {
     private static final String TEST_ICON_TYPE = "png";
     private static final byte[] TEST_ICON_DATA = new byte[8];
 

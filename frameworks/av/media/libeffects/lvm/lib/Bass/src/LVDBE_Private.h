@@ -27,11 +27,6 @@
 #ifndef __LVDBE_PRIVATE_H__
 #define __LVDBE_PRIVATE_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
-
 /****************************************************************************************/
 /*                                                                                      */
 /*    Includes                                                                          */
@@ -42,7 +37,6 @@ extern "C" {
 #include "BIQUAD.h"
 #include "LVC_Mixer.h"
 #include "AGC.h"
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -74,7 +68,6 @@ extern "C" {
 #define LVDBE_MIXER_TC                   5       /* Mixer time  */
 #define LVDBE_BYPASS_MIXER_TC            100     /* Bypass mixer time */
 
-
 /****************************************************************************************/
 /*                                                                                      */
 /*    Structures                                                                        */
@@ -82,29 +75,6 @@ extern "C" {
 /****************************************************************************************/
 
 /* Data structure */
-#ifndef BUILD_FLOAT
-typedef struct
-{
-    /* AGC parameters */
-    AGC_MIX_VOL_2St1Mon_D32_t   AGCInstance;        /* AGC instance parameters */
-
-    /* Process variables */
-    Biquad_2I_Order2_Taps_t     HPFTaps;            /* High pass filter taps */
-    Biquad_1I_Order2_Taps_t     BPFTaps;            /* Band pass filter taps */
-    LVMixer3_1St_st             BypassVolume;       /* Bypass volume scaler */
-    LVMixer3_2St_st             BypassMixer;        /* Bypass Mixer for Click Removal */
-
-} LVDBE_Data_t;
-
-/* Coefs structure */
-typedef struct
-{
-    /* Process variables */
-    Biquad_Instance_t           HPFInstance;        /* High pass filter instance */
-    Biquad_Instance_t           BPFInstance;        /* Band pass filter instance */
-
-} LVDBE_Coef_t;
-#else
 /* Data structure */
 typedef struct
 {
@@ -126,7 +96,6 @@ typedef struct
     Biquad_FLOAT_Instance_t           HPFInstance;        /* High pass filter instance */
     Biquad_FLOAT_Instance_t           BPFInstance;        /* Band pass filter instance */
 } LVDBE_Coef_FLOAT_t;
-#endif
 /* Instance structure */
 typedef struct
 {
@@ -136,15 +105,9 @@ typedef struct
     LVDBE_Capabilities_t        Capabilities;         /* Instance capabilities */
 
     /* Data and coefficient pointers */
-#ifndef BUILD_FLOAT
-    LVDBE_Data_t                *pData;                /* Instance data */
-    LVDBE_Coef_t                *pCoef;                /* Instance coefficients */
-#else
     LVDBE_Data_FLOAT_t                *pData;                /* Instance data */
     LVDBE_Coef_FLOAT_t                *pCoef;                /* Instance coefficients */
-#endif
 } LVDBE_Instance_t;
-
 
 /****************************************************************************************/
 /*                                                                                      */
@@ -155,17 +118,10 @@ typedef struct
 void    LVDBE_SetAGC(LVDBE_Instance_t       *pInstance,
                      LVDBE_Params_t         *pParams);
 
-
 void    LVDBE_SetVolume(LVDBE_Instance_t    *pInstance,
                         LVDBE_Params_t      *pParams);
 
-
 void    LVDBE_SetFilters(LVDBE_Instance_t   *pInstance,
                          LVDBE_Params_t     *pParams);
-
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
 
 #endif      /* __LVDBE_PRIVATE_H__ */

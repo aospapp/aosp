@@ -35,9 +35,11 @@ import android.app.INotificationManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.ShortcutInfo;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Icon;
 import android.os.Binder;
@@ -51,6 +53,8 @@ import android.service.notification.NotificationRankingUpdate;
 import android.service.notification.SnoozeCriterion;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.server.UiServiceTestCase;
 
 import org.junit.After;
@@ -60,8 +64,6 @@ import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import androidx.test.runner.AndroidJUnit4;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -116,6 +118,9 @@ public class NotificationListenerServiceTest extends UiServiceTestCase {
             assertActionsEqual(getSmartActions(key, i), ranking.getSmartActions());
             assertEquals(getSmartReplies(key, i), ranking.getSmartReplies());
             assertEquals(canBubble(i), ranking.canBubble());
+            assertEquals(visuallyInterruptive(i), ranking.visuallyInterruptive());
+            assertEquals(isConversation(i), ranking.isConversation());
+            assertEquals(getShortcutInfo(i).getId(), ranking.getShortcutInfo().getId());
         }
     }
 
@@ -182,7 +187,11 @@ public class NotificationListenerServiceTest extends UiServiceTestCase {
                 tweak.isNoisy(),
                 (ArrayList) tweak.getSmartActions(),
                 (ArrayList) tweak.getSmartReplies(),
-                tweak.canBubble()
+                tweak.canBubble(),
+                tweak.visuallyInterruptive(),
+                tweak.isConversation(),
+                tweak.getShortcutInfo(),
+                tweak.isBubble()
         );
         assertNotEquals(nru, nru2);
     }
@@ -258,7 +267,11 @@ public class NotificationListenerServiceTest extends UiServiceTestCase {
                     getNoisy(i),
                     getSmartActions(key, i),
                     getSmartReplies(key, i),
-                    canBubble(i)
+                    canBubble(i),
+                    visuallyInterruptive(i),
+                    isConversation(i),
+                    getShortcutInfo(i),
+                    isBubble(i)
             );
             rankings[i] = ranking;
         }
@@ -363,6 +376,29 @@ public class NotificationListenerServiceTest extends UiServiceTestCase {
         return index % 4 == 0;
     }
 
+    private boolean visuallyInterruptive(int index) {
+        return index % 4 == 0;
+    }
+
+    private boolean isConversation(int index) {
+        return index % 4 == 0;
+    }
+
+    private ShortcutInfo getShortcutInfo(int index) {
+        ShortcutInfo si = new ShortcutInfo(
+                index, String.valueOf(index), "packageName", new ComponentName("1", "1"), null,
+                "title", 0, "titleResName", "text", 0, "textResName",
+                "disabledMessage", 0, "disabledMessageResName",
+                null, null, 0, null, 0, 0,
+                0, "iconResName", "bitmapPath", null, 0,
+                null, null);
+        return si;
+    }
+
+    private boolean isBubble(int index) {
+        return index % 4 == 0;
+    }
+
     private void assertActionsEqual(
             List<Notification.Action> expecteds, List<Notification.Action> actuals) {
         assertEquals(expecteds.size(), actuals.size());
@@ -396,6 +432,8 @@ public class NotificationListenerServiceTest extends UiServiceTestCase {
         assertEquals(comment, a.isNoisy(), b.isNoisy());
         assertEquals(comment, a.getSmartReplies(), b.getSmartReplies());
         assertEquals(comment, a.canBubble(), b.canBubble());
+        assertEquals(comment, a.isConversation(), b.isConversation());
+        assertEquals(comment, a.getShortcutInfo().getId(), b.getShortcutInfo().getId());
         assertActionsEqual(a.getSmartActions(), b.getSmartActions());
     }
 

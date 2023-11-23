@@ -32,6 +32,7 @@ TEST(EmojiTest, isEmojiTest) {
     EXPECT_TRUE(isEmoji(0x1F6F7));  // SLED
     EXPECT_TRUE(isEmoji(0x1F9E6));  // SOCKS
 
+    // Unicode 12.0
     EXPECT_TRUE(isEmoji(0x1F6D5));  // HINDU TEMPLE
     EXPECT_TRUE(isEmoji(0x1F7E7));  // ORANGE SQUARE
     EXPECT_TRUE(isEmoji(0x1F9CF));  // DEAF PERSON
@@ -44,6 +45,14 @@ TEST(EmojiTest, isEmojiTest) {
     EXPECT_TRUE(isEmoji(0x1FA80));  // YO-YO
     EXPECT_TRUE(isEmoji(0x1FA70));  // BALLET SHOES
     EXPECT_TRUE(isEmoji(0x1FA79));  // ADHESIVE BANDAGE
+
+    // Unicode 13.0
+    EXPECT_TRUE(isEmoji(0x1F6D6));  // HUT
+    EXPECT_TRUE(isEmoji(0x1F977));  // NINJA
+    EXPECT_TRUE(isEmoji(0x1F9A3));  // MAMMOTH
+    EXPECT_TRUE(isEmoji(0x1FA74));  // THONG SANDAL
+    EXPECT_TRUE(isEmoji(0x1FAC2));  // PEOPLE HUGGING
+    EXPECT_TRUE(isEmoji(0x1FAD6));  // TEAPOT
 
     EXPECT_FALSE(isEmoji(0x0000));   // <control>
     EXPECT_FALSE(isEmoji(0x0061));   // LATIN SMALL LETTER A
@@ -81,6 +90,21 @@ TEST(EmojiTest, isEmojiBaseTest) {
     EXPECT_TRUE(isEmojiBase(0x1F93C));  // WRESTLERS (removed from Emoji 4.0, but we need it)
     EXPECT_TRUE(isEmojiBase(0x1F9D1));  // ADULT
     EXPECT_TRUE(isEmojiBase(0x1F9DD));  // ELF
+
+    EXPECT_TRUE(isEmojiBase(0x1F9B5));  // LEG
+    EXPECT_TRUE(isEmojiBase(0x1F9B6));  // FOOT
+    EXPECT_TRUE(isEmojiBase(0x1F9B8));  // SUPERHERO
+    EXPECT_TRUE(isEmojiBase(0x1F9B9));  // SUPERVILLAIN
+
+    // Unicode 12
+    EXPECT_TRUE(isEmojiBase(0x1F90F));  // PINCHING HAND
+    EXPECT_TRUE(isEmojiBase(0x1F9BB));  // EAR WITH HEARING AID
+    EXPECT_TRUE(isEmojiBase(0x1F9CD));  // PERSON STANDING
+    EXPECT_TRUE(isEmojiBase(0x1F9CF));  // DEAF PERSON
+
+    // Unicode 13
+    EXPECT_TRUE(isEmojiBase(0x1F90C));  // PINCHED FINGERS
+    EXPECT_TRUE(isEmojiBase(0x1F977));  // NINJA
 
     EXPECT_FALSE(isEmojiBase(0x0000));   // <control>
     EXPECT_FALSE(isEmojiBase(0x261C));   // WHITE LEFT POINTING INDEX

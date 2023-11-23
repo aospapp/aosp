@@ -26,7 +26,7 @@ import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
-import android.telephony.Rlog;
+import android.os.UserHandle;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.view.WindowManager;
@@ -34,8 +34,11 @@ import android.view.WindowManager;
 import com.android.internal.R;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.IccCardConstants;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.uicc.IccCardStatus.CardState;
 import com.android.internal.telephony.uicc.euicc.EuiccCard;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -61,6 +64,7 @@ public class UiccSlot extends Handler {
     private int mLastRadioState = TelephonyManager.RADIO_POWER_UNAVAILABLE;
     private boolean mIsEuicc;
     private String mIccId;
+    private String mEid;
     private AnswerToReset mAtr;
     private int mPhoneId = INVALID_PHONE_ID;
     private boolean mIsRemovable;
@@ -102,9 +106,9 @@ public class UiccSlot extends Handler {
             //   2. The latest mCardState is not ABSENT, but there is no UiccCard instance.
             } else if ((oldState == null || oldState == CardState.CARDSTATE_ABSENT
                     || mUiccCard == null) && mCardState != CardState.CARDSTATE_ABSENT) {
-                // No notifications while radio is off or we just powering up
-                if (radioState == TelephonyManager.RADIO_POWER_ON
-                        && mLastRadioState == TelephonyManager.RADIO_POWER_ON) {
+                // No notification while we are just powering up
+                if (radioState != TelephonyManager.RADIO_POWER_UNAVAILABLE
+                        && mLastRadioState != TelephonyManager.RADIO_POWER_UNAVAILABLE) {
                     if (DBG) log("update: notify card added");
                     sendMessage(obtainMessage(EVENT_CARD_ADDED, null));
                 }
@@ -145,16 +149,15 @@ public class UiccSlot extends Handler {
             parseAtr(iss.atr);
             mCardState = iss.cardState;
             mIccId = iss.iccid;
+            mEid = iss.eid;
             mIsRemovable = isSlotRemovable(slotIndex);
             if (iss.slotState == IccSlotStatus.SlotState.SLOTSTATE_INACTIVE) {
                 // TODO: (b/79432584) evaluate whether should broadcast card state change
                 // even if it's inactive.
+                UiccController.updateInternalIccStateForInactiveSlot(mContext, mPhoneId, mIccId);
                 if (mActive) {
                     mActive = false;
                     mLastRadioState = TelephonyManager.RADIO_POWER_UNAVAILABLE;
-                    UiccController.updateInternalIccState(
-                            mContext, IccCardConstants.State.ABSENT, null, mPhoneId,
-                            true /* special notification for absent card in an inactive slot */);
                     mPhoneId = INVALID_PHONE_ID;
                     nullifyUiccCard(true /* sim state is unknown */);
                 }
@@ -179,9 +182,9 @@ public class UiccSlot extends Handler {
     private void updateCardStateAbsent() {
         int radioState =
                 (mCi == null) ? TelephonyManager.RADIO_POWER_UNAVAILABLE : mCi.getRadioState();
-        // No notifications while radio is off or we just powering up
-        if (radioState == TelephonyManager.RADIO_POWER_ON
-                && mLastRadioState == TelephonyManager.RADIO_POWER_ON) {
+        // No notification while we are just powering up
+        if (radioState != TelephonyManager.RADIO_POWER_UNAVAILABLE
+                && mLastRadioState != TelephonyManager.RADIO_POWER_UNAVAILABLE) {
             if (DBG) log("update: notify card removed");
             sendMessage(obtainMessage(EVENT_CARD_REMOVED, null));
         }
@@ -271,6 +274,10 @@ public class UiccSlot extends Handler {
         }
     }
 
+    public String getEid() {
+        return mEid;
+    }
+
     public boolean isExtendedApduSupported() {
         return  (mAtr != null && mAtr.isExtendedApduSupported());
     }
@@ -289,6 +296,13 @@ public class UiccSlot extends Handler {
             log("onIccSwap: isHotSwapSupported is true, don't prompt for rebooting");
             return;
         }
+
+        Phone phone = PhoneFactory.getPhone(mPhoneId);
+        if (phone != null && phone.isShuttingDown()) {
+            log("onIccSwap: already doing shutdown, no need to prompt");
+            return;
+        }
+
         log("onIccSwap: isHotSwapSupported is false, prompt for rebooting");
 
         promptForRestart(isAdded);
@@ -304,7 +318,7 @@ public class UiccSlot extends Handler {
                         dialogComponent)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         .putExtra(EXTRA_ICC_CARD_ADDED, isAdded);
                 try {
-                    mContext.startActivity(intent);
+                    mContext.startActivityAsUser(intent, UserHandle.CURRENT);
                     return;
                 } catch (ActivityNotFoundException e) {
                     loge("Unable to find ICC hotswap prompt for restart activity: " + e);
@@ -422,8 +436,10 @@ public class UiccSlot extends Handler {
         pw.println(" mCi=" + mCi);
         pw.println(" mActive=" + mActive);
         pw.println(" mIsEuicc=" + mIsEuicc);
+        pw.println(" mIsRemovable=" + mIsRemovable);
         pw.println(" mLastRadioState=" + mLastRadioState);
         pw.println(" mIccId=" + mIccId);
+        pw.println(" mEid=" + mEid);
         pw.println(" mCardState=" + mCardState);
         if (mUiccCard != null) {
             pw.println(" mUiccCard=" + mUiccCard);

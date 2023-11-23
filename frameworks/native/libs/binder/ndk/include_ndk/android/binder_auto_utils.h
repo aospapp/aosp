@@ -21,7 +21,7 @@
 
 /**
  * @file binder_auto_utils.h
- * @brief These objects provide a more C++-like thin interface to the .
+ * @brief These objects provide a more C++-like thin interface to the binder.
  */
 
 #pragma once
@@ -34,6 +34,7 @@
 
 #include <unistd.h>
 #include <cstddef>
+#include <string>
 
 namespace ndk {
 
@@ -159,13 +160,17 @@ class ScopedAResource {
      */
     T* getR() { return &mT; }
 
-    // copy-constructing, or move/copy assignment is disallowed
+    // copy-constructing/assignment is disallowed
     ScopedAResource(const ScopedAResource&) = delete;
     ScopedAResource& operator=(const ScopedAResource&) = delete;
-    ScopedAResource& operator=(ScopedAResource&&) = delete;
 
-    // move-constructing is okay
+    // move-constructing/assignment is okay
     ScopedAResource(ScopedAResource&& other) : mT(std::move(other.mT)) { other.mT = DEFAULT; }
+    ScopedAResource& operator=(ScopedAResource&& other) {
+        set(other.mT);
+        other.mT = DEFAULT;
+        return *this;
+    }
 
    private:
     T mT;
@@ -197,16 +202,61 @@ class ScopedAStatus : public impl::ScopedAResource<AStatus*, void, AStatus_delet
     explicit ScopedAStatus(AStatus* a = nullptr) : ScopedAResource(a) {}
     ~ScopedAStatus() {}
     ScopedAStatus(ScopedAStatus&&) = default;
+    ScopedAStatus& operator=(ScopedAStatus&&) = default;
 
     /**
      * See AStatus_isOk.
      */
-    bool isOk() { return get() != nullptr && AStatus_isOk(get()); }
+    bool isOk() const { return get() != nullptr && AStatus_isOk(get()); }
 
     /**
-     * Convenience method for okay status.
+     * See AStatus_getExceptionCode
+     */
+    binder_exception_t getExceptionCode() const { return AStatus_getExceptionCode(get()); }
+
+    /**
+     * See AStatus_getServiceSpecificError
+     */
+    int32_t getServiceSpecificError() const { return AStatus_getServiceSpecificError(get()); }
+
+    /**
+     * See AStatus_getStatus
+     */
+    binder_status_t getStatus() const { return AStatus_getStatus(get()); }
+
+    /**
+     * See AStatus_getMessage
+     */
+    const char* getMessage() const { return AStatus_getMessage(get()); }
+
+    std::string getDescription() const {
+        const char* cStr = AStatus_getDescription(get());
+        std::string ret = cStr;
+        AStatus_deleteDescription(cStr);
+        return ret;
+    }
+
+    /**
+     * Convenience methods for creating scoped statuses.
      */
     static ScopedAStatus ok() { return ScopedAStatus(AStatus_newOk()); }
+    static ScopedAStatus fromExceptionCode(binder_exception_t exception) {
+        return ScopedAStatus(AStatus_fromExceptionCode(exception));
+    }
+    static ScopedAStatus fromExceptionCodeWithMessage(binder_exception_t exception,
+                                                      const char* message) {
+        return ScopedAStatus(AStatus_fromExceptionCodeWithMessage(exception, message));
+    }
+    static ScopedAStatus fromServiceSpecificError(int32_t serviceSpecific) {
+        return ScopedAStatus(AStatus_fromServiceSpecificError(serviceSpecific));
+    }
+    static ScopedAStatus fromServiceSpecificErrorWithMessage(int32_t serviceSpecific,
+                                                             const char* message) {
+        return ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(serviceSpecific, message));
+    }
+    static ScopedAStatus fromStatus(binder_status_t status) {
+        return ScopedAStatus(AStatus_fromStatus(status));
+    }
 };
 
 /**

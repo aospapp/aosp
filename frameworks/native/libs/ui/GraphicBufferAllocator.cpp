@@ -20,6 +20,7 @@
 
 #include <ui/GraphicBufferAllocator.h>
 
+#include <limits.h>
 #include <stdio.h>
 
 #include <grallocusage/GrallocUsageConversion.h>
@@ -32,6 +33,7 @@
 #include <ui/Gralloc.h>
 #include <ui/Gralloc2.h>
 #include <ui/Gralloc3.h>
+#include <ui/Gralloc4.h>
 #include <ui/GraphicBufferMapper.h>
 
 namespace android {
@@ -46,41 +48,48 @@ KeyedVector<buffer_handle_t,
     GraphicBufferAllocator::alloc_rec_t> GraphicBufferAllocator::sAllocList;
 
 GraphicBufferAllocator::GraphicBufferAllocator() : mMapper(GraphicBufferMapper::getInstance()) {
+    mAllocator = std::make_unique<const Gralloc4Allocator>(
+            reinterpret_cast<const Gralloc4Mapper&>(mMapper.getGrallocMapper()));
+    if (mAllocator->isLoaded()) {
+        return;
+    }
     mAllocator = std::make_unique<const Gralloc3Allocator>(
             reinterpret_cast<const Gralloc3Mapper&>(mMapper.getGrallocMapper()));
-    if (!mAllocator->isLoaded()) {
-        mAllocator = std::make_unique<const Gralloc2Allocator>(
-                reinterpret_cast<const Gralloc2Mapper&>(mMapper.getGrallocMapper()));
+    if (mAllocator->isLoaded()) {
+        return;
+    }
+    mAllocator = std::make_unique<const Gralloc2Allocator>(
+            reinterpret_cast<const Gralloc2Mapper&>(mMapper.getGrallocMapper()));
+    if (mAllocator->isLoaded()) {
+        return;
     }
 
-    if (!mAllocator->isLoaded()) {
-        LOG_ALWAYS_FATAL("gralloc-allocator is missing");
-    }
+    LOG_ALWAYS_FATAL("gralloc-allocator is missing");
 }
 
 GraphicBufferAllocator::~GraphicBufferAllocator() {}
 
-size_t GraphicBufferAllocator::getTotalSize() const {
+uint64_t GraphicBufferAllocator::getTotalSize() const {
     Mutex::Autolock _l(sLock);
-    size_t total = 0;
+    uint64_t total = 0;
     for (size_t i = 0; i < sAllocList.size(); ++i) {
         total += sAllocList.valueAt(i).size;
     }
     return total;
 }
 
-void GraphicBufferAllocator::dump(std::string& result) const {
+void GraphicBufferAllocator::dump(std::string& result, bool less) const {
     Mutex::Autolock _l(sLock);
     KeyedVector<buffer_handle_t, alloc_rec_t>& list(sAllocList);
-    size_t total = 0;
-    result.append("Allocated buffers:\n");
+    uint64_t total = 0;
+    result.append("GraphicBufferAllocator buffers:\n");
     const size_t c = list.size();
     for (size_t i=0 ; i<c ; i++) {
         const alloc_rec_t& rec(list.valueAt(i));
         if (rec.size) {
             StringAppendF(&result,
                           "%10p: %7.2f KiB | %4u (%4u) x %4u | %4u | %8X | 0x%" PRIx64 " | %s\n",
-                          list.keyAt(i), rec.size / 1024.0, rec.width, rec.stride, rec.height,
+                          list.keyAt(i), static_cast<double>(rec.size) / 1024.0, rec.width, rec.stride, rec.height,
                           rec.layerCount, rec.format, rec.usage, rec.requestorName.c_str());
         } else {
             StringAppendF(&result,
@@ -90,29 +99,36 @@ void GraphicBufferAllocator::dump(std::string& result) const {
         }
         total += rec.size;
     }
-    StringAppendF(&result, "Total allocated (estimate): %.2f KB\n", total / 1024.0);
+    StringAppendF(&result, "Total allocated by GraphicBufferAllocator (estimate): %.2f KB\n",
+                  static_cast<double>(total) / 1024.0);
 
-    result.append(mAllocator->dumpDebugInfo());
+    result.append(mAllocator->dumpDebugInfo(less));
 }
 
-void GraphicBufferAllocator::dumpToSystemLog()
-{
+void GraphicBufferAllocator::dumpToSystemLog(bool less) {
     std::string s;
-    GraphicBufferAllocator::getInstance().dump(s);
+    GraphicBufferAllocator::getInstance().dump(s, less);
     ALOGD("%s", s.c_str());
 }
 
-status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height,
-        PixelFormat format, uint32_t layerCount, uint64_t usage,
-        buffer_handle_t* handle, uint32_t* stride,
-        uint64_t /*graphicBufferId*/, std::string requestorName)
-{
+status_t GraphicBufferAllocator::allocateHelper(uint32_t width, uint32_t height, PixelFormat format,
+                                                uint32_t layerCount, uint64_t usage,
+                                                buffer_handle_t* handle, uint32_t* stride,
+                                                std::string requestorName, bool importBuffer) {
     ATRACE_CALL();
 
     // make sure to not allocate a N x 0 or 0 x N buffer, since this is
     // allowed from an API stand-point allocate a 1x1 buffer instead.
     if (!width || !height)
         width = height = 1;
+
+    const uint32_t bpp = bytesPerPixel(format);
+    if (std::numeric_limits<size_t>::max() / width / height < static_cast<size_t>(bpp)) {
+        ALOGE("Failed to allocate (%u x %u) layerCount %u format %d "
+              "usage %" PRIx64 ": Requesting too large a buffer size",
+              width, height, layerCount, format, usage);
+        return BAD_VALUE;
+    }
 
     // Ensure that layerCount is valid.
     if (layerCount < 1)
@@ -121,31 +137,67 @@ status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height,
     // TODO(b/72323293, b/72703005): Remove these invalid bits from callers
     usage &= ~static_cast<uint64_t>((1 << 10) | (1 << 13));
 
-    status_t error =
-            mAllocator->allocate(width, height, format, layerCount, usage, 1, stride, handle);
-    if (error == NO_ERROR) {
-        Mutex::Autolock _l(sLock);
-        KeyedVector<buffer_handle_t, alloc_rec_t>& list(sAllocList);
-        uint32_t bpp = bytesPerPixel(format);
-        alloc_rec_t rec;
-        rec.width = width;
-        rec.height = height;
-        rec.stride = *stride;
-        rec.format = format;
-        rec.layerCount = layerCount;
-        rec.usage = usage;
-        rec.size = static_cast<size_t>(height * (*stride) * bpp);
-        rec.requestorName = std::move(requestorName);
-        list.add(*handle, rec);
-
-        return NO_ERROR;
-    } else {
+    status_t error = mAllocator->allocate(requestorName, width, height, format, layerCount, usage,
+                                          1, stride, handle, importBuffer);
+    if (error != NO_ERROR) {
         ALOGE("Failed to allocate (%u x %u) layerCount %u format %d "
-                "usage %" PRIx64 ": %d",
-                width, height, layerCount, format, usage,
-                error);
+              "usage %" PRIx64 ": %d",
+              width, height, layerCount, format, usage, error);
         return NO_MEMORY;
     }
+
+    if (!importBuffer) {
+        return NO_ERROR;
+    }
+    size_t bufSize;
+
+    // if stride has no meaning or is too large,
+    // approximate size with the input width instead
+    if ((*stride) != 0 &&
+        std::numeric_limits<size_t>::max() / height / (*stride) < static_cast<size_t>(bpp)) {
+        bufSize = static_cast<size_t>(width) * height * bpp;
+    } else {
+        bufSize = static_cast<size_t>((*stride)) * height * bpp;
+    }
+
+    Mutex::Autolock _l(sLock);
+    KeyedVector<buffer_handle_t, alloc_rec_t>& list(sAllocList);
+    alloc_rec_t rec;
+    rec.width = width;
+    rec.height = height;
+    rec.stride = *stride;
+    rec.format = format;
+    rec.layerCount = layerCount;
+    rec.usage = usage;
+    rec.size = bufSize;
+    rec.requestorName = std::move(requestorName);
+    list.add(*handle, rec);
+
+    return NO_ERROR;
+}
+status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height, PixelFormat format,
+                                          uint32_t layerCount, uint64_t usage,
+                                          buffer_handle_t* handle, uint32_t* stride,
+                                          std::string requestorName) {
+    return allocateHelper(width, height, format, layerCount, usage, handle, stride, requestorName,
+                          true);
+}
+
+status_t GraphicBufferAllocator::allocateRawHandle(uint32_t width, uint32_t height,
+                                                   PixelFormat format, uint32_t layerCount,
+                                                   uint64_t usage, buffer_handle_t* handle,
+                                                   uint32_t* stride, std::string requestorName) {
+    return allocateHelper(width, height, format, layerCount, usage, handle, stride, requestorName,
+                          false);
+}
+
+// DEPRECATED
+status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height, PixelFormat format,
+                                          uint32_t layerCount, uint64_t usage,
+                                          buffer_handle_t* handle, uint32_t* stride,
+                                          uint64_t /*graphicBufferId*/, std::string requestorName) {
+    return allocateHelper(width, height, format, layerCount, usage, handle, stride, requestorName,
+                          true);
 }
 
 status_t GraphicBufferAllocator::free(buffer_handle_t handle)

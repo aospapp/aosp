@@ -24,6 +24,7 @@ import android.util.Xml;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
+import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -40,7 +41,7 @@ import java.util.Map;
  * Unit tests for {@link com.android.server.wifi.RandomizedMacStoreData}.
  */
 @SmallTest
-public class RandomizedMacStoreDataTest {
+public class RandomizedMacStoreDataTest extends WifiBaseTest {
     private static final String TEST_MAC_ADDRESS_1 = "da:a1:19:0:0:0";
     private static final String TEST_MAC_ADDRESS_2 = "ff:ff:ff:0:0:0";
     private static final String TEST_CONFIG_KEY_1 = "TP-LINK_B6C1_5GWPA_PSK";
@@ -62,7 +63,7 @@ public class RandomizedMacStoreDataTest {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mRandomizedMacStoreData.serializeData(out);
+        mRandomizedMacStoreData.serializeData(out, mock(WifiConfigStoreEncryptionUtil.class));
         out.flush();
         return outputStream.toByteArray();
     }
@@ -78,7 +79,9 @@ public class RandomizedMacStoreDataTest {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mRandomizedMacStoreData.deserializeData(in, in.getDepth());
+        mRandomizedMacStoreData.deserializeData(in, in.getDepth(),
+                WifiConfigStore.ENCRYPT_CREDENTIALS_CONFIG_STORE_DATA_VERSION,
+                mock(WifiConfigStoreEncryptionUtil.class));
         return mRandomizedMacStoreData.getMacMapping();
     }
 

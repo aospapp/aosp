@@ -25,16 +25,13 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.wifi.WifiManager;
+import android.content.SharedPreferences;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.sysprop.TelephonyProperties;
 import android.telephony.CellInfo;
-import android.telephony.CellInfoGsm;
-import android.telephony.CellInfoLte;
-import android.telephony.CellInfoWcdma;
-import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -42,12 +39,17 @@ import android.text.TextUtils;
 import android.util.LocalLog;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.MccTable.MccMnc;
+import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -56,7 +58,6 @@ import java.util.Objects;
  */
 public class LocaleTracker extends Handler {
     private static final boolean DBG = true;
-    private static final String TAG = LocaleTracker.class.getSimpleName();
 
     /** Event for getting cell info from the modem */
     private static final int EVENT_REQUEST_CELL_INFO = 1;
@@ -73,6 +74,34 @@ public class LocaleTracker extends Handler {
     /** Event for incoming cell info */
     private static final int EVENT_RESPONSE_CELL_INFO = 5;
 
+    /** Event to fire if the operator from ServiceState is considered truly lost */
+    private static final int EVENT_OPERATOR_LOST = 6;
+
+    /** Event to override the current locale */
+    private static final int EVENT_OVERRIDE_LOCALE = 7;
+
+    /**
+     * The broadcast intent action to override the current country for testing purposes
+     *
+     * <p> This broadcast is not effective on user build.
+     *
+     * <p>Example: To override the current country <code>
+     * adb shell am broadcast -a com.android.internal.telephony.action.COUNTRY_OVERRIDE
+     * --es country us </code>
+     *
+     * <p> To remove the override <code>
+     * adb shell am broadcast -a com.android.internal.telephony.action.COUNTRY_OVERRIDE
+     * --ez reset true</code>
+     */
+    private static final String ACTION_COUNTRY_OVERRIDE =
+            "com.android.internal.telephony.action.COUNTRY_OVERRIDE";
+
+    /** The extra for country override */
+    private static final String EXTRA_COUNTRY = "country";
+
+    /** The extra for country override reset */
+    private static final String EXTRA_RESET = "reset";
+
     // Todo: Read this from Settings.
     /** The minimum delay to get cell info from the modem */
     private static final long CELL_INFO_MIN_DELAY_MS = 2 * SECOND_IN_MILLIS;
@@ -85,8 +114,21 @@ public class LocaleTracker extends Handler {
     /** The delay for periodically getting cell info from the modem */
     private static final long CELL_INFO_PERIODIC_POLLING_DELAY_MS = 10 * MINUTE_IN_MILLIS;
 
+    /**
+     * The delay after the last time the device camped on a cell before declaring that the
+     * ServiceState's MCC information can no longer be used (and thus kicking in the CellInfo
+     * based tracking.
+     */
+    private static final long SERVICE_OPERATOR_LOST_DELAY_MS = 10 * MINUTE_IN_MILLIS;
+
     /** The maximum fail count to prevent delay time overflow */
     private static final int MAX_FAIL_COUNT = 30;
+
+    /** The last known country iso */
+    private static final String LAST_KNOWN_COUNTRY_ISO_SHARED_PREFS_KEY =
+            "last_known_country_iso";
+
+    private String mTag;
 
     private final Phone mPhone;
 
@@ -106,9 +148,13 @@ public class LocaleTracker extends Handler {
     /** Count of invalid cell info we've got so far. Will reset once we get a successful one */
     private int mFailCellInfoCount;
 
-    /** The ISO-3166 code of device's current country */
+    /** The ISO-3166 two-letter code of device's current country */
     @Nullable
     private String mCurrentCountryIso;
+
+    /** The country override for testing purposes */
+    @Nullable
+    private String mCountryOverride;
 
     /** Current service state. Must be one of ServiceState.STATE_XXX. */
     private int mLastServiceState = ServiceState.STATE_POWER_OFF;
@@ -128,6 +174,13 @@ public class LocaleTracker extends Handler {
                             intent.getIntExtra(TelephonyManager.EXTRA_SIM_STATE,
                                     TelephonyManager.SIM_STATE_UNKNOWN), 0).sendToTarget();
                 }
+            } else if (ACTION_COUNTRY_OVERRIDE.equals(intent.getAction())) {
+                String countryOverride = intent.getStringExtra(EXTRA_COUNTRY);
+                boolean reset = intent.getBooleanExtra(EXTRA_RESET, false);
+                if (reset) countryOverride = null;
+                log("Received country override: " + countryOverride);
+                // countryOverride null to reset the override.
+                obtainMessage(EVENT_OVERRIDE_LOCALE, countryOverride).sendToTarget();
             }
         }
     };
@@ -166,6 +219,16 @@ public class LocaleTracker extends Handler {
                 onSimCardStateChanged(msg.arg1);
                 break;
 
+            case EVENT_OPERATOR_LOST:
+                updateOperatorNumericImmediate("");
+                updateTrackingStatus();
+                break;
+
+            case EVENT_OVERRIDE_LOCALE:
+                mCountryOverride = (String) msg.obj;
+                updateLocale();
+                break;
+
             default:
                 throw new IllegalStateException("Unexpected message arrives. msg = " + msg.what);
         }
@@ -183,13 +246,28 @@ public class LocaleTracker extends Handler {
         mPhone = phone;
         mNitzStateMachine = nitzStateMachine;
         mSimState = TelephonyManager.SIM_STATE_UNKNOWN;
+        mTag = LocaleTracker.class.getSimpleName() + "-" + mPhone.getPhoneId();
 
         final IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
+        if (TelephonyUtils.IS_DEBUGGABLE) {
+            filter.addAction(ACTION_COUNTRY_OVERRIDE);
+        }
         mPhone.getContext().registerReceiver(mBroadcastReceiver, filter);
 
         mPhone.registerForServiceStateChanged(this, EVENT_SERVICE_STATE_CHANGED, null);
         mPhone.registerForCellInfo(this, EVENT_UNSOL_CELL_INFO, null);
+    }
+
+    private @NonNull String getCarrierCountry() {
+        // The locale from the "ro.carrier" system property or R.array.carrier_properties.
+        // This will be overwritten by the Locale from the SIM language settings (EF-PL, EF-LI)
+        // if applicable.
+        final Locale carrierLocale = mPhone.getLocaleFromCarrierProperties();
+        if (carrierLocale != null && !TextUtils.isEmpty(carrierLocale.getCountry())) {
+            return carrierLocale.getCountry();
+        }
+        return "";
     }
 
     /**
@@ -211,23 +289,16 @@ public class LocaleTracker extends Handler {
     private String getMccFromCellInfo() {
         String selectedMcc = null;
         if (mCellInfoList != null) {
-            Map<String, Integer> countryCodeMap = new HashMap<>();
+            Map<String, Integer> mccMap = new HashMap<>();
             int maxCount = 0;
             for (CellInfo cellInfo : mCellInfoList) {
-                String mcc = null;
-                if (cellInfo instanceof CellInfoGsm) {
-                    mcc = ((CellInfoGsm) cellInfo).getCellIdentity().getMccString();
-                } else if (cellInfo instanceof CellInfoLte) {
-                    mcc = ((CellInfoLte) cellInfo).getCellIdentity().getMccString();
-                } else if (cellInfo instanceof CellInfoWcdma) {
-                    mcc = ((CellInfoWcdma) cellInfo).getCellIdentity().getMccString();
-                }
+                String mcc = cellInfo.getCellIdentity().getMccString();
                 if (mcc != null) {
                     int count = 1;
-                    if (countryCodeMap.containsKey(mcc)) {
-                        count = countryCodeMap.get(mcc) + 1;
+                    if (mccMap.containsKey(mcc)) {
+                        count = mccMap.get(mcc) + 1;
                     }
-                    countryCodeMap.put(mcc, count);
+                    mccMap.put(mcc, count);
                     // This is unlikely, but if MCC from cell info looks different, we choose the
                     // MCC that occurs most.
                     if (count > maxCount) {
@@ -241,13 +312,51 @@ public class LocaleTracker extends Handler {
     }
 
     /**
+     * Get the most frequent MCC + MNC combination with the specified MCC using cell tower
+     * information. If no one combination is more frequent than any other an arbitrary MCC + MNC is
+     * returned with the matching MCC. The MNC value returned can be null if it is not provided by
+     * the cell tower information.
+     *
+     * @param mccToMatch the MCC to match
+     * @return a matching {@link MccMnc}. Null if the information is not available.
+     */
+    @Nullable
+    private MccMnc getMccMncFromCellInfo(@NonNull String mccToMatch) {
+        MccMnc selectedMccMnc = null;
+        if (mCellInfoList != null) {
+            Map<MccMnc, Integer> mccMncMap = new HashMap<>();
+            int maxCount = 0;
+            for (CellInfo cellInfo : mCellInfoList) {
+                String mcc = cellInfo.getCellIdentity().getMccString();
+                if (Objects.equals(mcc, mccToMatch)) {
+                    String mnc = cellInfo.getCellIdentity().getMncString();
+                    MccMnc mccMnc = new MccMnc(mcc, mnc);
+                    int count = 1;
+                    if (mccMncMap.containsKey(mccMnc)) {
+                        count = mccMncMap.get(mccMnc) + 1;
+                    }
+                    mccMncMap.put(mccMnc, count);
+                    // We keep track of the MCC+MNC combination that occurs most frequently, if
+                    // there is one. A null MNC is treated like any other distinct MCC+MNC
+                    // combination.
+                    if (count > maxCount) {
+                        maxCount = count;
+                        selectedMccMnc = mccMnc;
+                    }
+                }
+            }
+        }
+        return selectedMccMnc;
+    }
+
+    /**
      * Called when SIM card state changed. Only when we absolutely know the SIM is absent, we get
      * cell info from the network. Other SIM states like NOT_READY might be just a transitioning
      * state.
      *
      * @param state SIM card state. Must be one of TelephonyManager.SIM_STATE_XXX.
      */
-    private synchronized void onSimCardStateChanged(int state) {
+    private void onSimCardStateChanged(int state) {
         mSimState = state;
         updateLocale();
         updateTrackingStatus();
@@ -270,8 +379,17 @@ public class LocaleTracker extends Handler {
      * @param operatorNumeric MCC/MNC of the operator
      */
     public void updateOperatorNumeric(String operatorNumeric) {
+        if (TextUtils.isEmpty(operatorNumeric)) {
+            sendMessageDelayed(obtainMessage(EVENT_OPERATOR_LOST), SERVICE_OPERATOR_LOST_DELAY_MS);
+        } else {
+            removeMessages(EVENT_OPERATOR_LOST);
+            updateOperatorNumericImmediate(operatorNumeric);
+        }
+    }
+
+    private void updateOperatorNumericImmediate(String operatorNumeric) {
         // Check if the operator numeric changes.
-        if (!Objects.equals(mOperatorNumeric, operatorNumeric)) {
+        if (!operatorNumeric.equals(mOperatorNumeric)) {
             String msg = "Operator numeric changes to \"" + operatorNumeric + "\"";
             if (DBG) log(msg);
             mLocalLog.log(msg);
@@ -374,63 +492,113 @@ public class LocaleTracker extends Handler {
      */
     private synchronized void updateLocale() {
         // If MCC is available from network service state, use it first.
-        String mcc = null;
-        String countryIso = "";
+        String countryIso = getCarrierCountry();
+        String countryIsoDebugInfo = "getCarrierCountry()";
+
+        // For time zone detection we want the best geographical match we can get, which may differ
+        // from the countryIso.
+        String timeZoneCountryIso = null;
+        String timeZoneCountryIsoDebugInfo = null;
+
         if (!TextUtils.isEmpty(mOperatorNumeric)) {
-            try {
-                mcc = mOperatorNumeric.substring(0, 3);
-                countryIso = MccTable.countryCodeForMcc(mcc);
-            } catch (StringIndexOutOfBoundsException ex) {
-                loge("updateLocale: Can't get country from operator numeric. mcc = "
-                        + mcc + ". ex=" + ex);
+            MccMnc mccMnc = MccMnc.fromOperatorNumeric(mOperatorNumeric);
+            if (mccMnc != null) {
+                countryIso = MccTable.countryCodeForMcc(mccMnc.mcc);
+                countryIsoDebugInfo = "OperatorNumeric(" + mOperatorNumeric
+                        + "): MccTable.countryCodeForMcc(\"" + mccMnc.mcc + "\")";
+                timeZoneCountryIso = MccTable.geoCountryCodeForMccMnc(mccMnc);
+                timeZoneCountryIsoDebugInfo =
+                        "OperatorNumeric: MccTable.geoCountryCodeForMccMnc(" + mccMnc + ")";
+            } else {
+                loge("updateLocale: Can't get country from operator numeric. mOperatorNumeric = "
+                        + mOperatorNumeric);
             }
         }
 
         // If for any reason we can't get country from operator numeric, try to get it from cell
         // info.
         if (TextUtils.isEmpty(countryIso)) {
-            mcc = getMccFromCellInfo();
-            countryIso = MccTable.countryCodeForMcc(mcc);
+            String mcc = getMccFromCellInfo();
+            if (mcc != null) {
+                countryIso = MccTable.countryCodeForMcc(mcc);
+                countryIsoDebugInfo = "CellInfo: MccTable.countryCodeForMcc(\"" + mcc + "\")";
+
+                MccMnc mccMnc = getMccMncFromCellInfo(mcc);
+                if (mccMnc != null) {
+                    timeZoneCountryIso = MccTable.geoCountryCodeForMccMnc(mccMnc);
+                    timeZoneCountryIsoDebugInfo =
+                            "CellInfo: MccTable.geoCountryCodeForMccMnc(" + mccMnc + ")";
+                }
+            }
         }
 
-        log("updateLocale: mcc = " + mcc + ", country = " + countryIso);
-        boolean countryChanged = false;
+        if (mCountryOverride != null) {
+            countryIso = mCountryOverride;
+            countryIsoDebugInfo = "mCountryOverride = \"" + mCountryOverride + "\"";
+            timeZoneCountryIso = countryIso;
+            timeZoneCountryIsoDebugInfo = countryIsoDebugInfo;
+        }
+
+        if (mLastServiceState == ServiceState.STATE_POWER_OFF) {
+            countryIso = "";
+        }
+
+        log("updateLocale: countryIso = " + countryIso
+                + ", countryIsoDebugInfo = " + countryIsoDebugInfo);
         if (!Objects.equals(countryIso, mCurrentCountryIso)) {
-            String msg = "updateLocale: Change the current country to \"" + countryIso
-                    + "\", mcc = " + mcc + ", mCellInfoList = " + mCellInfoList;
+            String msg = "updateLocale: Change the current country to \"" + countryIso + "\""
+                    + ", countryIsoDebugInfo = " + countryIsoDebugInfo
+                    + ", mCellInfoList = " + mCellInfoList;
             log(msg);
             mLocalLog.log(msg);
             mCurrentCountryIso = countryIso;
 
-            TelephonyManager.setTelephonyProperty(mPhone.getPhoneId(),
-                    TelephonyProperties.PROPERTY_OPERATOR_ISO_COUNTRY, mCurrentCountryIso);
-
-            // Set the country code for wifi. This sets allowed wifi channels based on the
-            // country of the carrier we see. If we can't see any, reset to 0 so we don't
-            // broadcast on forbidden channels.
-            WifiManager wifiManager = (WifiManager) mPhone.getContext()
-                    .getSystemService(Context.WIFI_SERVICE);
-            if (wifiManager != null) {
-                wifiManager.setCountryCode(countryIso);
-            } else {
-                msg = "Wifi manager is not available.";
-                log(msg);
-                mLocalLog.log(msg);
+            // Update the last known country ISO
+            if (!TextUtils.isEmpty(mCurrentCountryIso)) {
+                updateLastKnownCountryIso(mCurrentCountryIso);
             }
 
+            int phoneId = mPhone.getPhoneId();
+            if (SubscriptionManager.isValidPhoneId(phoneId)) {
+                List<String> newProp = new ArrayList<>(
+                        TelephonyProperties.operator_iso_country());
+                while (newProp.size() <= phoneId) newProp.add(null);
+                newProp.set(phoneId, mCurrentCountryIso);
+                TelephonyProperties.operator_iso_country(newProp);
+            }
 
             Intent intent = new Intent(TelephonyManager.ACTION_NETWORK_COUNTRY_CHANGED);
             intent.putExtra(TelephonyManager.EXTRA_NETWORK_COUNTRY, countryIso);
+            intent.putExtra(TelephonyManager.EXTRA_LAST_KNOWN_NETWORK_COUNTRY,
+                    getLastKnownCountryIso());
             SubscriptionManager.putPhoneIdAndSubIdExtra(intent, mPhone.getPhoneId());
             mPhone.getContext().sendBroadcast(intent);
-
-            countryChanged = true;
         }
 
-        if (TextUtils.isEmpty(countryIso)) {
-            mNitzStateMachine.handleNetworkCountryCodeUnavailable();
+        // Pass the geographical country information to the telephony time zone detection code.
+
+        boolean isTestMcc = false;
+        if (!TextUtils.isEmpty(mOperatorNumeric)) {
+            // For a test cell (MCC 001), the NitzStateMachine requires handleCountryDetected("") in
+            // order to pass compliance tests. http://b/142840879
+            if (mOperatorNumeric.startsWith("001")) {
+                isTestMcc = true;
+                timeZoneCountryIso = "";
+                timeZoneCountryIsoDebugInfo = "Test cell: " + mOperatorNumeric;
+            }
+        }
+        if (timeZoneCountryIso == null) {
+            // After this timeZoneCountryIso may still be null.
+            timeZoneCountryIso = countryIso;
+            timeZoneCountryIsoDebugInfo = "Defaulted: " + countryIsoDebugInfo;
+        }
+        log("updateLocale: timeZoneCountryIso = " + timeZoneCountryIso
+                + ", timeZoneCountryIsoDebugInfo = " + timeZoneCountryIsoDebugInfo);
+
+        if (TextUtils.isEmpty(timeZoneCountryIso) && !isTestMcc) {
+            mNitzStateMachine.handleCountryUnavailable();
         } else {
-            mNitzStateMachine.handleNetworkCountryCodeSet(countryChanged);
+            mNitzStateMachine.handleCountryDetected(timeZoneCountryIso);
         }
     }
 
@@ -439,12 +607,36 @@ public class LocaleTracker extends Handler {
         return mIsTracking;
     }
 
+    private void updateLastKnownCountryIso(String countryIso) {
+        if (!TextUtils.isEmpty(countryIso)) {
+            final SharedPreferences prefs = mPhone.getContext().getSharedPreferences(
+                    LAST_KNOWN_COUNTRY_ISO_SHARED_PREFS_KEY, Context.MODE_PRIVATE);
+            final SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(LAST_KNOWN_COUNTRY_ISO_SHARED_PREFS_KEY, countryIso);
+            editor.commit();
+            log("update country iso in sharedPrefs " + countryIso);
+        }
+    }
+
+    /**
+     *  Return the last known country ISO before device is not camping on a network
+     *  (e.g. Airplane Mode)
+     *
+     *  @return The device's last known country ISO.
+     */
+    @NonNull
+    public String getLastKnownCountryIso() {
+        final SharedPreferences prefs = mPhone.getContext().getSharedPreferences(
+                LAST_KNOWN_COUNTRY_ISO_SHARED_PREFS_KEY, Context.MODE_PRIVATE);
+        return prefs.getString(LAST_KNOWN_COUNTRY_ISO_SHARED_PREFS_KEY, "");
+    }
+
     private void log(String msg) {
-        Rlog.d(TAG, msg);
+        Rlog.d(mTag, msg);
     }
 
     private void loge(String msg) {
-        Rlog.e(TAG, msg);
+        Rlog.e(mTag, msg);
     }
 
     /**
@@ -456,7 +648,7 @@ public class LocaleTracker extends Handler {
      */
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         final IndentingPrintWriter ipw = new IndentingPrintWriter(pw, "  ");
-        pw.println("LocaleTracker:");
+        pw.println("LocaleTracker-" + mPhone.getPhoneId() + ":");
         ipw.increaseIndent();
         ipw.println("mIsTracking = " + mIsTracking);
         ipw.println("mOperatorNumeric = " + mOperatorNumeric);

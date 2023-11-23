@@ -106,13 +106,8 @@ public class RemoteRenderParamsAdapter implements RemoteRenderParams {
     }
 
     @Override
-    public boolean isBgColorOverridden() {
-        return mDelegate.isBgColorOverridden();
-    }
-
-    @Override
-    public int getOverrideBgColor() {
-        return mDelegate.getOverrideBgColor();
+    public boolean isTransparentBackground() {
+        return mDelegate.isTransparentBackground();
     }
 
     @Override

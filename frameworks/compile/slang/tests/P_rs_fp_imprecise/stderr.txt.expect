@@ -1,1 +1,1 @@
-rs_fp_imprecise.rs:4:9: warning: rs_fp_imprecise is deprecated.  Assuming rs_fp_relaxed instead.
+rs_fp_imprecise.rscript:4:9: warning: rs_fp_imprecise is deprecated.  Assuming rs_fp_relaxed instead.

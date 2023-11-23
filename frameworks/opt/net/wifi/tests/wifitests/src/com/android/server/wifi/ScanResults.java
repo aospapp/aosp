@@ -21,6 +21,7 @@ import android.net.wifi.WifiScanner.ScanData;
 import android.net.wifi.WifiSsid;
 
 import com.android.server.wifi.hotspot2.NetworkDetail;
+import com.android.server.wifi.util.NativeUtil;
 
 import java.math.BigInteger;
 import java.nio.charset.Charset;
@@ -87,6 +88,21 @@ public class ScanResults {
         return ie;
     }
 
+    public static byte[] generateIERawDatafromScanResultIE(ScanResult.InformationElement[] ies) {
+        ArrayList<Byte> ieRawData = new ArrayList<>();
+        for (int i = 0; i < ies.length; i++) {
+            if (ies[i].id > 255 || ies[i].bytes.length > 255) {
+                break;
+            }
+            ieRawData.add(BigInteger.valueOf(ies[i].id).toByteArray()[0]);
+            ieRawData.add(BigInteger.valueOf(ies[i].bytes.length).toByteArray()[0]);
+            for (int j = 0; j < ies[i].bytes.length; j++) {
+                ieRawData.add(ies[i].bytes[j]);
+            }
+        }
+        return NativeUtil.byteArrayFromArrayList(ieRawData);
+    }
+
     /**
      * Generates an array of random ScanDetails with the given frequencies, seeded by the provided
      * seed value and test method name and class (annotated with @Test). This method will be
@@ -120,7 +136,7 @@ public class ScanResults {
                     bssid, "", rssi, freq,
                     Long.MAX_VALUE, /* needed so that scan results aren't rejected because
                                         they are older than scan start */
-                    ie, anqpLines);
+                    ie, anqpLines, generateIERawDatafromScanResultIE(ie));
             results[i] = detail;
         }
         return results;

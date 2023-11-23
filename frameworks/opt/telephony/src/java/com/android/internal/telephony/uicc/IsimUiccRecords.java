@@ -16,15 +16,16 @@
 
 package com.android.internal.telephony.uicc;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncResult;
 import android.os.Message;
-import android.telephony.Rlog;
+import android.telephony.SubscriptionManager;
 
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.gsm.SimTlv;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -88,17 +89,12 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
         mRecordsToLoad = 0;
         // Start off by setting empty state
         resetRecords();
-
-        mParentApp.registerForReady(this, EVENT_APP_READY, null);
         if (DBG) log("IsimUiccRecords X ctor this=" + this);
     }
 
     @Override
     public void dispose() {
         log("Disposing " + this);
-        //Unregister for all events
-        mCi.unregisterForIccRefresh(this);
-        mParentApp.unregisterForReady(this);
         resetRecords();
         super.dispose();
     }
@@ -116,10 +112,6 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
 
         try {
             switch (msg.what) {
-                case EVENT_APP_READY:
-                    onReady();
-                    break;
-
                 case EVENT_REFRESH:
                     broadcastRefresh();
                     super.handleMessage(msg);
@@ -352,6 +344,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
                 mRecordsToLoad++;
 
             default:
+                mLoaded.set(false);
                 fetchIsimRecords();
                 break;
         }
@@ -360,6 +353,7 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
     private void broadcastRefresh() {
         Intent intent = new Intent(INTENT_ISIM_REFRESH);
         log("send ISim REFRESH: " + INTENT_ISIM_REFRESH);
+        SubscriptionManager.putPhoneIdAndSubIdExtra(intent, mParentApp.getPhoneId());
         mContext.sendBroadcast(intent);
     }
 
@@ -441,12 +435,20 @@ public class IsimUiccRecords extends IccRecords implements IsimRecords {
     @UnsupportedAppUsage
     @Override
     protected void log(String s) {
-        if (DBG) Rlog.d(LOG_TAG, "[ISIM] " + s);
+        if (mParentApp != null) {
+            Rlog.d(LOG_TAG, "[ISIM-" + mParentApp.getPhoneId() + "] " + s);
+        } else {
+            Rlog.d(LOG_TAG, "[ISIM] " + s);
+        }
     }
 
     @Override
     protected void loge(String s) {
-        if (DBG) Rlog.e(LOG_TAG, "[ISIM] " + s);
+        if (mParentApp != null) {
+            Rlog.e(LOG_TAG, "[ISIM-" + mParentApp.getPhoneId() + "] " + s);
+        } else {
+            Rlog.e(LOG_TAG, "[ISIM] " + s);
+        }
     }
 
     @Override

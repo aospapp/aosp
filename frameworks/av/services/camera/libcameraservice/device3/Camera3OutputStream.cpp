@@ -21,6 +21,7 @@
 #include <utils/Log.h>
 #include <utils/Trace.h>
 #include "Camera3OutputStream.h"
+#include "utils/TraceHFR.h"
 
 #ifndef container_of
 #define container_of(ptr, type, member) \
@@ -54,9 +55,8 @@ Camera3OutputStream::Camera3OutputStream(int id,
         mState = STATE_ERROR;
     }
 
-    if (setId > CAMERA3_STREAM_SET_ID_INVALID) {
-        mBufferReleasedListener = new BufferReleasedListener(this);
-    }
+    bool needsReleaseNotify = setId > CAMERA3_STREAM_SET_ID_INVALID;
+    mBufferProducerListener = new BufferProducerListener(this, needsReleaseNotify);
 }
 
 Camera3OutputStream::Camera3OutputStream(int id,
@@ -87,9 +87,8 @@ Camera3OutputStream::Camera3OutputStream(int id,
         mState = STATE_ERROR;
     }
 
-    if (setId > CAMERA3_STREAM_SET_ID_INVALID) {
-        mBufferReleasedListener = new BufferReleasedListener(this);
-    }
+    bool needsReleaseNotify = setId > CAMERA3_STREAM_SET_ID_INVALID;
+    mBufferProducerListener = new BufferProducerListener(this, needsReleaseNotify);
 }
 
 Camera3OutputStream::Camera3OutputStream(int id,
@@ -124,10 +123,8 @@ Camera3OutputStream::Camera3OutputStream(int id,
     }
 
     mConsumerName = String8("Deferred");
-    if (setId > CAMERA3_STREAM_SET_ID_INVALID) {
-        mBufferReleasedListener = new BufferReleasedListener(this);
-    }
-
+    bool needsReleaseNotify = setId > CAMERA3_STREAM_SET_ID_INVALID;
+    mBufferProducerListener = new BufferProducerListener(this, needsReleaseNotify);
 }
 
 Camera3OutputStream::Camera3OutputStream(int id, camera3_stream_type_t type,
@@ -151,9 +148,8 @@ Camera3OutputStream::Camera3OutputStream(int id, camera3_stream_type_t type,
         mDropBuffers(false),
         mDequeueBufferLatency(kDequeueLatencyBinSize) {
 
-    if (setId > CAMERA3_STREAM_SET_ID_INVALID) {
-        mBufferReleasedListener = new BufferReleasedListener(this);
-    }
+    bool needsReleaseNotify = setId > CAMERA3_STREAM_SET_ID_INVALID;
+    mBufferProducerListener = new BufferProducerListener(this, needsReleaseNotify);
 
     // Subclasses expected to initialize mConsumer themselves
 }
@@ -165,7 +161,7 @@ Camera3OutputStream::~Camera3OutputStream() {
 
 status_t Camera3OutputStream::getBufferLocked(camera3_stream_buffer *buffer,
         const std::vector<size_t>&) {
-    ATRACE_CALL();
+    ATRACE_HFR_CALL();
 
     ANativeWindowBuffer* anb;
     int fenceFd = -1;
@@ -195,7 +191,7 @@ status_t Camera3OutputStream::queueBufferToConsumer(sp<ANativeWindow>& consumer,
 status_t Camera3OutputStream::returnBufferLocked(
         const camera3_stream_buffer &buffer,
         nsecs_t timestamp, const std::vector<size_t>& surface_ids) {
-    ATRACE_CALL();
+    ATRACE_HFR_CALL();
 
     status_t res = returnAnyBufferLocked(buffer, timestamp, /*output*/true, surface_ids);
 
@@ -261,7 +257,7 @@ status_t Camera3OutputStream::returnBufferCheckedLocked(
         notifyBufferReleased(anwBuffer);
         if (mUseBufferManager) {
             // Return this buffer back to buffer manager.
-            mBufferReleasedListener->onBufferReleased();
+            mBufferProducerListener->onBufferReleased();
         }
     } else {
         if (mTraceFirstBuffer && (stream_type == CAMERA3_STREAM_OUTPUT)) {
@@ -387,8 +383,8 @@ status_t Camera3OutputStream::configureConsumerQueueLocked() {
     // Configure consumer-side ANativeWindow interface. The listener may be used
     // to notify buffer manager (if it is used) of the returned buffers.
     res = mConsumer->connect(NATIVE_WINDOW_API_CAMERA,
-            /*listener*/mBufferReleasedListener,
-            /*reportBufferRemoval*/true);
+            /*reportBufferRemoval*/true,
+            /*listener*/mBufferProducerListener);
     if (res != OK) {
         ALOGE("%s: Unable to connect to native window for stream %d",
                 __FUNCTION__, mId);
@@ -521,7 +517,7 @@ status_t Camera3OutputStream::configureConsumerQueueLocked() {
 }
 
 status_t Camera3OutputStream::getBufferLockedCommon(ANativeWindowBuffer** anb, int* fenceFd) {
-    ATRACE_CALL();
+    ATRACE_HFR_CALL();
     status_t res;
 
     if ((res = getBufferPreconditionCheckLocked()) != OK) {
@@ -790,7 +786,7 @@ status_t Camera3OutputStream::updateStream(const std::vector<sp<Surface>> &/*out
     return INVALID_OPERATION;
 }
 
-void Camera3OutputStream::BufferReleasedListener::onBufferReleased() {
+void Camera3OutputStream::BufferProducerListener::onBufferReleased() {
     sp<Camera3OutputStream> stream = mParent.promote();
     if (stream == nullptr) {
         ALOGV("%s: Parent camera3 output stream was destroyed", __FUNCTION__);
@@ -820,6 +816,25 @@ void Camera3OutputStream::BufferReleasedListener::onBufferReleased() {
             stream->mBufferManager->notifyBufferRemoved(
                     stream->getId(), stream->getStreamSetId());
         }
+    }
+}
+
+void Camera3OutputStream::BufferProducerListener::onBuffersDiscarded(
+        const std::vector<sp<GraphicBuffer>>& buffers) {
+    sp<Camera3OutputStream> stream = mParent.promote();
+    if (stream == nullptr) {
+        ALOGV("%s: Parent camera3 output stream was destroyed", __FUNCTION__);
+        return;
+    }
+
+    if (buffers.size() > 0) {
+        Mutex::Autolock l(stream->mLock);
+        stream->onBuffersRemovedLocked(buffers);
+        if (stream->mUseBufferManager) {
+            stream->mBufferManager->onBuffersRemoved(stream->getId(),
+                    stream->getStreamSetId(), buffers.size());
+        }
+        ALOGV("Stream %d: %zu Buffers discarded.", stream->getId(), buffers.size());
     }
 }
 

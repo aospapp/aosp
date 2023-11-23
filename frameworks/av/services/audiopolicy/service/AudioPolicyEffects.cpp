@@ -42,7 +42,10 @@ namespace android {
 AudioPolicyEffects::AudioPolicyEffects()
 {
     status_t loadResult = loadAudioEffectXmlConfig();
-    if (loadResult < 0) {
+    if (loadResult == NO_ERROR) {
+        mDefaultDeviceEffectFuture = std::async(
+                    std::launch::async, &AudioPolicyEffects::initDefaultDeviceEffects, this);
+    } else if (loadResult < 0) {
         ALOGW("Failed to load XML effect configuration, fallback to .conf");
         // load automatic audio effect modules
         if (access(AUDIO_EFFECT_VENDOR_CONFIG_FILE, R_OK) == 0) {
@@ -562,7 +565,8 @@ const char *AudioPolicyEffects::kStreamNames[AUDIO_STREAM_PUBLIC_CNT+1] = {
     AUDIO_STREAM_BLUETOOTH_SCO_TAG,
     AUDIO_STREAM_ENFORCED_AUDIBLE_TAG,
     AUDIO_STREAM_DTMF_TAG,
-    AUDIO_STREAM_TTS_TAG
+    AUDIO_STREAM_TTS_TAG,
+    AUDIO_STREAM_ASSISTANT_TAG
 };
 
 // returns the audio_stream_t enum corresponding to the output stream name or
@@ -907,8 +911,27 @@ status_t AudioPolicyEffects::loadAudioEffectXmlConfig() {
             streams.add(stream.type, effectDescs.release());
         }
     };
+
+    auto loadDeviceProcessingChain = [](auto &processingChain, auto& devicesEffects) {
+        for (auto& deviceProcess : processingChain) {
+
+            auto effectDescs = std::make_unique<EffectDescVector>();
+            for (auto& effect : deviceProcess.effects) {
+                effectDescs->mEffects.add(
+                        new EffectDesc{effect.get().name.c_str(), effect.get().uuid});
+            }
+            auto deviceEffects = std::make_unique<DeviceEffects>(
+                        std::move(effectDescs), deviceProcess.type, deviceProcess.address);
+            devicesEffects.emplace(deviceProcess.address, std::move(deviceEffects));
+        }
+    };
+
     loadProcessingChain(result.parsedConfig->preprocess, mInputSources);
     loadProcessingChain(result.parsedConfig->postprocess, mOutputStreams);
+    {
+        Mutex::Autolock _l(mLock);
+        loadDeviceProcessingChain(result.parsedConfig->deviceprocess, mDeviceEffects);
+    }
     // Casting from ssize_t to status_t is probably safe, there should not be more than 2^31 errors
     return result.nbSkippedElement;
 }
@@ -941,5 +964,32 @@ status_t AudioPolicyEffects::loadAudioEffectConfig(const char *path)
     return NO_ERROR;
 }
 
+void AudioPolicyEffects::initDefaultDeviceEffects()
+{
+    Mutex::Autolock _l(mLock);
+    for (const auto& deviceEffectsIter : mDeviceEffects) {
+        const auto& deviceEffects =  deviceEffectsIter.second;
+        for (const auto& effectDesc : deviceEffects->mEffectDescriptors->mEffects) {
+            auto fx = std::make_unique<AudioEffect>(
+                        EFFECT_UUID_NULL, String16("android"), &effectDesc->mUuid, 0, nullptr,
+                        nullptr, AUDIO_SESSION_DEVICE, AUDIO_IO_HANDLE_NONE,
+                        AudioDeviceTypeAddr{deviceEffects->getDeviceType(),
+                                            deviceEffects->getDeviceAddress()});
+            status_t status = fx->initCheck();
+            if (status != NO_ERROR && status != ALREADY_EXISTS) {
+                ALOGE("%s(): failed to create Fx %s on port type=%d address=%s", __func__,
+                      effectDesc->mName, deviceEffects->getDeviceType(),
+                      deviceEffects->getDeviceAddress().c_str());
+                // fx goes out of scope and strong ref on AudioEffect is released
+                continue;
+            }
+            fx->setEnabled(true);
+            ALOGV("%s(): create Fx %s added on port type=%d address=%s", __func__,
+                  effectDesc->mName, deviceEffects->getDeviceType(),
+                  deviceEffects->getDeviceAddress().c_str());
+            deviceEffects->mEffects.push_back(std::move(fx));
+        }
+    }
+}
 
 } // namespace android

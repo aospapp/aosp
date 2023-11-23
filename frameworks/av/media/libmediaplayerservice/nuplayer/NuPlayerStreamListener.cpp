@@ -34,8 +34,6 @@ NuPlayer::NuPlayerStreamListener::NuPlayerStreamListener(
       mTargetHandler(targetHandler),
       mEOS(false),
       mSendDataNotification(true) {
-    mSource->setListener(this);
-
     mMemoryDealer = new MemoryDealer(kNumBuffers * kBufferSize);
     for (size_t i = 0; i < kNumBuffers; ++i) {
         sp<IMemory> mem = mMemoryDealer->allocate(kBufferSize);
@@ -154,7 +152,7 @@ ssize_t NuPlayer::NuPlayerStreamListener::read(
     }
 
     memcpy(data,
-           (const uint8_t *)mem->pointer()
+           (const uint8_t *)mem->unsecurePointer()
             + entry->mOffset,
            copy);
 

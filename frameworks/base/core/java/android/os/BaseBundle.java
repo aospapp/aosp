@@ -18,7 +18,7 @@ package android.os;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.MathUtils;
@@ -365,12 +365,16 @@ public class BaseBundle {
     }
 
     /**
+     * This method returns true when the parcel is 'definitely' empty.
+     * That is, it may return false for an empty parcel. But will never return true for a non-empty
+     * one.
+     *
      * @hide this should probably be the implementation of isEmpty().  To do that we
      * need to ensure we always use the special empty parcel form when the bundle is
      * empty.  (This may already be the case, but to be safe we'll do this later when
      * we aren't trying to stabilize.)
      */
-    public boolean maybeIsEmpty() {
+    public boolean isDefinitelyEmpty() {
         if (isParcelled()) {
             return isEmptyParcel();
         } else {
@@ -401,6 +405,9 @@ public class BaseBundle {
     public boolean kindofEquals(BaseBundle other) {
         if (other == null) {
             return false;
+        }
+        if (isDefinitelyEmpty() && other.isDefinitelyEmpty()) {
+            return true;
         }
         if (isParcelled() != other.isParcelled()) {
             // Big kind-of here!
@@ -561,6 +568,35 @@ public class BaseBundle {
     public Set<String> keySet() {
         unparcel();
         return mMap.keySet();
+    }
+
+    /** {@hide} */
+    public void putObject(@Nullable String key, @Nullable Object value) {
+        if (value == null) {
+            putString(key, null);
+        } else if (value instanceof Boolean) {
+            putBoolean(key, (Boolean) value);
+        } else if (value instanceof Integer) {
+            putInt(key, (Integer) value);
+        } else if (value instanceof Long) {
+            putLong(key, (Long) value);
+        } else if (value instanceof Double) {
+            putDouble(key, (Double) value);
+        } else if (value instanceof String) {
+            putString(key, (String) value);
+        } else if (value instanceof boolean[]) {
+            putBooleanArray(key, (boolean[]) value);
+        } else if (value instanceof int[]) {
+            putIntArray(key, (int[]) value);
+        } else if (value instanceof long[]) {
+            putLongArray(key, (long[]) value);
+        } else if (value instanceof double[]) {
+            putDoubleArray(key, (double[]) value);
+        } else if (value instanceof String[]) {
+            putStringArray(key, (String[]) value);
+        } else {
+            throw new IllegalArgumentException("Unsupported type " + value.getClass());
+        }
     }
 
     /**

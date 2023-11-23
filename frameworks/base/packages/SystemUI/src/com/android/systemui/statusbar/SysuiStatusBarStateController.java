@@ -111,6 +111,16 @@ public interface SysuiStatusBarStateController extends StatusBarStateController 
     boolean isKeyguardRequested();
 
     /**
+     * Set the fullscreen state
+     */
+    void setFullscreenState(boolean isFullscreen, boolean isImmersive);
+
+    /**
+     * Set pulsing
+     */
+    void setPulsing(boolean visibility);
+
+    /**
      * Listener with rankings SbStateListenerRank that have dependencies so must be updated
      * in a certain order
      */

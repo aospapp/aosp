@@ -235,7 +235,7 @@ bool RSContext::processExports() {
     clang::Decl* D = *I;
     switch (D->getKind()) {
     case clang::Decl::Var: {
-      clang::VarDecl* VD = llvm::dyn_cast<clang::VarDecl>(D);
+      clang::VarDecl* VD = llvm::cast<clang::VarDecl>(D);
       bool ShouldExportVariable = true;
       if (VD->getFormalLinkage() == clang::ExternalLinkage) {
         clang::QualType QT = VD->getTypeSourceInfo()->getType();
@@ -263,7 +263,7 @@ bool RSContext::processExports() {
       break;
     }
     case clang::Decl::Function: {
-      clang::FunctionDecl* FD = llvm::dyn_cast<clang::FunctionDecl>(D);
+      clang::FunctionDecl* FD = llvm::cast<clang::FunctionDecl>(D);
       if (FD->getFormalLinkage() == clang::ExternalLinkage) {
         if (!processExportFunc(FD)) {
           valid = false;

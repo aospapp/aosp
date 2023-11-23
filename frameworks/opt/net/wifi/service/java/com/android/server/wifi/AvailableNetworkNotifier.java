@@ -31,13 +31,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.ContentObserver;
+import android.net.wifi.IActionListener;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiManager;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Message;
-import android.os.Messenger;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -47,7 +46,8 @@ import android.util.ArraySet;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.wifi.nano.WifiMetricsProto.ConnectToNetworkNotificationAndActionCount;
+import com.android.server.wifi.proto.nano.WifiMetricsProto
+        .ConnectToNetworkNotificationAndActionCount;
 import com.android.server.wifi.util.ScanResultUtil;
 
 import java.io.FileDescriptor;
@@ -58,7 +58,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Base class for all network notifiers (e.g. OpenNetworkNotifier, CarrierNetworkNotifier).
+ * Base class for all network notifiers (e.g. OpenNetworkNotifier).
  *
  * NOTE: These API's are not thread safe and should only be used from WifiCoreThread.
  */
@@ -126,7 +126,6 @@ public class AvailableNetworkNotifier {
     private final Clock mClock;
     private final WifiConfigManager mConfigManager;
     private final ClientModeImpl mClientModeImpl;
-    private final Messenger mSrcMessenger;
     private final ConnectToNetworkNotificationBuilder mNotificationBuilder;
 
     private ScanResult mRecommendedNetwork;
@@ -143,7 +142,8 @@ public class AvailableNetworkNotifier {
 
     /**
      * The nominator id for this class, from
-     * {@link com.android.server.wifi.nano.WifiMetricsProto.ConnectionEvent.ConnectionNominator}
+     * {@link com.android.server.wifi.proto.nano.WifiMetricsProto.ConnectionEvent.
+     * ConnectionNominator}
      */
     private final int mNominatorId;
 
@@ -176,7 +176,6 @@ public class AvailableNetworkNotifier {
         mClientModeImpl = clientModeImpl;
         mNotificationBuilder = connectToNetworkNotificationBuilder;
         mScreenOn = false;
-        mSrcMessenger = new Messenger(new Handler(looper, mConnectionStateCallback));
         wifiConfigStore.registerStoreData(new SsidSetStoreData(mStoreDataIdentifier,
                 new AvailableNetworkNotifierStoreData()));
 
@@ -201,7 +200,7 @@ public class AvailableNetworkNotifier {
             new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    if (!mTag.equals(intent.getExtra(AVAILABLE_NETWORK_NOTIFIER_TAG))) {
+                    if (!mTag.equals(intent.getStringExtra(AVAILABLE_NETWORK_NOTIFIER_TAG))) {
                         return;
                     }
                     switch (intent.getAction()) {
@@ -223,21 +222,19 @@ public class AvailableNetworkNotifier {
                 }
             };
 
-    private final Handler.Callback mConnectionStateCallback = (Message msg) -> {
-        switch (msg.what) {
+    private final class ConnectActionListener extends IActionListener.Stub {
+        @Override
+        public void onSuccess() {
             // Success here means that an attempt to connect to the network has been initiated.
             // Successful connection updates are received via the
             // WifiConnectivityManager#handleConnectionStateChanged() callback.
-            case WifiManager.CONNECT_NETWORK_SUCCEEDED:
-                break;
-            case WifiManager.CONNECT_NETWORK_FAILED:
-                handleConnectionAttemptFailedToSend();
-                break;
-            default:
-                Log.e("AvailableNetworkNotifier", "Unknown message " + msg.what);
         }
-        return true;
-    };
+
+        @Override
+        public void onFailure(int reason) {
+            handleConnectionAttemptFailedToSend();
+        }
+    }
 
     /**
      * Clears the pending notification. This is called by {@link WifiConnectivityManager} on stop.
@@ -264,8 +261,9 @@ public class AvailableNetworkNotifier {
     }
 
     private boolean isControllerEnabled() {
-        return mSettingEnabled && !UserManager.get(mContext)
-                .hasUserRestriction(UserManager.DISALLOW_CONFIG_WIFI, UserHandle.CURRENT);
+        return mSettingEnabled && !mContext.getSystemService(UserManager.class)
+                .hasUserRestrictionForUser(UserManager.DISALLOW_CONFIG_WIFI,
+                    UserHandle.CURRENT);
     }
 
     /**
@@ -438,13 +436,9 @@ public class AvailableNetworkNotifier {
         NetworkUpdateResult result = mConfigManager.addOrUpdateNetwork(network, Process.WIFI_UID);
         if (result.isSuccess()) {
             mWifiMetrics.setNominatorForNetwork(result.netId, mNominatorId);
-
-            Message msg = Message.obtain();
-            msg.what = WifiManager.CONNECT_NETWORK;
-            msg.arg1 = result.netId;
-            msg.obj = null;
-            msg.replyTo = mSrcMessenger;
-            mClientModeImpl.sendMessage(msg);
+            ConnectActionListener connectActionListener = new ConnectActionListener();
+            mClientModeImpl.connect(null, result.netId, new Binder(), connectActionListener,
+                    connectActionListener.hashCode(), Process.SYSTEM_UID);
             addNetworkToBlacklist(mRecommendedNetwork.SSID);
         }
 

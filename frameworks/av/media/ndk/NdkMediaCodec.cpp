@@ -221,7 +221,13 @@ void CodecHandler::onMessageReceived(const sp<AMessage> &msg) {
                          break;
                      }
 
-                     AMediaFormat *aMediaFormat = AMediaFormat_fromMsg(&format);
+                     // Here format is MediaCodec's internal copy of output format.
+                     // Make a copy since the client might modify it.
+                     sp<AMessage> copy;
+                     if (format != nullptr) {
+                         copy = format->dup();
+                     }
+                     AMediaFormat *aMediaFormat = AMediaFormat_fromMsg(&copy);
 
                      Mutex::Autolock _l(mCodec->mAsyncCallbackLock);
                      if (mCodec->mAsyncCallbackUserData != NULL
@@ -244,8 +250,8 @@ void CodecHandler::onMessageReceived(const sp<AMessage> &msg) {
                          ALOGE("CB_ERROR: err is expected.");
                          break;
                      }
-                     if (!msg->findInt32("action", &actionCode)) {
-                         ALOGE("CB_ERROR: action is expected.");
+                     if (!msg->findInt32("actionCode", &actionCode)) {
+                         ALOGE("CB_ERROR: actionCode is expected.");
                          break;
                      }
                      msg->findString("detail", &detail);

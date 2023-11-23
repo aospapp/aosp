@@ -16,10 +16,33 @@
 
 package com.android.internal.car;
 
+import android.content.ComponentName;
+
+import java.util.List;
+
 /**
- * Helper API for car service. Only for itneraction between system server and car service.
+ * Helper API for car service. Only for interaction between system server and car service.
  * @hide
  */
 interface ICarServiceHelper {
     int forceSuspend(int timeoutMs);
+    /**
+    * Check
+    * {@link com.android.server.wm.CarLaunchParamsModifier#setDisplayWhitelistForUser(int, int[]).
+    */
+    void setDisplayWhitelistForUser(in int userId, in int[] displayIds);
+
+    /**
+     * Check
+     * {@link com.android.server.wm.CarLaunchParamsModifier#setPassengerDisplays(int[])}.
+     */
+    void setPassengerDisplays(in int[] displayIds);
+
+    /**
+     * Check
+     * {@link com.android.server.wm.CarLaunchParamsModifier#setSourcePreferredComponents(
+     *         boolean, List<ComponentName>)}.
+     */
+    void setSourcePreferredComponents(
+            in boolean enableSourcePreferred, in List<ComponentName> sourcePreferredComponents);
 }

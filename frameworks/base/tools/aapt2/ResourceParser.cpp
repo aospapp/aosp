@@ -32,10 +32,14 @@
 #include "util/Util.h"
 #include "xml/XmlPullParser.h"
 
+#include "idmap2/Policies.h"
+
 using ::aapt::ResourceUtils::StringBuilder;
 using ::aapt::text::Utf8Iterator;
 using ::android::ConfigDescription;
 using ::android::StringPiece;
+
+using android::idmap2::policy::kPolicyStringToFlag;
 
 namespace aapt {
 
@@ -769,16 +773,14 @@ std::unique_ptr<Item> ResourceParser::ParseXml(xml::XmlPullParser* parser,
     return std::move(string);
   }
 
-  // If the text is empty, and the value is not allowed to be a string, encode it as a @null.
-  if (util::TrimWhitespace(raw_value).empty()) {
-    return ResourceUtils::MakeNull();
-  }
-
   if (allow_raw_value) {
     // We can't parse this so return a RawString if we are allowed.
     return util::make_unique<RawString>(
         table_->string_pool.MakeRef(util::TrimWhitespace(raw_value),
                                     StringPool::Context(config_)));
+  } else if (util::TrimWhitespace(raw_value).empty()) {
+    // If the text is empty, and the value is not allowed to be a string, encode it as a @null.
+    return ResourceUtils::MakeNull();
   }
   return {};
 }
@@ -1065,7 +1067,7 @@ bool ResourceParser::ParseOverlayable(xml::XmlPullParser* parser, ParsedResource
 
   bool error = false;
   std::string comment;
-  OverlayableItem::PolicyFlags current_policies = OverlayableItem::Policy::kNone;
+  PolicyFlags current_policies = PolicyFlags::NONE;
   const size_t start_depth = parser->depth();
   while (xml::XmlPullParser::IsGoodEvent(parser->Next())) {
     xml::XmlPullParser::Event event = parser->event();
@@ -1075,7 +1077,7 @@ bool ResourceParser::ParseOverlayable(xml::XmlPullParser* parser, ParsedResource
     } else if (event == xml::XmlPullParser::Event::kEndElement
                && parser->depth() == start_depth + 1) {
       // Clear the current policies when exiting the <policy> tags
-      current_policies = OverlayableItem::Policy::kNone;
+      current_policies = PolicyFlags::NONE;
       continue;
     } else if (event == xml::XmlPullParser::Event::kComment) {
       // Retrieve the comment of individual <item> tags
@@ -1090,7 +1092,7 @@ bool ResourceParser::ParseOverlayable(xml::XmlPullParser* parser, ParsedResource
     const std::string& element_name = parser->element_name();
     const std::string& element_namespace = parser->element_namespace();
     if (element_namespace.empty() && element_name == "item") {
-      if (current_policies == OverlayableItem::Policy::kNone) {
+      if (current_policies == PolicyFlags::NONE) {
         diag_->Error(DiagMessage(element_source)
                          << "<item> within an <overlayable> must be inside a <policy> block");
         error = true;
@@ -1135,7 +1137,7 @@ bool ResourceParser::ParseOverlayable(xml::XmlPullParser* parser, ParsedResource
       out_resource->child_resources.push_back(std::move(child_resource));
 
     } else if (element_namespace.empty() && element_name == "policy") {
-      if (current_policies != OverlayableItem::Policy::kNone) {
+      if (current_policies != PolicyFlags::NONE) {
         // If the policy list is not empty, then we are currently inside a policy element
         diag_->Error(DiagMessage(element_source) << "<policy> blocks cannot be recursively nested");
         error = true;
@@ -1143,21 +1145,14 @@ bool ResourceParser::ParseOverlayable(xml::XmlPullParser* parser, ParsedResource
       } else if (Maybe<StringPiece> maybe_type = xml::FindNonEmptyAttribute(parser, "type")) {
         // Parse the polices separated by vertical bar characters to allow for specifying multiple
         // policies. Items within the policy tag will have the specified policy.
-        static const auto kPolicyMap =
-            ImmutableMap<StringPiece, OverlayableItem::Policy>::CreatePreSorted({
-                {"odm", OverlayableItem::Policy::kOdm},
-                {"oem", OverlayableItem::Policy::kOem},
-                {"product", OverlayableItem::Policy::kProduct},
-                {"public", OverlayableItem::Policy::kPublic},
-                {"signature", OverlayableItem::Policy::kSignature},
-                {"system", OverlayableItem::Policy::kSystem},
-                {"vendor", OverlayableItem::Policy::kVendor},
-            });
-
         for (const StringPiece& part : util::Tokenize(maybe_type.value(), '|')) {
           StringPiece trimmed_part = util::TrimWhitespace(part);
-          const auto policy = kPolicyMap.find(trimmed_part);
-          if (policy == kPolicyMap.end()) {
+          const auto policy = std::find_if(kPolicyStringToFlag.begin(),
+                                           kPolicyStringToFlag.end(),
+                                           [trimmed_part](const auto& it) {
+                                             return trimmed_part == it.first;
+                                           });
+          if (policy == kPolicyStringToFlag.end()) {
             diag_->Error(DiagMessage(element_source)
                          << "<policy> has unsupported type '" << trimmed_part << "'");
             error = true;
@@ -1389,7 +1384,7 @@ Maybe<Attribute::Symbol> ResourceParser::ParseEnumOrFlagItem(
 
   return Attribute::Symbol{
       Reference(ResourceNameRef({}, ResourceType::kId, maybe_name.value())),
-      val.data};
+      val.data, val.dataType};
 }
 
 bool ResourceParser::ParseStyleItem(xml::XmlPullParser* parser, Style* style) {
@@ -1643,8 +1638,14 @@ bool ResourceParser::ParseDeclareStyleable(xml::XmlPullParser* parser,
                                            ParsedResource* out_resource) {
   out_resource->name.type = ResourceType::kStyleable;
 
-  // Declare-styleable is kPrivate by default, because it technically only exists in R.java.
-  out_resource->visibility_level = Visibility::Level::kPublic;
+  if (!options_.preserve_visibility_of_styleables) {
+    // This was added in change Idd21b5de4d20be06c6f8c8eb5a22ccd68afc4927 to mimic aapt1, but no one
+    // knows exactly what for.
+    //
+    // FWIW, styleables only appear in generated R classes.  For custom views these should always be
+    // package-private (to be used only by the view class); themes are a different story.
+    out_resource->visibility_level = Visibility::Level::kPublic;
+  }
 
   // Declare-styleable only ends up in default config;
   if (out_resource->config != ConfigDescription::DefaultConfig()) {

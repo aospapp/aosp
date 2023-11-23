@@ -22,9 +22,13 @@ import android.util.Log;
 
 import com.android.systemui.Dependency;
 import com.android.systemui.statusbar.NotificationLockscreenUserManager;
-import com.android.systemui.statusbar.notification.collection.NotificationData.KeyguardEnvironment;
+import com.android.systemui.statusbar.notification.NotificationEntryManager.KeyguardEnvironment;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 public class KeyguardEnvironmentImpl implements KeyguardEnvironment {
 
     private static final String TAG = "KeyguardEnvironmentImpl";
@@ -34,15 +38,16 @@ public class KeyguardEnvironmentImpl implements KeyguardEnvironment {
     private final DeviceProvisionedController mDeviceProvisionedController =
             Dependency.get(DeviceProvisionedController.class);
 
+    @Inject
     public KeyguardEnvironmentImpl() {
     }
 
-    @Override  // NotificationData.KeyguardEnvironment
+    @Override  // NotificationEntryManager.KeyguardEnvironment
     public boolean isDeviceProvisioned() {
         return mDeviceProvisionedController.isDeviceProvisioned();
     }
 
-    @Override  // NotificationData.KeyguardEnvironment
+    @Override  // NotificationEntryManager.KeyguardEnvironment
     public boolean isNotificationForCurrentProfiles(StatusBarNotification n) {
         final int notificationUserId = n.getUserId();
         if (DEBUG && MULTIUSER_DEBUG) {

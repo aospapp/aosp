@@ -29,6 +29,7 @@ import android.widget.Switch;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.systemui.R;
+import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
@@ -39,12 +40,14 @@ import javax.inject.Inject;
 public class NfcTile extends QSTileImpl<BooleanState> {
 
     private NfcAdapter mAdapter;
+    private BroadcastDispatcher mBroadcastDispatcher;
 
     private boolean mListening;
 
     @Inject
-    public NfcTile(QSHost host) {
+    public NfcTile(QSHost host, BroadcastDispatcher broadcastDispatcher) {
         super(host);
+        mBroadcastDispatcher = broadcastDispatcher;
     }
 
     @Override
@@ -54,12 +57,13 @@ public class NfcTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         mListening = listening;
         if (mListening) {
-            mContext.registerReceiver(mNfcReceiver,
+            mBroadcastDispatcher.registerReceiver(mNfcReceiver,
                     new IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED));
         } else {
-            mContext.unregisterReceiver(mNfcReceiver);
+            mBroadcastDispatcher.unregisterReceiver(mNfcReceiver);
         }
     }
 
@@ -129,7 +133,7 @@ public class NfcTile extends QSTileImpl<BooleanState> {
     private NfcAdapter getAdapter() {
         if (mAdapter == null) {
             try {
-                mAdapter = NfcAdapter.getNfcAdapter(mContext);
+                mAdapter = NfcAdapter.getDefaultAdapter(mContext);
             } catch (UnsupportedOperationException e) {
                 mAdapter = null;
             }

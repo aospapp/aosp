@@ -23,17 +23,20 @@
 #include "AnotherPacketSource.h"
 #include <binder/IServiceManager.h>
 #include <cutils/properties.h>
+#include <datasource/PlayerServiceDataSourceFactory.h>
+#include <datasource/PlayerServiceFileSource.h>
+#include <datasource/HTTPBase.h>
+#include <datasource/NuCachedSource2.h>
 #include <media/DataSource.h>
 #include <media/MediaBufferHolder.h>
-#include <media/MediaSource.h>
-#include <media/IMediaExtractorService.h>
+#include <media/stagefright/MediaSource.h>
+#include <android/IMediaExtractorService.h>
 #include <media/IMediaHTTPService.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/stagefright/DataSourceFactory.h>
-#include <media/stagefright/FileSource.h>
 #include <media/stagefright/InterfaceUtils.h>
+#include <media/stagefright/FoundationUtils.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaClock.h>
 #include <media/stagefright/MediaDefs.h>
@@ -41,8 +44,6 @@
 #include <media/stagefright/MediaExtractorFactory.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
-#include "../../libstagefright/include/NuCachedSource2.h"
-#include "../../libstagefright/include/HTTPBase.h"
 
 namespace android {
 
@@ -75,7 +76,6 @@ NuPlayer::GenericSource::GenericSource(
       mUIDValid(uidValid),
       mUID(uid),
       mMediaClock(mediaClock),
-      mFd(-1),
       mBitrate(-1LL),
       mPendingReadBufferTypes(0) {
     ALOGV("GenericSource");
@@ -98,10 +98,7 @@ void NuPlayer::GenericSource::resetDataSource() {
     mUri.clear();
     mUriHeaders.clear();
     mSources.clear();
-    if (mFd >= 0) {
-        close(mFd);
-        mFd = -1;
-    }
+    mFd.reset();
     mOffset = 0;
     mLength = 0;
     mStarted = false;
@@ -137,11 +134,11 @@ status_t NuPlayer::GenericSource::setDataSource(
 status_t NuPlayer::GenericSource::setDataSource(
         int fd, int64_t offset, int64_t length) {
     Mutex::Autolock _l(mLock);
-    ALOGV("setDataSource %d/%lld/%lld", fd, (long long)offset, (long long)length);
+    ALOGV("setDataSource %d/%lld/%lld (%s)", fd, (long long)offset, (long long)length, nameForFd(fd).c_str());
 
     resetDataSource();
 
-    mFd = dup(fd);
+    mFd.reset(dup(fd));
     mOffset = offset;
     mLength = length;
 
@@ -385,7 +382,8 @@ void NuPlayer::GenericSource::onPrepareAsync() {
             if (!strncasecmp("http://", uri, 7) || !strncasecmp("https://", uri, 8)) {
                 sp<DataSource> httpSource;
                 mDisconnectLock.unlock();
-                httpSource = DataSourceFactory::CreateMediaHTTP(mHTTPService);
+                httpSource = PlayerServiceDataSourceFactory::getInstance()
+                        ->CreateMediaHTTP(mHTTPService);
                 if (httpSource == NULL) {
                     ALOGE("Failed to create http source!");
                     notifyPreparedAndCleanup(UNKNOWN_ERROR);
@@ -401,9 +399,9 @@ void NuPlayer::GenericSource::onPrepareAsync() {
             mLock.unlock();
             mDisconnectLock.unlock();
             // This might take long time if connection has some issue.
-            sp<DataSource> dataSource = DataSourceFactory::CreateFromURI(
-                   mHTTPService, uri, &mUriHeaders, &contentType,
-                   static_cast<HTTPBase *>(mHttpSource.get()));
+            sp<DataSource> dataSource = PlayerServiceDataSourceFactory::getInstance()
+                    ->CreateFromURI(mHTTPService, uri, &mUriHeaders, &contentType,
+                            static_cast<HTTPBase *>(mHttpSource.get()));
             mDisconnectLock.lock();
             mLock.lock();
             if (!mDisconnected) {
@@ -411,24 +409,20 @@ void NuPlayer::GenericSource::onPrepareAsync() {
             }
         } else {
             if (property_get_bool("media.stagefright.extractremote", true) &&
-                    !FileSource::requiresDrm(mFd, mOffset, mLength, nullptr /* mime */)) {
+                    !PlayerServiceFileSource::requiresDrm(
+                            mFd.get(), mOffset, mLength, nullptr /* mime */)) {
                 sp<IBinder> binder =
                         defaultServiceManager()->getService(String16("media.extractor"));
                 if (binder != nullptr) {
                     ALOGD("FileSource remote");
                     sp<IMediaExtractorService> mediaExService(
                             interface_cast<IMediaExtractorService>(binder));
-                    sp<IDataSource> source =
-                            mediaExService->makeIDataSource(mFd, mOffset, mLength);
+                    sp<IDataSource> source;
+                    mediaExService->makeIDataSource(base::unique_fd(dup(mFd.get())), mOffset, mLength, &source);
                     ALOGV("IDataSource(FileSource): %p %d %lld %lld",
-                            source.get(), mFd, (long long)mOffset, (long long)mLength);
+                            source.get(), mFd.get(), (long long)mOffset, (long long)mLength);
                     if (source.get() != nullptr) {
                         mDataSource = CreateDataSourceFromIDataSource(source);
-                        if (mDataSource != nullptr) {
-                            // Close the local file descriptor as it is not needed anymore.
-                            close(mFd);
-                            mFd = -1;
-                        }
                     } else {
                         ALOGW("extractor service cannot make data source");
                     }
@@ -438,12 +432,8 @@ void NuPlayer::GenericSource::onPrepareAsync() {
             }
             if (mDataSource == nullptr) {
                 ALOGD("FileSource local");
-                mDataSource = new FileSource(mFd, mOffset, mLength);
+                mDataSource = new PlayerServiceFileSource(dup(mFd.get()), mOffset, mLength);
             }
-            // TODO: close should always be done on mFd, see the lines following
-            // CreateDataSourceFromIDataSource above,
-            // and the FileSource constructor should dup the mFd argument as needed.
-            mFd = -1;
         }
 
         if (mDataSource == NULL) {
@@ -782,7 +772,7 @@ void NuPlayer::GenericSource::sendTextData(
         return;
     }
 
-    int64_t nextSubTimeUs;
+    int64_t nextSubTimeUs = 0;
     readBuffer(type, -1, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */, &nextSubTimeUs);
 
     sp<ABuffer> buffer;
@@ -1169,7 +1159,7 @@ status_t NuPlayer::GenericSource::doSeek(int64_t seekTimeUs, MediaPlayerSeekMode
         readBuffer(MEDIA_TRACK_TYPE_VIDEO, seekTimeUs, mode, &actualTimeUs);
 
         if (mode != MediaPlayerSeekMode::SEEK_CLOSEST) {
-            seekTimeUs = actualTimeUs;
+            seekTimeUs = std::max<int64_t>(0, actualTimeUs);
         }
         mVideoLastDequeueTimeUs = actualTimeUs;
     }

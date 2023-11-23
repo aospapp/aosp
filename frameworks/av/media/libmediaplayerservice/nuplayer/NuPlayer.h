@@ -19,7 +19,7 @@
 #define NU_PLAYER_H_
 
 #include <media/AudioResamplerPublic.h>
-#include <media/ICrypto.h>
+#include <mediadrm/ICrypto.h>
 #include <media/MediaPlayerInterface.h>
 #include <media/stagefright/foundation/AHandler.h>
 
@@ -27,7 +27,6 @@ namespace android {
 
 struct ABuffer;
 struct AMessage;
-struct AudioPlaybackRate;
 struct AVSyncSettings;
 class IDataSource;
 struct MediaClock;

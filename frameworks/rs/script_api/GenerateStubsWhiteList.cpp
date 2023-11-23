@@ -416,11 +416,25 @@ static bool generateWhiteListFile(unsigned int lastApiLevel) {
 
         file.writeNotices();
         file << "#include \"RSStubsWhiteList.h\"\n\n";
-        file << "std::vector<std::string> stubList = {\n";
+        file << "std::array<std::string_view, " << allManglings.size() << "> stubList = {\n";
         for (const auto& e : allManglings) {
             file << "\"" << e << "\",\n";
         }
         file << "};\n";
+
+        GeneratedFile header;
+        if (!header.start(".", "RSStubsWhiteList.h")) {
+            return false;
+        }
+
+        header.writeNotices();
+        header << "#ifndef RSStubsWhiteList_H\n";
+        header << "#define RSStubsWhiteList_H\n\n";
+        header << "#include <cstdlib>\n";
+        header << "#include <array>\n";
+        header << "#include <string_view>\n\n";
+        header << "extern std::array<std::string_view, " << allManglings.size() << "> stubList;\n\n";
+        header << "#endif // RSStubsWhiteList_H\n";
     }
     return success;
 }

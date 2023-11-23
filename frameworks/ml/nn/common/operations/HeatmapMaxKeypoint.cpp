@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-#include "CpuOperationUtils.h"
-#include "OperationResolver.h"
-#include "OperationsUtils.h"
+#define LOG_TAG "Operations"
 
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <vector>
 
+#include "CpuOperationUtils.h"
+#include "HalInterfaces.h"
+#include "OperationResolver.h"
+#include "OperationsUtils.h"
 #include "Tracing.h"
 
 namespace android {
@@ -39,6 +43,8 @@ constexpr uint32_t kOutputScoreTensor = 0;
 constexpr uint32_t kOutputKeypointTensor = 1;
 
 namespace {
+
+using namespace hal;
 
 // This function uses Taylor expansion up to the quatratic term to approximate bicubic
 // upscaling result.
@@ -197,6 +203,28 @@ inline bool heatmapMaxKeypointQuant(const uint8_t* heatmap, const Shape& heatmap
     return true;
 }
 
+inline bool heatmapMaxKeypointQuant(const int8_t* heatmap, const Shape& heatmapShape,
+                                    const uint16_t* boxes, const Shape& boxesShape, bool layout,
+                                    int8_t* outputScoreData, const Shape& outputScoreShape,
+                                    uint16_t* outputKeypointData, const Shape& outputKeypointShape,
+                                    float fpAtol, float fpRtol) {
+    std::vector<float> heatmap_float32(getNumberOfElements(heatmapShape));
+    convertQuantToFloat32(heatmap, heatmapShape.scale, heatmapShape.offset, &heatmap_float32);
+    std::vector<float> boxes_float32(getNumberOfElements(boxesShape));
+    convertQuantToFloat32(boxes, boxesShape.scale, boxesShape.offset, &boxes_float32);
+    std::vector<float> outputScore_float32(getNumberOfElements(outputScoreShape));
+    std::vector<float> outputKeypoint_float32(getNumberOfElements(outputKeypointShape));
+    NN_RET_CHECK(heatmapMaxKeypointFloat32(
+            heatmap_float32.data(), heatmapShape, boxes_float32.data(), boxesShape, layout,
+            outputScore_float32.data(), outputScoreShape, outputKeypoint_float32.data(),
+            outputKeypointShape, fpAtol, fpRtol));
+    convertFloat32ToQuant(outputScore_float32, outputScoreShape.scale, outputScoreShape.offset,
+                          outputScoreData);
+    convertFloat32ToQuant(outputKeypoint_float32, outputKeypointShape.scale,
+                          outputKeypointShape.offset, outputKeypointData);
+    return true;
+}
+
 }  // namespace
 
 bool validate(const IOperationValidationContext* context) {
@@ -205,6 +233,7 @@ bool validate(const IOperationValidationContext* context) {
     std::vector<OperandType> inExpectedTypes;
     std::vector<OperandType> outExpectedTypes;
     auto inputType = context->getInputType(kHeatmapTensor);
+    auto minSupportedHalVersion = HalVersion::V1_2;
     if (inputType == OperandType::TENSOR_FLOAT32 || inputType == OperandType::TENSOR_FLOAT16) {
         inExpectedTypes = {inputType, inputType, OperandType::BOOL};
         outExpectedTypes = {inputType, inputType};
@@ -212,13 +241,19 @@ bool validate(const IOperationValidationContext* context) {
         inExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM, OperandType::TENSOR_QUANT16_ASYMM,
                            OperandType::BOOL};
         outExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM, OperandType::TENSOR_QUANT16_ASYMM};
+    } else if (inputType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        inExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
+                           OperandType::TENSOR_QUANT16_ASYMM, OperandType::BOOL};
+        outExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
+                            OperandType::TENSOR_QUANT16_ASYMM};
+        minSupportedHalVersion = HalVersion::V1_3;
     } else {
         LOG(ERROR) << "Unsupported input tensor type for operation " << kOperationName;
         return false;
     }
     NN_RET_CHECK(validateInputTypes(context, inExpectedTypes));
     NN_RET_CHECK(validateOutputTypes(context, outExpectedTypes));
-    return validateHalVersion(context, HalVersion::V1_2);
+    return validateHalVersion(context, minSupportedHalVersion);
 }
 
 bool prepare(IOperationExecutionContext* context) {
@@ -237,7 +272,8 @@ bool prepare(IOperationExecutionContext* context) {
     NN_RET_CHECK_EQ(getSizeOfDimension(boxesShape, 0), numBoxes);
     NN_RET_CHECK_EQ(boxInfoLength, 4);
 
-    if (heatmapShape.type == OperandType::TENSOR_QUANT8_ASYMM) {
+    if (heatmapShape.type == OperandType::TENSOR_QUANT8_ASYMM ||
+        heatmapShape.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
         NN_RET_CHECK_EQ(boxesShape.scale, 0.125f);
         NN_RET_CHECK_EQ(boxesShape.offset, 0);
     }
@@ -251,7 +287,11 @@ bool prepare(IOperationExecutionContext* context) {
     outputKeypoint.type = boxesShape.type;
     outputKeypoint.dimensions = {numBoxes, numKeypoints, 2};
     outputKeypoint.offset = 0;
-    outputKeypoint.scale = 0.125f;
+    outputKeypoint.scale = 0.f;
+    if (heatmapShape.type == OperandType::TENSOR_QUANT8_ASYMM ||
+        heatmapShape.type == OperandType::TENSOR_QUANT8_ASYMM_SIGNED) {
+        outputKeypoint.scale = 0.125f;
+    }
     NN_RET_CHECK(context->setOutputShape(kOutputKeypointTensor, outputKeypoint));
     return true;
 }
@@ -300,6 +340,17 @@ bool execute(IOperationExecutionContext* context) {
                     context->getInputBuffer<uint16_t>(kBoxesTensor),
                     context->getInputShape(kBoxesTensor), layout,
                     context->getOutputBuffer<uint8_t>(kOutputScoreTensor),
+                    context->getOutputShape(kOutputScoreTensor),
+                    context->getOutputBuffer<uint16_t>(kOutputKeypointTensor),
+                    context->getOutputShape(kOutputKeypointTensor), 1e-5f, 1e-5f);
+        }
+        case OperandType::TENSOR_QUANT8_ASYMM_SIGNED: {
+            return heatmapMaxKeypointQuant(
+                    context->getInputBuffer<int8_t>(kHeatmapTensor),
+                    context->getInputShape(kHeatmapTensor),
+                    context->getInputBuffer<uint16_t>(kBoxesTensor),
+                    context->getInputShape(kBoxesTensor), layout,
+                    context->getOutputBuffer<int8_t>(kOutputScoreTensor),
                     context->getOutputShape(kOutputScoreTensor),
                     context->getOutputBuffer<uint16_t>(kOutputKeypointTensor),
                     context->getOutputShape(kOutputKeypointTensor), 1e-5f, 1e-5f);

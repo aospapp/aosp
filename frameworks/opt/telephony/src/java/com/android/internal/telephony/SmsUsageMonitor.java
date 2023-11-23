@@ -16,27 +16,26 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
-import android.app.AppGlobals;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.XmlResourceParser;
 import android.database.ContentObserver;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.Process;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.telephony.PhoneNumberUtils;
-import android.telephony.Rlog;
 import android.telephony.SmsManager;
 import android.util.AtomicFile;
 import android.util.Xml;
 
+import com.android.internal.telephony.util.XmlUtils;
 import com.android.internal.util.FastXmlSerializer;
-import com.android.internal.util.XmlUtils;
+import com.android.telephony.Rlog;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -84,16 +83,20 @@ public class SmsUsageMonitor {
     }
 
     /** Premium SMS permission for a new package (ask user when first premium SMS sent). */
-    public static final int PREMIUM_SMS_PERMISSION_UNKNOWN = 0;
+    public static final int PREMIUM_SMS_PERMISSION_UNKNOWN =
+            SmsManager.PREMIUM_SMS_CONSENT_UNKNOWN;
 
     /** Default premium SMS permission (ask user for each premium SMS sent). */
-    public static final int PREMIUM_SMS_PERMISSION_ASK_USER = 1;
+    public static final int PREMIUM_SMS_PERMISSION_ASK_USER =
+            SmsManager.PREMIUM_SMS_CONSENT_ASK_USER;
 
     /** Premium SMS permission when the owner has denied the app from sending premium SMS. */
-    public static final int PREMIUM_SMS_PERMISSION_NEVER_ALLOW = 2;
+    public static final int PREMIUM_SMS_PERMISSION_NEVER_ALLOW =
+            SmsManager.PREMIUM_SMS_CONSENT_NEVER_ALLOW;
 
     /** Premium SMS permission when the owner has allowed the app to send premium SMS. */
-    public static final int PREMIUM_SMS_PERMISSION_ALWAYS_ALLOW = 3;
+    public static final int PREMIUM_SMS_PERMISSION_ALWAYS_ALLOW =
+            SmsManager.PREMIUM_SMS_CONSENT_ALWAYS_ALLOW;
 
     private final int mCheckPeriod;
     private final int mMaxAllowed;
@@ -523,7 +526,7 @@ public class SmsUsageMonitor {
 
     /**
      * Returns the premium SMS permission for the specified package. If the package has never
-     * been seen before, the default {@link #PREMIUM_SMS_PERMISSION_ASK_USER}
+     * been seen before, the default {@link #PREMIUM_SMS_PERMISSION_UNKNOWN}
      * will be returned.
      * @param packageName the name of the package to query permission
      * @return one of {@link #PREMIUM_SMS_PERMISSION_UNKNOWN},
@@ -571,21 +574,22 @@ public class SmsUsageMonitor {
         }).start();
     }
 
-    private static void checkCallerIsSystemOrPhoneOrSameApp(String pkg) {
+    private void checkCallerIsSystemOrPhoneOrSameApp(String pkg) {
         int uid = Binder.getCallingUid();
         int appId = UserHandle.getAppId(uid);
         if (appId == Process.SYSTEM_UID || appId == Process.PHONE_UID || uid == 0) {
             return;
         }
         try {
-            ApplicationInfo ai = AppGlobals.getPackageManager().getApplicationInfo(
-                    pkg, 0, UserHandle.getCallingUserId());
-            if (!UserHandle.isSameApp(ai.uid, uid)) {
+            ApplicationInfo ai = mContext.getPackageManager().getApplicationInfoAsUser(
+                    pkg, 0, UserHandle.getUserHandleForUid(uid));
+
+          if (UserHandle.getAppId(ai.uid) != UserHandle.getAppId(uid)) {
                 throw new SecurityException("Calling uid " + uid + " gave package"
                         + pkg + " which is owned by uid " + ai.uid);
             }
-        } catch (RemoteException re) {
-            throw new SecurityException("Unknown package " + pkg + "\n" + re);
+        } catch (NameNotFoundException ex) {
+            throw new SecurityException("Unknown package " + pkg + "\n" + ex);
         }
     }
 

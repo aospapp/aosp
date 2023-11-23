@@ -17,9 +17,16 @@ package com.android.server.wifi.util;
 
 import android.net.wifi.ScanResult;
 import android.net.wifi.ScanResult.InformationElement;
+import android.net.wifi.WifiAnnotations.Cipher;
+import android.net.wifi.WifiAnnotations.KeyMgmt;
+import android.net.wifi.WifiAnnotations.Protocol;
+import android.net.wifi.WifiScanner;
+import android.net.wifi.nl80211.NativeScanResult;
+import android.net.wifi.nl80211.WifiNl80211Manager;
 import android.util.Log;
 
 import com.android.server.wifi.ByteBufferReader;
+import com.android.server.wifi.MboOceConstants;
 import com.android.server.wifi.hotspot2.NetworkDetail;
 import com.android.server.wifi.hotspot2.anqp.Constants;
 
@@ -28,10 +35,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 
 public class InformationElementUtil {
     private static final String TAG = "InformationElementUtil";
-
+    private static final boolean DBG = false;
     public static InformationElement[] parseInformationElements(byte[] bytes) {
         if (bytes == null) {
             return new InformationElement[0];
@@ -42,6 +50,7 @@ public class InformationElementUtil {
         boolean found_ssid = false;
         while (data.remaining() > 1) {
             int eid = data.get() & Constants.BYTE_MASK;
+            int eidExt = 0;
             int elementLength = data.get() & Constants.BYTE_MASK;
 
             if (elementLength > data.remaining() || (eid == InformationElement.EID_SSID
@@ -53,10 +62,18 @@ public class InformationElementUtil {
             }
             if (eid == InformationElement.EID_SSID) {
                 found_ssid = true;
+            } else if (eid == InformationElement.EID_EXTENSION_PRESENT) {
+                if (elementLength == 0) {
+                    // Malformed IE, skipping
+                    break;
+                }
+                eidExt = data.get() & Constants.BYTE_MASK;
+                elementLength--;
             }
 
             InformationElement ie = new InformationElement();
             ie.id = eid;
+            ie.idExt = eidExt;
             ie.bytes = new byte[elementLength];
             data.get(ie.bytes);
             infoElements.add(ie);
@@ -131,9 +148,13 @@ public class InformationElementUtil {
     }
 
     public static class BssLoad {
-        public int stationCount = 0;
-        public int channelUtilization = 0;
-        public int capacity = 0;
+        public static final int INVALID = -1;
+        public static final int MAX_CHANNEL_UTILIZATION = 255;
+        public static final int MIN_CHANNEL_UTILIZATION = 0;
+        public static final int CHANNEL_UTILIZATION_SCALE = 256;
+        public int stationCount = INVALID;
+        public int channelUtilization = INVALID;
+        public int capacity = INVALID;
 
         public void from(InformationElement ie) {
             if (ie.id != InformationElement.EID_BSS_LOAD) {
@@ -151,74 +172,456 @@ public class InformationElementUtil {
     }
 
     public static class HtOperation {
-        public int secondChannelOffset = 0;
+        private static final int HT_OPERATION_IE_LEN = 22;
+        private boolean mPresent = false;
+        private int mSecondChannelOffset = 0;
 
+        /**
+         * returns if HT Operation IE present in the message.
+         */
+        public boolean isPresent() {
+            return mPresent;
+        }
+
+        /**
+         * Returns channel width if it is 20 or 40MHz
+         * Results will be invalid if channel width greater than 40MHz
+         * So caller should only call this method if VHT Operation IE is not present,
+         * or if VhtOperation.getChannelWidth() returns ScanResult.UNSPECIFIED.
+         */
         public int getChannelWidth() {
-            if (secondChannelOffset != 0) {
-                return 1;
+            if (mSecondChannelOffset != 0) {
+                return ScanResult.CHANNEL_WIDTH_40MHZ;
             } else {
-                return 0;
+                return ScanResult.CHANNEL_WIDTH_20MHZ;
             }
         }
 
+        /**
+         * Returns channel Center frequency (for 20/40 MHz channels only)
+         * Results will be invalid for larger channel width,
+         * So, caller should only call this method if VHT Operation IE is not present,
+         * or if VhtOperation.getChannelWidth() returns ScanResult.UNSPECIFIED.
+         */
         public int getCenterFreq0(int primaryFrequency) {
-            //40 MHz
-            if (secondChannelOffset != 0) {
-                if (secondChannelOffset == 1) {
+            if (mSecondChannelOffset != 0) {
+                //40 MHz
+                if (mSecondChannelOffset == 1) {
                     return primaryFrequency + 10;
-                } else if (secondChannelOffset == 3) {
+                } else if (mSecondChannelOffset == 3) {
                     return primaryFrequency - 10;
                 } else {
-                    Log.e("HtOperation", "Error on secondChannelOffset: " + secondChannelOffset);
+                    Log.e("HtOperation", "Error on secondChannelOffset: " + mSecondChannelOffset);
                     return 0;
+                }
+            } else {
+                //20 MHz
+                return primaryFrequency;
+            }
+        }
+
+        /**
+         * Parse the HT Operation IE to read the fields of interest.
+         */
+        public void from(InformationElement ie) {
+            if (ie.id != InformationElement.EID_HT_OPERATION) {
+                throw new IllegalArgumentException("Element id is not HT_OPERATION, : " + ie.id);
+            }
+            if (ie.bytes.length < HT_OPERATION_IE_LEN) {
+                throw new IllegalArgumentException("Invalid HT_OPERATION len: " + ie.bytes.length);
+            }
+            mPresent = true;
+            mSecondChannelOffset = ie.bytes[1] & 0x3;
+        }
+    }
+
+    public static class VhtOperation {
+        private static final int VHT_OPERATION_IE_LEN = 5;
+        private boolean mPresent = false;
+        private int mChannelMode = 0;
+        private int mCenterFreqIndex1 = 0;
+        private int mCenterFreqIndex2 = 0;
+
+        /**
+         * returns if VHT Operation IE present in the message.
+         */
+        public boolean isPresent() {
+            return mPresent;
+        }
+
+        /**
+         * Returns channel width if it is above 40MHz,
+         * otherwise, returns {@link ScanResult.UNSPECIFIED} to indicate that
+         * channel width should be obtained from the HT Operation IE via
+         * HtOperation.getChannelWidth().
+         */
+        public int getChannelWidth() {
+            if (mChannelMode == 0) {
+                // 20 or 40MHz
+                return ScanResult.UNSPECIFIED;
+            } else if (mCenterFreqIndex2 == 0) {
+                // No secondary channel
+                return ScanResult.CHANNEL_WIDTH_80MHZ;
+            } else if (Math.abs(mCenterFreqIndex2 - mCenterFreqIndex1) == 8) {
+                // Primary and secondary channels adjacent
+                return ScanResult.CHANNEL_WIDTH_160MHZ;
+            } else {
+                // Primary and secondary channels not adjacent
+                return ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ;
+            }
+        }
+
+        /**
+         * Returns center frequency of primary channel (if channel width greater than 40MHz),
+         * otherwise, it returns zero to indicate that center frequency should be obtained from
+         * the HT Operation IE via HtOperation.getCenterFreq0().
+         */
+        public int getCenterFreq0() {
+            if (mCenterFreqIndex1 == 0 || mChannelMode == 0) {
+                return 0;
+            } else {
+                return ScanResult.convertChannelToFrequencyMhz(mCenterFreqIndex1,
+                        WifiScanner.WIFI_BAND_5_GHZ);
+            }
+        }
+
+         /**
+         * Returns center frequency of secondary channel if exists (channel width greater than
+         * 40MHz), otherwise, it returns zero.
+         * Note that the secondary channel center frequency only applies to 80+80 or 160 MHz
+         * channels.
+         */
+        public int getCenterFreq1() {
+            if (mCenterFreqIndex2 == 0 || mChannelMode == 0) {
+                return 0;
+            } else {
+                return ScanResult.convertChannelToFrequencyMhz(mCenterFreqIndex2,
+                        WifiScanner.WIFI_BAND_5_GHZ);
+            }
+        }
+
+        /**
+         * Parse the VHT Operation IE to read the fields of interest.
+         */
+        public void from(InformationElement ie) {
+            if (ie.id != InformationElement.EID_VHT_OPERATION) {
+                throw new IllegalArgumentException("Element id is not VHT_OPERATION, : " + ie.id);
+            }
+            if (ie.bytes.length < VHT_OPERATION_IE_LEN) {
+                throw new IllegalArgumentException("Invalid VHT_OPERATION len: " + ie.bytes.length);
+            }
+            mPresent = true;
+            mChannelMode = ie.bytes[0] & Constants.BYTE_MASK;
+            mCenterFreqIndex1 = ie.bytes[1] & Constants.BYTE_MASK;
+            mCenterFreqIndex2 = ie.bytes[2] & Constants.BYTE_MASK;
+        }
+    }
+
+    /**
+     * HeOperation: represents the HE Operation IE
+     */
+    public static class HeOperation {
+
+        private static final int HE_OPERATION_BASIC_LENGTH = 6;
+        private static final int VHT_OPERATION_INFO_PRESENT_MASK = 0x40;
+        private static final int HE_6GHZ_INFO_PRESENT_MASK = 0x02;
+        private static final int HE_6GHZ_CH_WIDTH_MASK = 0x03;
+        private static final int CO_HOSTED_BSS_PRESENT_MASK = 0x80;
+        private static final int VHT_OPERATION_INFO_START_INDEX = 6;
+        private static final int HE_BW_80_80_160 = 3;
+
+        private boolean mPresent = false;
+        private boolean mVhtInfoPresent = false;
+        private boolean m6GhzInfoPresent = false;
+        private int mChannelWidth;
+        private int mPrimaryChannel;
+        private int mCenterFreqSeg0;
+        private int mCenterFreqSeg1;
+        private InformationElement mVhtInfo = null;
+
+        /**
+         * Returns whether the HE Information Element is present.
+         */
+        public boolean isPresent() {
+            return mPresent;
+        }
+
+        /**
+         * Returns whether VHT Information field is present.
+         */
+        public boolean isVhtInfoPresent() {
+            return mVhtInfoPresent;
+        }
+
+        /**
+         * Returns the VHT Information Element if it exists
+         * otherwise, return null.
+         */
+        public InformationElement getVhtInfoElement() {
+            return mVhtInfo;
+        }
+
+        /**
+         * Returns whether the 6GHz information field is present.
+         */
+        public boolean is6GhzInfoPresent() {
+            return m6GhzInfoPresent;
+        }
+
+        /**
+         * Returns the Channel BW
+         * Only applicable to 6GHz band
+         */
+        public int getChannelWidth() {
+            if (!m6GhzInfoPresent) {
+                return ScanResult.UNSPECIFIED;
+            } else if (mChannelWidth == 0) {
+                return ScanResult.CHANNEL_WIDTH_20MHZ;
+            } else if (mChannelWidth == 1) {
+                return ScanResult.CHANNEL_WIDTH_40MHZ;
+            } else if (mChannelWidth == 2) {
+                return ScanResult.CHANNEL_WIDTH_80MHZ;
+            } else if (Math.abs(mCenterFreqSeg1 - mCenterFreqSeg0) == 8) {
+                return ScanResult.CHANNEL_WIDTH_160MHZ;
+            } else {
+                return ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ;
+            }
+        }
+
+        /**
+         * Returns the primary channel frequency
+         * Only applicable for 6GHz channels
+         */
+        public int getPrimaryFreq() {
+            return ScanResult.convertChannelToFrequencyMhz(mPrimaryChannel,
+                        WifiScanner.WIFI_BAND_6_GHZ);
+        }
+
+        /**
+         * Returns the center frequency for the primary channel
+         * Only applicable to 6GHz channels
+         */
+        public int getCenterFreq0() {
+            if (m6GhzInfoPresent) {
+                if (mCenterFreqSeg0 == 0) {
+                    return 0;
+                } else {
+                    return ScanResult.convertChannelToFrequencyMhz(mCenterFreqSeg0,
+                            WifiScanner.WIFI_BAND_6_GHZ);
                 }
             } else {
                 return 0;
             }
         }
 
-        public void from(InformationElement ie) {
-            if (ie.id != InformationElement.EID_HT_OPERATION) {
-                throw new IllegalArgumentException("Element id is not HT_OPERATION, : " + ie.id);
-            }
-            secondChannelOffset = ie.bytes[1] & 0x3;
-        }
-    }
-
-    public static class VhtOperation {
-        public int channelMode = 0;
-        public int centerFreqIndex1 = 0;
-        public int centerFreqIndex2 = 0;
-
-        public boolean isValid() {
-            return channelMode != 0;
-        }
-
-        public int getChannelWidth() {
-            return channelMode + 1;
-        }
-
-        public int getCenterFreq0() {
-            //convert channel index to frequency in MHz, channel 36 is 5180MHz
-            return (centerFreqIndex1 - 36) * 5 + 5180;
-        }
-
+        /**
+         * Returns the center frequency for the secondary channel
+         * Only applicable to 6GHz channels
+         */
         public int getCenterFreq1() {
-            if (channelMode > 1) { //160MHz
-                return (centerFreqIndex2 - 36) * 5 + 5180;
+            if (m6GhzInfoPresent) {
+                if (mCenterFreqSeg1 == 0) {
+                    return 0;
+                } else {
+                    return ScanResult.convertChannelToFrequencyMhz(mCenterFreqSeg1,
+                            WifiScanner.WIFI_BAND_6_GHZ);
+                }
             } else {
                 return 0;
             }
         }
 
+        /** Parse HE Operation IE */
         public void from(InformationElement ie) {
-            if (ie.id != InformationElement.EID_VHT_OPERATION) {
-                throw new IllegalArgumentException("Element id is not VHT_OPERATION, : " + ie.id);
+            if (ie.id != InformationElement.EID_EXTENSION_PRESENT
+                    || ie.idExt != InformationElement.EID_EXT_HE_OPERATION) {
+                throw new IllegalArgumentException("Element id is not HE_OPERATION");
             }
-            channelMode = ie.bytes[0] & Constants.BYTE_MASK;
-            centerFreqIndex1 = ie.bytes[1] & Constants.BYTE_MASK;
-            centerFreqIndex2 = ie.bytes[2] & Constants.BYTE_MASK;
+
+            // Make sure the byte array length is at least the fixed size
+            if (ie.bytes.length < HE_OPERATION_BASIC_LENGTH) {
+                if (DBG) {
+                    Log.w(TAG, "Invalid HE_OPERATION len: " + ie.bytes.length);
+                }
+                // Skipping parsing of the IE
+                return;
+            }
+
+            mVhtInfoPresent = (ie.bytes[1] & VHT_OPERATION_INFO_PRESENT_MASK) != 0;
+            m6GhzInfoPresent = (ie.bytes[2] & HE_6GHZ_INFO_PRESENT_MASK) != 0;
+            boolean coHostedBssPresent = (ie.bytes[1] & CO_HOSTED_BSS_PRESENT_MASK) != 0;
+            int expectedLen = HE_OPERATION_BASIC_LENGTH + (mVhtInfoPresent ? 3 : 0)
+                    + (coHostedBssPresent ? 1 : 0) + (m6GhzInfoPresent ? 5 : 0);
+
+            // Make sure the byte array length is at least fitting the known parameters
+            if (ie.bytes.length < expectedLen) {
+                if (DBG) {
+                    Log.w(TAG, "Invalid HE_OPERATION len: " + ie.bytes.length);
+                }
+                // Skipping parsing of the IE
+                return;
+            }
+
+            // Passed all checks, IE is ready for decoding
+            mPresent = true;
+
+            if (mVhtInfoPresent) {
+                mVhtInfo = new InformationElement();
+                mVhtInfo.id = InformationElement.EID_VHT_OPERATION;
+                mVhtInfo.bytes = new byte[5];
+                System.arraycopy(ie.bytes, VHT_OPERATION_INFO_START_INDEX, mVhtInfo.bytes, 0, 3);
+            }
+
+            if (m6GhzInfoPresent) {
+                int startIndx = VHT_OPERATION_INFO_START_INDEX + (mVhtInfoPresent ? 3 : 0)
+                        + (coHostedBssPresent ? 1 : 0);
+
+                mChannelWidth = ie.bytes[startIndx + 1] & HE_6GHZ_CH_WIDTH_MASK;
+                mPrimaryChannel = ie.bytes[startIndx] & Constants.BYTE_MASK;
+                mCenterFreqSeg0 = ie.bytes[startIndx + 2] & Constants.BYTE_MASK;
+                mCenterFreqSeg1 = ie.bytes[startIndx + 3] & Constants.BYTE_MASK;
+            }
         }
+    }
+
+    /**
+     * HtCapabilities: represents the HT Capabilities IE
+     */
+    public static class HtCapabilities {
+        private int mMaxNumberSpatialStreams  = 1;
+        private boolean mPresent = false;
+        /** Returns whether HT Capabilities IE is present */
+        public boolean isPresent() {
+            return mPresent;
+        }
+        /**
+         * Returns max number of spatial streams if HT Capabilities IE is found and parsed,
+         * or 1 otherwise
+         */
+        public int getMaxNumberSpatialStreams() {
+            return mMaxNumberSpatialStreams;
+        }
+
+        /** Parse HT Capabilities IE */
+        public void from(InformationElement ie) {
+            if (ie.id != InformationElement.EID_HT_CAPABILITIES) {
+                throw new IllegalArgumentException("Element id is not HT_CAPABILITIES: " + ie.id);
+            }
+            if (ie.bytes.length < 26) {
+                if (DBG) {
+                    Log.w(TAG, "Invalid HtCapabilities len: " + ie.bytes.length);
+                }
+                return;
+            }
+            int stream1 = ie.bytes[3] & Constants.BYTE_MASK;
+            int stream2 = ie.bytes[4] & Constants.BYTE_MASK;
+            int stream3 = ie.bytes[5] & Constants.BYTE_MASK;
+            int stream4 = ie.bytes[6] & Constants.BYTE_MASK;
+            if (DBG) {
+                Log.d(TAG, "HT Rx MCS set4: " + Integer.toHexString(stream4));
+                Log.d(TAG, "HT Rx MCS set3: " + Integer.toHexString(stream3));
+                Log.d(TAG, "HT Rx MCS set2: " + Integer.toHexString(stream2));
+                Log.d(TAG, "HT Rx MCS set1: " + Integer.toHexString(stream1));
+            }
+            mMaxNumberSpatialStreams = (stream4 > 0) ? 4 :
+                    ((stream3 > 0) ? 3 :
+                    ((stream2 > 0) ? 2 : 1));
+            mPresent = true;
+        }
+    }
+
+    /**
+     * VhtCapabilities: represents the VHT Capabilities IE
+     */
+    public static class VhtCapabilities {
+        private int mMaxNumberSpatialStreams = 1;
+        private boolean mPresent = false;
+        /** Returns whether VHT Capabilities IE is present */
+        public boolean isPresent() {
+            return mPresent;
+        }
+        /**
+         * Returns max number of spatial streams if VHT Capabilities IE is found and parsed,
+         * or 1 otherwise
+         */
+        public int getMaxNumberSpatialStreams() {
+            return mMaxNumberSpatialStreams;
+        }
+        /** Parse VHT Capabilities IE */
+        public void from(InformationElement ie) {
+            if (ie.id != InformationElement.EID_VHT_CAPABILITIES) {
+                throw new IllegalArgumentException("Element id is not VHT_CAPABILITIES: " + ie.id);
+            }
+            if (ie.bytes.length < 12) {
+                if (DBG) {
+                    Log.w(TAG, "Invalid VHT_CAPABILITIES len: " + ie.bytes.length);
+                }
+                return;
+            }
+            int mcsMap = ((ie.bytes[5] & Constants.BYTE_MASK) << 8)
+                    + (ie.bytes[4] & Constants.BYTE_MASK);
+            mMaxNumberSpatialStreams = parseMaxNumberSpatialStreamsFromMcsMap(mcsMap);
+            mPresent = true;
+        }
+    }
+
+    /**
+     * HeCapabilities: represents the HE Capabilities IE
+     */
+    public static class HeCapabilities {
+        private int mMaxNumberSpatialStreams = 1;
+        private boolean mPresent = false;
+        /** Returns whether HE Capabilities IE is present */
+        public boolean isPresent() {
+            return mPresent;
+        }
+        /**
+         * Returns max number of spatial streams if HE Capabilities IE is found and parsed,
+         * or 1 otherwise
+         */
+        public int getMaxNumberSpatialStreams() {
+            return mMaxNumberSpatialStreams;
+        }
+        /** Parse HE Capabilities IE */
+        public void from(InformationElement ie) {
+            if (ie.id != InformationElement.EID_EXTENSION_PRESENT
+                    || ie.idExt != InformationElement.EID_EXT_HE_CAPABILITIES) {
+                throw new IllegalArgumentException("Element id is not HE_CAPABILITIES: " + ie.id);
+            }
+            if (ie.bytes.length < 21) {
+                if (DBG) {
+                    Log.w(TAG, "Invalid HE_CAPABILITIES len: " + ie.bytes.length);
+                }
+                return;
+            }
+            int mcsMap = ((ie.bytes[18] & Constants.BYTE_MASK) << 8)
+                    + (ie.bytes[17] & Constants.BYTE_MASK);
+            mMaxNumberSpatialStreams = parseMaxNumberSpatialStreamsFromMcsMap(mcsMap);
+            mPresent = true;
+        }
+    }
+
+    private static int parseMaxNumberSpatialStreamsFromMcsMap(int mcsMap) {
+        int maxNumberSpatialStreams = 1;
+        for (int i = 8; i >= 1; --i) {
+            int streamMap = mcsMapToStreamMap(mcsMap, i);
+            // 3 means unsupported
+            if (streamMap != 3) {
+                maxNumberSpatialStreams = i;
+                break;
+            }
+        }
+        if (DBG) {
+            for (int i = 8; i >= 1; --i) {
+                int streamMap = mcsMapToStreamMap(mcsMap, i);
+                Log.d(TAG, "Rx MCS set " + i + " : " + streamMap);
+            }
+        }
+        return maxNumberSpatialStreams;
+    }
+
+    private static int mcsMapToStreamMap(int mcsMap, int i) {
+        return (mcsMap >> ((i - 1) * 2)) & 0x3;
     }
 
     public static class Interworking {
@@ -305,14 +708,67 @@ public class InformationElementUtil {
     }
 
     public static class Vsa {
-        private static final int ANQP_DOMID_BIT = 0x04;
+        private static final int ANQP_DOMAIN_ID_PRESENT_BIT = 0x04;
+        private static final int ANQP_PPS_MO_ID_BIT = 0x02;
+        private static final int OUI_WFA_ALLIANCE = 0x506F9a;
+        private static final int OUI_TYPE_HS20 = 0x10;
+        private static final int OUI_TYPE_MBO_OCE = 0x16;
 
         public NetworkDetail.HSRelease hsRelease = null;
         public int anqpDomainID = 0;    // No domain ID treated the same as a 0; unique info per AP.
 
-        public void from(InformationElement ie) {
+        public boolean IsMboCapable = false;
+        public boolean IsMboApCellularDataAware = false;
+        public boolean IsOceCapable = false;
+        public int mboAssociationDisallowedReasonCode =
+                MboOceConstants.MBO_OCE_ATTRIBUTE_NOT_PRESENT;
+
+        private void parseVsaMboOce(InformationElement ie) {
             ByteBuffer data = ByteBuffer.wrap(ie.bytes).order(ByteOrder.LITTLE_ENDIAN);
-            if (ie.bytes.length >= 5 && data.getInt() == Constants.HS20_FRAME_PREFIX) {
+
+            // skip WFA OUI and type parsing as parseVsaMboOce() is called after identifying
+            // MBO-OCE OUI type.
+            data.getInt();
+
+            while (data.remaining() > 1) {
+                int attrId = data.get() & Constants.BYTE_MASK;
+                int attrLen = data.get() & Constants.BYTE_MASK;
+
+                if ((attrLen == 0) || (attrLen > data.remaining())) {
+                    return;
+                }
+                byte[] attrBytes = new byte[attrLen];
+                data.get(attrBytes);
+                switch (attrId) {
+                    case MboOceConstants.MBO_OCE_AID_MBO_AP_CAPABILITY_INDICATION:
+                        IsMboCapable = true;
+                        IsMboApCellularDataAware = (attrBytes[0]
+                                & MboOceConstants.MBO_AP_CAP_IND_ATTR_CELL_DATA_AWARE) != 0;
+                        break;
+                    case MboOceConstants.MBO_OCE_AID_ASSOCIATION_DISALLOWED:
+                        mboAssociationDisallowedReasonCode = attrBytes[0] & Constants.BYTE_MASK;
+                        break;
+                    case MboOceConstants.MBO_OCE_AID_OCE_AP_CAPABILITY_INDICATION:
+                        IsOceCapable = true;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (DBG) {
+                Log.e(TAG, ":parseMboOce MBO: " + IsMboCapable + " cellDataAware: "
+                        + IsMboApCellularDataAware + " AssocDisAllowRC: "
+                        + mboAssociationDisallowedReasonCode + " :OCE: " + IsOceCapable);
+            }
+        }
+
+        private void parseVsaHs20(InformationElement ie) {
+            ByteBuffer data = ByteBuffer.wrap(ie.bytes).order(ByteOrder.LITTLE_ENDIAN);
+            if (ie.bytes.length >= 5) {
+                // skip WFA OUI and type parsing as parseVsaHs20() is called after identifying
+                // HS20 OUI type.
+                data.getInt();
+
                 int hsConf = data.get() & Constants.BYTE_MASK;
                 switch ((hsConf >> 4) & Constants.NIBBLE_MASK) {
                     case 0:
@@ -321,16 +777,64 @@ public class InformationElementUtil {
                     case 1:
                         hsRelease = NetworkDetail.HSRelease.R2;
                         break;
+                    case 2:
+                        hsRelease = NetworkDetail.HSRelease.R3;
+                        break;
                     default:
                         hsRelease = NetworkDetail.HSRelease.Unknown;
                         break;
                 }
-                if ((hsConf & ANQP_DOMID_BIT) != 0) {
-                    if (ie.bytes.length < 7) {
+                if ((hsConf & ANQP_DOMAIN_ID_PRESENT_BIT) != 0) {
+                    // According to Hotspot 2.0 Specification v3.0 section 3.1.1 HS2.0 Indication
+                    // element, the size of the element is 5 bytes, and 2 bytes are optionally added
+                    // for each optional field; ANQP PPS MO ID and ANQP Domain ID present.
+                    int expectedSize = 7;
+                    if ((hsConf & ANQP_PPS_MO_ID_BIT) != 0) {
+                        expectedSize += 2;
+                        if (ie.bytes.length < expectedSize) {
+                            throw new IllegalArgumentException(
+                                    "HS20 indication element too short: " + ie.bytes.length);
+                        }
+                        data.getShort(); // Skip 2 bytes
+                    }
+                    if (ie.bytes.length < expectedSize) {
                         throw new IllegalArgumentException(
                                 "HS20 indication element too short: " + ie.bytes.length);
                     }
                     anqpDomainID = data.getShort() & Constants.SHORT_MASK;
+                }
+            }
+        }
+
+        /**
+         * Parse the vendor specific information element to build
+         * InformationElemmentUtil.vsa object.
+         *
+         * @param ie -- Information Element
+         */
+        public void from(InformationElement ie) {
+            if (ie.bytes.length < 3) {
+                if (DBG) {
+                    Log.w(TAG, "Invalid vendor specific element len: " + ie.bytes.length);
+                }
+                return;
+            }
+
+            int oui = (((ie.bytes[0] & Constants.BYTE_MASK) << 16)
+                       | ((ie.bytes[1] & Constants.BYTE_MASK) << 8)
+                       |  ((ie.bytes[2] & Constants.BYTE_MASK)));
+
+            if (oui == OUI_WFA_ALLIANCE && ie.bytes.length >= 4) {
+                int ouiType = ie.bytes[3];
+                switch (ouiType) {
+                    case OUI_TYPE_HS20:
+                        parseVsaHs20(ie);
+                        break;
+                    case OUI_TYPE_MBO_OCE:
+                        parseVsaMboOce(ie);
+                        break;
+                    default:
+                        break;
                 }
             }
         }
@@ -394,9 +898,6 @@ public class InformationElementUtil {
      * by wpa_supplicant.
      */
     public static class Capabilities {
-        private static final int CAP_ESS_BIT_OFFSET = 0;
-        private static final int CAP_PRIVACY_BIT_OFFSET = 4;
-
         private static final int WPA_VENDOR_OUI_TYPE_ONE = 0x01f25000;
         private static final int WPS_VENDOR_OUI_TYPE = 0x04f25000;
         private static final short WPA_VENDOR_OUI_VERSION = 0x0001;
@@ -416,6 +917,9 @@ public class InformationElementUtil {
         private static final int RSN_AKM_FT_SAE = 0x09ac0f00;
         private static final int RSN_AKM_OWE = 0x12ac0f00;
         private static final int RSN_AKM_EAP_SUITE_B_192 = 0x0cac0f00;
+        private static final int RSN_OSEN = 0x019a6f50;
+        private static final int RSN_AKM_FILS_SHA256 = 0x0eac0f00;
+        private static final int RSN_AKM_FILS_SHA384 = 0x0fac0f00;
 
         private static final int WPA_CIPHER_NONE = 0x00f25000;
         private static final int WPA_CIPHER_TKIP = 0x02f25000;
@@ -427,11 +931,12 @@ public class InformationElementUtil {
         private static final int RSN_CIPHER_NO_GROUP_ADDRESSED = 0x07ac0f00;
         private static final int RSN_CIPHER_GCMP_256 = 0x09ac0f00;
 
-        public ArrayList<Integer> protocol;
-        public ArrayList<ArrayList<Integer>> keyManagement;
-        public ArrayList<ArrayList<Integer>> pairwiseCipher;
-        public ArrayList<Integer> groupCipher;
+        public List<Integer> protocol;
+        public List<List<Integer>> keyManagement;
+        public List<List<Integer>> pairwiseCipher;
+        public List<Integer> groupCipher;
         public boolean isESS;
+        public boolean isIBSS;
         public boolean isPrivacy;
         public boolean isWPS;
 
@@ -514,6 +1019,15 @@ public class InformationElementUtil {
                         case RSN_AKM_EAP_SUITE_B_192:
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_EAP_SUITE_B_192);
                             break;
+                        case RSN_OSEN:
+                            rsnKeyManagement.add(ScanResult.KEY_MGMT_OSEN);
+                            break;
+                        case RSN_AKM_FILS_SHA256:
+                            rsnKeyManagement.add(ScanResult.KEY_MGMT_FILS_SHA256);
+                            break;
+                        case RSN_AKM_FILS_SHA384:
+                            rsnKeyManagement.add(ScanResult.KEY_MGMT_FILS_SHA384);
+                            break;
                         default:
                             // do nothing
                             break;
@@ -529,7 +1043,7 @@ public class InformationElementUtil {
             }
         }
 
-        private static int parseWpaCipher(int cipher) {
+        private static @Cipher int parseWpaCipher(int cipher) {
             switch (cipher) {
                 case WPA_CIPHER_NONE:
                     return ScanResult.CIPHER_NONE;
@@ -544,7 +1058,7 @@ public class InformationElementUtil {
             }
         }
 
-        private static int parseRsnCipher(int cipher) {
+        private static @Cipher int parseRsnCipher(int cipher) {
             switch (cipher) {
                 case RSN_CIPHER_NONE:
                     return ScanResult.CIPHER_NONE;
@@ -668,18 +1182,30 @@ public class InformationElementUtil {
          * @param isOweSupported -- Boolean flag to indicate if OWE is supported by the device
          */
 
-        public void from(InformationElement[] ies, BitSet beaconCap, boolean isOweSupported) {
-            protocol = new ArrayList<Integer>();
-            keyManagement = new ArrayList<ArrayList<Integer>>();
-            groupCipher = new ArrayList<Integer>();
-            pairwiseCipher = new ArrayList<ArrayList<Integer>>();
+        public void from(InformationElement[] ies, int beaconCap, boolean isOweSupported) {
+            protocol = new ArrayList<>();
+            keyManagement = new ArrayList<>();
+            groupCipher = new ArrayList<>();
+            pairwiseCipher = new ArrayList<>();
 
-            if (ies == null || beaconCap == null) {
+            if (ies == null) {
                 return;
             }
-            isESS = beaconCap.get(CAP_ESS_BIT_OFFSET);
-            isPrivacy = beaconCap.get(CAP_PRIVACY_BIT_OFFSET);
+            isESS = (beaconCap & NativeScanResult.BSS_CAPABILITY_ESS) != 0;
+            isIBSS = (beaconCap & NativeScanResult.BSS_CAPABILITY_IBSS) != 0;
+            isPrivacy = (beaconCap & NativeScanResult.BSS_CAPABILITY_PRIVACY) != 0;
             for (InformationElement ie : ies) {
+                WifiNl80211Manager.OemSecurityType oemSecurityType =
+                        WifiNl80211Manager.parseOemSecurityTypeElement(
+                        ie.id, ie.idExt, ie.bytes);
+                if (oemSecurityType != null
+                        && oemSecurityType.protocol != ScanResult.PROTOCOL_NONE) {
+                    protocol.add(oemSecurityType.protocol);
+                    keyManagement.add(oemSecurityType.keyManagement);
+                    pairwiseCipher.add(oemSecurityType.pairwiseCipher);
+                    groupCipher.add(oemSecurityType.groupCipher);
+                }
+
                 if (ie.id == InformationElement.EID_RSN) {
                     parseRsnElement(ie);
                 }
@@ -731,7 +1257,7 @@ public class InformationElementUtil {
             }
         }
 
-        private String protocolToString(int protocol) {
+        private String protocolToString(@Protocol int protocol) {
             switch (protocol) {
                 case ScanResult.PROTOCOL_NONE:
                     return "None";
@@ -739,12 +1265,16 @@ public class InformationElementUtil {
                     return "WPA";
                 case ScanResult.PROTOCOL_RSN:
                     return "RSN";
+                case ScanResult.PROTOCOL_OSEN:
+                    return "OSEN";
+                case ScanResult.PROTOCOL_WAPI:
+                    return "WAPI";
                 default:
                     return "?";
             }
         }
 
-        private String keyManagementToString(int akm) {
+        private String keyManagementToString(@KeyMgmt int akm) {
             switch (akm) {
                 case ScanResult.KEY_MGMT_NONE:
                     return "None";
@@ -770,12 +1300,22 @@ public class InformationElementUtil {
                     return "FT/SAE";
                 case ScanResult.KEY_MGMT_EAP_SUITE_B_192:
                     return "EAP_SUITE_B_192";
+                case ScanResult.KEY_MGMT_OSEN:
+                    return "OSEN";
+                case ScanResult.KEY_MGMT_WAPI_PSK:
+                    return "WAPI-PSK";
+                case ScanResult.KEY_MGMT_WAPI_CERT:
+                    return "WAPI-CERT";
+                case ScanResult.KEY_MGMT_FILS_SHA256:
+                    return "FILS-SHA256";
+                case ScanResult.KEY_MGMT_FILS_SHA384:
+                    return "FILS-SHA384";
                 default:
                     return "?";
             }
         }
 
-        private String cipherToString(int cipher) {
+        private String cipherToString(@Cipher int cipher) {
             switch (cipher) {
                 case ScanResult.CIPHER_NONE:
                     return "None";
@@ -785,6 +1325,8 @@ public class InformationElementUtil {
                     return "GCMP-256";
                 case ScanResult.CIPHER_TKIP:
                     return "TKIP";
+                case ScanResult.CIPHER_SMS4:
+                    return "SMS4";
                 default:
                     return "?";
             }
@@ -813,6 +1355,9 @@ public class InformationElementUtil {
             }
             if (isESS) {
                 capabilities.append("[ESS]");
+            }
+            if (isIBSS) {
+                capabilities.append("[IBSS]");
             }
             if (isWPS) {
                 capabilities.append("[WPS]");
@@ -933,7 +1478,7 @@ public class InformationElementUtil {
     }
 
     /**
-     * This util class determines the 802.11 standard (a/b/g/n/ac) being used
+     * This util class determines the 802.11 standard (a/b/g/n/ac/ax) being used
      */
     public static class WifiMode {
         public static final int MODE_UNDEFINED = 0; // Unknown/undefined
@@ -942,21 +1487,26 @@ public class InformationElementUtil {
         public static final int MODE_11G = 3;       // 802.11g
         public static final int MODE_11N = 4;       // 802.11n
         public static final int MODE_11AC = 5;      // 802.11ac
+        public static final int MODE_11AX = 6;      // 802.11ax
         //<TODO> add support for 802.11ad and be more selective instead of defaulting to 11A
 
         /**
-         * Use frequency, max supported rate, and the existence of VHT, HT & ERP fields in scan
+         * Use frequency, max supported rate, and the existence of HE, VHT, HT & ERP fields in scan
          * scan result to determine the 802.11 Wifi standard being used.
          */
-        public static int determineMode(int frequency, int maxRate, boolean foundVht,
-                boolean foundHt, boolean foundErp) {
-            if (foundVht) {
+        public static int determineMode(int frequency, int maxRate, boolean foundHe,
+                boolean foundVht, boolean foundHt, boolean foundErp) {
+            if (foundHe) {
+                return MODE_11AX;
+            } else if (!ScanResult.is24GHz(frequency) && foundVht) {
+                // Do not include subset of VHT on 2.4 GHz vendor extension
+                // in consideration for reporting VHT.
                 return MODE_11AC;
             } else if (foundHt) {
                 return MODE_11N;
             } else if (foundErp) {
                 return MODE_11G;
-            } else if (frequency < 3000) {
+            } else if (ScanResult.is24GHz(frequency)) {
                 if (maxRate < 24000000) {
                     return MODE_11B;
                 } else {
@@ -982,6 +1532,8 @@ public class InformationElementUtil {
                     return "MODE_11N";
                 case MODE_11AC:
                     return "MODE_11AC";
+                case MODE_11AX:
+                    return "MODE_11AX";
                 default:
                     return "MODE_UNDEFINED";
             }

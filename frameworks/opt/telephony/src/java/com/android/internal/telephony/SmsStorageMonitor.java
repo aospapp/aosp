@@ -16,7 +16,7 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -26,8 +26,9 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.provider.Telephony.Sms.Intents;
-import android.telephony.Rlog;
 import android.telephony.SubscriptionManager;
+
+import com.android.telephony.Rlog;
 
 /**
  * Monitors the device and ICC storage, and sends the appropriate events.

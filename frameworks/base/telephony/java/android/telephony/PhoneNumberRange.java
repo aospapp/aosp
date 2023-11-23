@@ -17,6 +17,7 @@
 package android.telephony;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -84,18 +85,18 @@ public final class PhoneNumberRange implements Parcelable {
     }
 
     private PhoneNumberRange(Parcel in) {
-        mCountryCode = in.readStringNoHelper();
-        mPrefix = in.readStringNoHelper();
-        mLowerBound = in.readStringNoHelper();
-        mUpperBound = in.readStringNoHelper();
+        mCountryCode = in.readString();
+        mPrefix = in.readString();
+        mLowerBound = in.readString();
+        mUpperBound = in.readString();
     }
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeStringNoHelper(mCountryCode);
-        dest.writeStringNoHelper(mPrefix);
-        dest.writeStringNoHelper(mLowerBound);
-        dest.writeStringNoHelper(mUpperBound);
+        dest.writeString(mCountryCode);
+        dest.writeString(mPrefix);
+        dest.writeString(mLowerBound);
+        dest.writeString(mUpperBound);
     }
 
     @Override
@@ -104,7 +105,7 @@ public final class PhoneNumberRange implements Parcelable {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PhoneNumberRange that = (PhoneNumberRange) o;
@@ -119,6 +120,7 @@ public final class PhoneNumberRange implements Parcelable {
         return Objects.hash(mCountryCode, mPrefix, mLowerBound, mUpperBound);
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "PhoneNumberRange{"

@@ -18,9 +18,9 @@
 #include <android-base/logging.h>
 #include <android/frameworks/stats/1.0/IStats.h>
 
-#include <VtsHalHidlTargetTestBase.h>
-#include <VtsHalHidlTargetTestEnvBase.h>
-
+#include <gtest/gtest.h>
+#include <hidl/GtestPrinter.h>
+#include <hidl/ServiceManagement.h>
 #include <utils/StrongPointer.h>
 
 using android::sp;
@@ -36,23 +36,10 @@ using android::frameworks::stats::V1_0::VendorAtom;
 using Value = android::frameworks::stats::V1_0::VendorAtom::Value;
 using android::hardware::Return;
 
-// Test environment for Power HIDL HAL.
-class StatsHidlEnvironment : public ::testing::VtsHalHidlTargetTestEnvBase {
-   public:
-    // get the test environment singleton
-    static StatsHidlEnvironment* Instance() {
-        static StatsHidlEnvironment* instance = new StatsHidlEnvironment;
-        return instance;
-    }
-
-    virtual void registerTestServices() override { registerTestService<IStats>(); }
-};
-
-class StatsHidlTest : public ::testing::VtsHalHidlTargetTestBase {
+class StatsHidlTest : public ::testing::TestWithParam<std::string> {
    public:
     virtual void SetUp() override {
-        client = ::testing::VtsHalHidlTargetTestBase::getService<IStats>(
-            StatsHidlEnvironment::Instance()->getServiceName<IStats>());
+        client = IStats::getService(GetParam());
         ASSERT_NE(client, nullptr);
     }
 
@@ -62,7 +49,7 @@ class StatsHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 };
 
 // Sanity check IStats::reportSpeakerImpedance.
-TEST_F(StatsHidlTest, reportSpeakerImpedance) {
+TEST_P(StatsHidlTest, reportSpeakerImpedance) {
     SpeakerImpedance impedance = {.speakerLocation = 0,
                                   .milliOhms = static_cast<int32_t>(1234 * 1000)};
     Return<void> ret;
@@ -71,7 +58,7 @@ TEST_F(StatsHidlTest, reportSpeakerImpedance) {
 }
 
 // Sanity check IStats::reportHardwareFailed.
-TEST_F(StatsHidlTest, reportHardwareFailed) {
+TEST_P(StatsHidlTest, reportHardwareFailed) {
     HardwareFailed failed = {.hardwareType = HardwareFailed::HardwareType::CODEC,
                              .hardwareLocation = 0,
                              .errorCode = HardwareFailed::HardwareErrorCode::COMPLETE};
@@ -82,7 +69,7 @@ TEST_F(StatsHidlTest, reportHardwareFailed) {
 }
 
 // Sanity check IStats::reportChargeCycles.
-TEST_F(StatsHidlTest, reportChargeCycles) {
+TEST_P(StatsHidlTest, reportChargeCycles) {
     std::vector<int> charge_cycles = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     ChargeCycles cycles;
     cycles.cycleBucket = charge_cycles;
@@ -93,7 +80,7 @@ TEST_F(StatsHidlTest, reportChargeCycles) {
 }
 
 // Sanity check IStats::reportBatteryHealthSnapshot.
-TEST_F(StatsHidlTest, reportBatteryHealthSnapshot) {
+TEST_P(StatsHidlTest, reportBatteryHealthSnapshot) {
     BatteryHealthSnapshotArgs args{.temperatureDeciC = 3000,
                                    .voltageMicroV = 1,
                                    .currentMicroA = 2,
@@ -108,7 +95,7 @@ TEST_F(StatsHidlTest, reportBatteryHealthSnapshot) {
 }
 
 // Sanity check IStats::reportSlowIo.
-TEST_F(StatsHidlTest, reportSlowIo) {
+TEST_P(StatsHidlTest, reportSlowIo) {
     SlowIo slowio = {.operation = SlowIo::IoOperation::READ, .count = 5};
 
     Return<void> ret;
@@ -118,7 +105,7 @@ TEST_F(StatsHidlTest, reportSlowIo) {
 }
 
 // Sanity check IStats::reportBatteryCausedShutdown.
-TEST_F(StatsHidlTest, reportBatteryCausedShutdown) {
+TEST_P(StatsHidlTest, reportBatteryCausedShutdown) {
     BatteryCausedShutdown shutdown = {.voltageMicroV = 3};
 
     Return<void> ret;
@@ -127,9 +114,9 @@ TEST_F(StatsHidlTest, reportBatteryCausedShutdown) {
 }
 
 // Sanity check IStats::reportUsbPortOverheatEvent.
-TEST_F(StatsHidlTest, reportUsbPortOverheatEvent) {
-    UsbPortOverheatEvent event = {.maxTemperatureDeciC = 220,
-                                  .plugTemperatureDeciC = 210,
+TEST_P(StatsHidlTest, reportUsbPortOverheatEvent) {
+    UsbPortOverheatEvent event = {.plugTemperatureDeciC = 210,
+                                  .maxTemperatureDeciC = 220,
                                   .timeToOverheat = 1,
                                   .timeToHysteresis = 2,
                                   .timeToInactive = 3};
@@ -140,7 +127,7 @@ TEST_F(StatsHidlTest, reportUsbPortOverheatEvent) {
 }
 
 // Sanity check IStats::reportVendorAtom.
-TEST_F(StatsHidlTest, reportVendorAtom) {
+TEST_P(StatsHidlTest, reportVendorAtom) {
     std::vector<Value> values;
     Value tmp;
     tmp.longValue(70000);
@@ -160,11 +147,7 @@ TEST_F(StatsHidlTest, reportVendorAtom) {
     ASSERT_TRUE(ret.isOk());
 }
 
-int main(int argc, char** argv) {
-    ::testing::AddGlobalTestEnvironment(StatsHidlEnvironment::Instance());
-    ::testing::InitGoogleTest(&argc, argv);
-    StatsHidlEnvironment::Instance()->init(&argc, argv);
-    int status = RUN_ALL_TESTS();
-    LOG(INFO) << "Test result = " << status;
-    return status;
-}
+INSTANTIATE_TEST_SUITE_P(
+        PerInstance, StatsHidlTest,
+        testing::ValuesIn(android::hardware::getAllHalInstanceNames(IStats::descriptor)),
+        android::hardware::PrintInstanceNameToString);

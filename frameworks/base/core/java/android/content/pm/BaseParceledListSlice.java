@@ -16,7 +16,7 @@
 
 package android.content.pm;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
@@ -47,7 +47,7 @@ abstract class BaseParceledListSlice<T> implements Parcelable {
      * TODO get this number from somewhere else. For now set it to a quarter of
      * the 1MB limit.
      */
-    private static final int MAX_IPC_SIZE = IBinder.MAX_IPC_SIZE;
+    private static final int MAX_IPC_SIZE = IBinder.getSuggestedMaxIpcSizeBytes();
 
     private final List<T> mList;
 

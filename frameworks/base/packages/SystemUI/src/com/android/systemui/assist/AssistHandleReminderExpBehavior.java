@@ -16,6 +16,9 @@
 
 package com.android.systemui.assist;
 
+import static com.android.systemui.assist.AssistModule.ASSIST_HANDLE_THREAD_NAME;
+import static com.android.systemui.assist.AssistModule.UPTIME_NAME;
+
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -24,14 +27,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ResolveInfo;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.provider.Settings;
 
 import androidx.annotation.Nullable;
+import androidx.slice.Clock;
 
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
-import com.android.systemui.Dependency;
+import com.android.systemui.BootCompleteCache;
 import com.android.systemui.assist.AssistHandleBehaviorController.BehaviorController;
+import com.android.systemui.broadcast.BroadcastDispatcher;
+import com.android.systemui.keyguard.WakefulnessLifecycle;
+import com.android.systemui.model.SysUiState;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.recents.OverviewProxyService;
 import com.android.systemui.shared.system.ActivityManagerWrapper;
@@ -46,11 +52,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
+import dagger.Lazy;
+
 /**
  * Assistant handle behavior that hides the handles when the phone is dozing or in immersive mode,
  * shows the handles when on lockscreen, and shows the handles temporarily when changing tasks or
  * entering overview.
  */
+@Singleton
 final class AssistHandleReminderExpBehavior implements BehaviorController {
 
     private static final String LEARNING_TIME_ELAPSED_KEY = "reminder_exp_learning_time_elapsed";
@@ -71,7 +84,6 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
 
     private static final String[] DEFAULT_HOME_CHANGE_ACTIONS = new String[] {
             PackageManagerWrapper.ACTION_PREFERRED_ACTIVITY_CHANGED,
-            Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_PACKAGE_ADDED,
             Intent.ACTION_PACKAGE_CHANGED,
             Intent.ACTION_PACKAGE_REMOVED
@@ -107,10 +119,29 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
                 public void onOverviewShown(boolean fromHome) {
                     handleOverviewShown();
                 }
+            };
+    private final SysUiState.SysUiStateCallback mSysUiStateCallback =
+            this::handleSystemUiStateChanged;
+    private final WakefulnessLifecycle.Observer mWakefulnessLifecycleObserver =
+            new WakefulnessLifecycle.Observer() {
+                @Override
+                public void onStartedWakingUp() {
+                    handleWakefullnessChanged(/* isAwake = */ false);
+                }
 
                 @Override
-                public void onSystemUiStateChanged(int sysuiStateFlags) {
-                    handleSystemUiStateChanged(sysuiStateFlags);
+                public void onFinishedWakingUp() {
+                    handleWakefullnessChanged(/* isAwake = */ true);
+                }
+
+                @Override
+                public void onStartedGoingToSleep() {
+                    handleWakefullnessChanged(/* isAwake = */ false);
+                }
+
+                @Override
+                public void onFinishedGoingToSleep() {
+                    handleWakefullnessChanged(/* isAwake = */ false);
                 }
             };
     private final BroadcastReceiver mDefaultHomeBroadcastReceiver = new BroadcastReceiver() {
@@ -119,17 +150,33 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
             mDefaultHome = getCurrentDefaultHome();
         }
     };
+
+    private final BootCompleteCache.BootCompleteListener mBootCompleteListener =
+            new BootCompleteCache.BootCompleteListener() {
+        @Override
+        public void onBootComplete() {
+            mDefaultHome = getCurrentDefaultHome();
+        }
+    };
+
     private final IntentFilter mDefaultHomeIntentFilter;
     private final Runnable mResetConsecutiveTaskSwitches = this::resetConsecutiveTaskSwitches;
 
+    private final Clock mClock;
     private final Handler mHandler;
-    private final PhenotypeHelper mPhenotypeHelper;
-    private final StatusBarStateController mStatusBarStateController;
-    private final ActivityManagerWrapper mActivityManagerWrapper;
-    private final OverviewProxyService mOverviewProxyService;
+    private final DeviceConfigHelper mDeviceConfigHelper;
+    private final Lazy<StatusBarStateController> mStatusBarStateController;
+    private final Lazy<ActivityManagerWrapper> mActivityManagerWrapper;
+    private final Lazy<OverviewProxyService> mOverviewProxyService;
+    private final Lazy<SysUiState> mSysUiFlagContainer;
+    private final Lazy<WakefulnessLifecycle> mWakefulnessLifecycle;
+    private final Lazy<PackageManagerWrapper> mPackageManagerWrapper;
+    private final Lazy<BroadcastDispatcher> mBroadcastDispatcher;
+    private final Lazy<BootCompleteCache> mBootCompleteCache;
 
     private boolean mOnLockscreen;
     private boolean mIsDozing;
+    private boolean mIsAwake;
     private int mRunningTaskId;
     private boolean mIsNavBarHidden;
     private boolean mIsLauncherShowing;
@@ -148,16 +195,34 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
     @Nullable private AssistHandleCallbacks mAssistHandleCallbacks;
     @Nullable private ComponentName mDefaultHome;
 
-    AssistHandleReminderExpBehavior(Handler handler, PhenotypeHelper phenotypeHelper) {
+    @Inject
+    AssistHandleReminderExpBehavior(
+            @Named(UPTIME_NAME) Clock clock,
+            @Named(ASSIST_HANDLE_THREAD_NAME) Handler handler,
+            DeviceConfigHelper deviceConfigHelper,
+            Lazy<StatusBarStateController> statusBarStateController,
+            Lazy<ActivityManagerWrapper> activityManagerWrapper,
+            Lazy<OverviewProxyService> overviewProxyService,
+            Lazy<SysUiState> sysUiFlagContainer,
+            Lazy<WakefulnessLifecycle> wakefulnessLifecycle,
+            Lazy<PackageManagerWrapper> packageManagerWrapper,
+            Lazy<BroadcastDispatcher> broadcastDispatcher,
+            Lazy<BootCompleteCache> bootCompleteCache) {
+        mClock = clock;
         mHandler = handler;
-        mPhenotypeHelper = phenotypeHelper;
-        mStatusBarStateController = Dependency.get(StatusBarStateController.class);
-        mActivityManagerWrapper = ActivityManagerWrapper.getInstance();
-        mOverviewProxyService = Dependency.get(OverviewProxyService.class);
+        mDeviceConfigHelper = deviceConfigHelper;
+        mStatusBarStateController = statusBarStateController;
+        mActivityManagerWrapper = activityManagerWrapper;
+        mOverviewProxyService = overviewProxyService;
+        mSysUiFlagContainer = sysUiFlagContainer;
+        mWakefulnessLifecycle = wakefulnessLifecycle;
+        mPackageManagerWrapper = packageManagerWrapper;
         mDefaultHomeIntentFilter = new IntentFilter();
         for (String action : DEFAULT_HOME_CHANGE_ACTIONS) {
             mDefaultHomeIntentFilter.addAction(action);
         }
+        mBroadcastDispatcher = broadcastDispatcher;
+        mBootCompleteCache = bootCompleteCache;
     }
 
     @Override
@@ -165,15 +230,22 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
         mContext = context;
         mAssistHandleCallbacks = callbacks;
         mConsecutiveTaskSwitches = 0;
+        mBootCompleteCache.get().addListener(mBootCompleteListener);
         mDefaultHome = getCurrentDefaultHome();
-        context.registerReceiver(mDefaultHomeBroadcastReceiver, mDefaultHomeIntentFilter);
-        mOnLockscreen = onLockscreen(mStatusBarStateController.getState());
-        mIsDozing = mStatusBarStateController.isDozing();
-        mStatusBarStateController.addCallback(mStatusBarStateListener);
-        ActivityManager.RunningTaskInfo runningTaskInfo = mActivityManagerWrapper.getRunningTask();
+        mBroadcastDispatcher.get()
+                .registerReceiver(mDefaultHomeBroadcastReceiver, mDefaultHomeIntentFilter);
+        mOnLockscreen = onLockscreen(mStatusBarStateController.get().getState());
+        mIsDozing = mStatusBarStateController.get().isDozing();
+        mStatusBarStateController.get().addCallback(mStatusBarStateListener);
+        ActivityManager.RunningTaskInfo runningTaskInfo =
+                mActivityManagerWrapper.get().getRunningTask();
         mRunningTaskId = runningTaskInfo == null ? 0 : runningTaskInfo.taskId;
-        mActivityManagerWrapper.registerTaskStackListener(mTaskStackChangeListener);
-        mOverviewProxyService.addCallback(mOverviewProxyListener);
+        mActivityManagerWrapper.get().registerTaskStackListener(mTaskStackChangeListener);
+        mOverviewProxyService.get().addCallback(mOverviewProxyListener);
+        mSysUiFlagContainer.get().addCallback(mSysUiStateCallback);
+        mIsAwake = mWakefulnessLifecycle.get().getWakefulness()
+                == WakefulnessLifecycle.WAKEFULNESS_AWAKE;
+        mWakefulnessLifecycle.get().addObserver(mWakefulnessLifecycleObserver);
 
         mLearningTimeElapsed = Settings.Secure.getLong(
                 context.getContentResolver(), LEARNING_TIME_ELAPSED_KEY, /* default = */ 0);
@@ -181,7 +253,7 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
                 context.getContentResolver(), LEARNING_EVENT_COUNT_KEY, /* default = */ 0);
         mLearnedHintLastShownEpochDay = Settings.Secure.getLong(
                 context.getContentResolver(), LEARNED_HINT_LAST_SHOWN_KEY, /* default = */ 0);
-        mLastLearningTimestamp = SystemClock.uptimeMillis();
+        mLastLearningTimestamp = mClock.currentTimeMillis();
 
         callbackForCurrentState(/* justUnlocked = */ false);
     }
@@ -190,15 +262,18 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
     public void onModeDeactivated() {
         mAssistHandleCallbacks = null;
         if (mContext != null) {
-            mContext.unregisterReceiver(mDefaultHomeBroadcastReceiver);
+            mBroadcastDispatcher.get().unregisterReceiver(mDefaultHomeBroadcastReceiver);
+            mBootCompleteCache.get().removeListener(mBootCompleteListener);
             Settings.Secure.putLong(mContext.getContentResolver(), LEARNING_TIME_ELAPSED_KEY, 0);
             Settings.Secure.putInt(mContext.getContentResolver(), LEARNING_EVENT_COUNT_KEY, 0);
             Settings.Secure.putLong(mContext.getContentResolver(), LEARNED_HINT_LAST_SHOWN_KEY, 0);
             mContext = null;
         }
-        mStatusBarStateController.removeCallback(mStatusBarStateListener);
-        mActivityManagerWrapper.unregisterTaskStackListener(mTaskStackChangeListener);
-        mOverviewProxyService.removeCallback(mOverviewProxyListener);
+        mStatusBarStateController.get().removeCallback(mStatusBarStateListener);
+        mActivityManagerWrapper.get().unregisterTaskStackListener(mTaskStackChangeListener);
+        mOverviewProxyService.get().removeCallback(mOverviewProxyListener);
+        mSysUiFlagContainer.get().removeCallback(mSysUiStateCallback);
+        mWakefulnessLifecycle.get().removeObserver(mWakefulnessLifecycleObserver);
     }
 
     @Override
@@ -211,15 +286,20 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
                 mContext.getContentResolver(), LEARNING_EVENT_COUNT_KEY, ++mLearningCount);
     }
 
-    private static boolean isNavBarHidden(int sysuiStateFlags) {
-        return (sysuiStateFlags & QuickStepContract.SYSUI_STATE_NAV_BAR_HIDDEN) != 0;
+    @Override
+    public void onAssistHandlesRequested() {
+        if (mAssistHandleCallbacks != null
+                && isFullyAwake()
+                && !mIsNavBarHidden
+                && !mOnLockscreen) {
+            mAssistHandleCallbacks.showAndGo();
+        }
     }
 
     @Nullable
-    private static ComponentName getCurrentDefaultHome() {
+    private ComponentName getCurrentDefaultHome() {
         List<ResolveInfo> homeActivities = new ArrayList<>();
-        ComponentName defaultHome =
-                PackageManagerWrapper.getInstance().getHomeActivities(homeActivities);
+        ComponentName defaultHome = mPackageManagerWrapper.get().getHomeActivities(homeActivities);
         if (defaultHome != null) {
             return defaultHome;
         }
@@ -258,6 +338,16 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
         callbackForCurrentState(/* justUnlocked = */ false);
     }
 
+    private void handleWakefullnessChanged(boolean isAwake) {
+        if (mIsAwake == isAwake) {
+            return;
+        }
+
+        resetConsecutiveTaskSwitches();
+        mIsAwake = isAwake;
+        callbackForCurrentState(/* justUnlocked = */ false);
+    }
+
     private void handleTaskStackTopChanged(int taskId, @Nullable ComponentName taskComponentName) {
         if (mRunningTaskId == taskId || taskComponentName == null) {
             return;
@@ -275,7 +365,8 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
     }
 
     private void handleSystemUiStateChanged(int sysuiStateFlags) {
-        boolean isNavBarHidden = isNavBarHidden(sysuiStateFlags);
+        boolean isNavBarHidden =
+                (sysuiStateFlags & QuickStepContract.SYSUI_STATE_NAV_BAR_HIDDEN) != 0;
         if (mIsNavBarHidden == isNavBarHidden) {
             return;
         }
@@ -310,7 +401,7 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
             return;
         }
 
-        if (mIsDozing || mIsNavBarHidden || mOnLockscreen || !getShowWhenTaught()) {
+        if (!isFullyAwake() || mIsNavBarHidden || mOnLockscreen || !getShowWhenTaught()) {
             mAssistHandleCallbacks.hide();
         } else if (justUnlocked) {
             long currentEpochDay = LocalDate.now().toEpochDay();
@@ -332,7 +423,7 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
             return;
         }
 
-        if (mIsDozing || mIsNavBarHidden || isSuppressed()) {
+        if (!isFullyAwake() || mIsNavBarHidden || isSuppressed()) {
             mAssistHandleCallbacks.hide();
         } else if (mOnLockscreen) {
             mAssistHandleCallbacks.showAndStay();
@@ -362,14 +453,15 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
             return;
         }
 
-        long currentTimestamp = SystemClock.uptimeMillis();
+        long currentTimestamp = mClock.currentTimeMillis();
         mLearningTimeElapsed += currentTimestamp - mLastLearningTimestamp;
         mLastLearningTimestamp = currentTimestamp;
-        Settings.Secure.putLong(
-                mContext.getContentResolver(), LEARNING_TIME_ELAPSED_KEY, mLearningTimeElapsed);
 
         mIsLearned =
                 mLearningCount >= getLearningCount() || mLearningTimeElapsed >= getLearningTimeMs();
+
+        mHandler.post(() -> Settings.Secure.putLong(
+                mContext.getContentResolver(), LEARNING_TIME_ELAPSED_KEY, mLearningTimeElapsed));
     }
 
     private void resetConsecutiveTaskSwitches() {
@@ -382,56 +474,60 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
         mHandler.postDelayed(mResetConsecutiveTaskSwitches, getShowAndGoDelayResetTimeoutMs());
     }
 
+    private boolean isFullyAwake() {
+        return mIsAwake && !mIsDozing;
+    }
+
     private long getLearningTimeMs() {
-        return mPhenotypeHelper.getLong(
+        return mDeviceConfigHelper.getLong(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_LEARN_TIME_MS,
                 DEFAULT_LEARNING_TIME_MS);
     }
 
     private int getLearningCount() {
-        return mPhenotypeHelper.getInt(
+        return mDeviceConfigHelper.getInt(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_LEARN_COUNT,
                 DEFAULT_LEARNING_COUNT);
     }
 
     private long getShowAndGoDelayedShortDelayMs() {
-        return mPhenotypeHelper.getLong(
+        return mDeviceConfigHelper.getLong(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SHOW_AND_GO_DELAYED_SHORT_DELAY_MS,
                 DEFAULT_SHOW_AND_GO_DELAYED_SHORT_DELAY_MS);
     }
 
     private long getShowAndGoDelayedLongDelayMs() {
-        return mPhenotypeHelper.getLong(
+        return mDeviceConfigHelper.getLong(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SHOW_AND_GO_DELAYED_LONG_DELAY_MS,
                 DEFAULT_SHOW_AND_GO_DELAYED_LONG_DELAY_MS);
     }
 
     private long getShowAndGoDelayResetTimeoutMs() {
-        return mPhenotypeHelper.getLong(
+        return mDeviceConfigHelper.getLong(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SHOW_AND_GO_DELAY_RESET_TIMEOUT_MS,
                 DEFAULT_SHOW_AND_GO_DELAY_RESET_TIMEOUT_MS);
     }
 
     private boolean getSuppressOnLockscreen() {
-        return mPhenotypeHelper.getBoolean(
+        return mDeviceConfigHelper.getBoolean(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SUPPRESS_ON_LOCKSCREEN,
                 DEFAULT_SUPPRESS_ON_LOCKSCREEN);
     }
 
     private boolean getSuppressOnLauncher() {
-        return mPhenotypeHelper.getBoolean(
+        return mDeviceConfigHelper.getBoolean(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SUPPRESS_ON_LAUNCHER,
                 DEFAULT_SUPPRESS_ON_LAUNCHER);
     }
 
     private boolean getSuppressOnApps() {
-        return mPhenotypeHelper.getBoolean(
+        return mDeviceConfigHelper.getBoolean(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SUPPRESS_ON_APPS,
                 DEFAULT_SUPPRESS_ON_APPS);
     }
 
     private boolean getShowWhenTaught() {
-        return mPhenotypeHelper.getBoolean(
+        return mDeviceConfigHelper.getBoolean(
                 SystemUiDeviceConfigFlags.ASSIST_HANDLES_SHOW_WHEN_TAUGHT,
                 DEFAULT_SHOW_WHEN_TAUGHT);
     }
@@ -441,6 +537,7 @@ final class AssistHandleReminderExpBehavior implements BehaviorController {
         pw.println(prefix + "Current AssistHandleReminderExpBehavior State:");
         pw.println(prefix + "   mOnLockscreen=" + mOnLockscreen);
         pw.println(prefix + "   mIsDozing=" + mIsDozing);
+        pw.println(prefix + "   mIsAwake=" + mIsAwake);
         pw.println(prefix + "   mRunningTaskId=" + mRunningTaskId);
         pw.println(prefix + "   mDefaultHome=" + mDefaultHome);
         pw.println(prefix + "   mIsNavBarHidden=" + mIsNavBarHidden);

@@ -29,15 +29,16 @@ import android.util.Log;
 import android.util.LruCache;
 
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.Preconditions;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * {@link INetworkScoreCache} implementation for Wifi Networks.
  *
+ * TODO: This should not be part of wifi mainline module.
  * @hide
  */
 public class WifiNetworkScoreCache extends INetworkScoreCache.Stub {
@@ -289,7 +290,7 @@ public class WifiNetworkScoreCache extends INetworkScoreCache.Stub {
          *          This cannot be null.
          */
         public CacheListener(@NonNull Handler handler) {
-            Preconditions.checkNotNull(handler);
+            Objects.requireNonNull(handler);
             mHandler = handler;
         }
 

@@ -10,1439 +10,1483 @@ const char SCRIPT_CODES[][4] = {
     /* 6  */ {'B', 'a', 's', 's'},
     /* 7  */ {'B', 'e', 'n', 'g'},
     /* 8  */ {'B', 'r', 'a', 'h'},
-    /* 9  */ {'C', 'a', 'n', 's'},
-    /* 10 */ {'C', 'a', 'r', 'i'},
-    /* 11 */ {'C', 'h', 'a', 'm'},
-    /* 12 */ {'C', 'h', 'e', 'r'},
-    /* 13 */ {'C', 'o', 'p', 't'},
-    /* 14 */ {'C', 'p', 'r', 't'},
-    /* 15 */ {'C', 'y', 'r', 'l'},
-    /* 16 */ {'D', 'e', 'v', 'a'},
-    /* 17 */ {'E', 'g', 'y', 'p'},
-    /* 18 */ {'E', 't', 'h', 'i'},
-    /* 19 */ {'G', 'e', 'o', 'r'},
-    /* 20 */ {'G', 'o', 't', 'h'},
-    /* 21 */ {'G', 'r', 'e', 'k'},
-    /* 22 */ {'G', 'u', 'j', 'r'},
-    /* 23 */ {'G', 'u', 'r', 'u'},
-    /* 24 */ {'H', 'a', 'n', 's'},
-    /* 25 */ {'H', 'a', 'n', 't'},
-    /* 26 */ {'H', 'a', 't', 'r'},
-    /* 27 */ {'H', 'e', 'b', 'r'},
-    /* 28 */ {'H', 'l', 'u', 'w'},
-    /* 29 */ {'H', 'm', 'n', 'g'},
-    /* 30 */ {'I', 't', 'a', 'l'},
-    /* 31 */ {'J', 'p', 'a', 'n'},
-    /* 32 */ {'K', 'a', 'l', 'i'},
-    /* 33 */ {'K', 'a', 'n', 'a'},
-    /* 34 */ {'K', 'h', 'a', 'r'},
-    /* 35 */ {'K', 'h', 'm', 'r'},
-    /* 36 */ {'K', 'n', 'd', 'a'},
-    /* 37 */ {'K', 'o', 'r', 'e'},
-    /* 38 */ {'L', 'a', 'n', 'a'},
-    /* 39 */ {'L', 'a', 'o', 'o'},
-    /* 40 */ {'L', 'a', 't', 'n'},
-    /* 41 */ {'L', 'e', 'p', 'c'},
-    /* 42 */ {'L', 'i', 'n', 'a'},
-    /* 43 */ {'L', 'i', 's', 'u'},
-    /* 44 */ {'L', 'y', 'c', 'i'},
-    /* 45 */ {'L', 'y', 'd', 'i'},
-    /* 46 */ {'M', 'a', 'n', 'd'},
-    /* 47 */ {'M', 'a', 'n', 'i'},
-    /* 48 */ {'M', 'e', 'r', 'c'},
-    /* 49 */ {'M', 'l', 'y', 'm'},
-    /* 50 */ {'M', 'o', 'n', 'g'},
-    /* 51 */ {'M', 'r', 'o', 'o'},
-    /* 52 */ {'M', 'y', 'm', 'r'},
-    /* 53 */ {'N', 'a', 'r', 'b'},
-    /* 54 */ {'N', 'k', 'o', 'o'},
-    /* 55 */ {'O', 'g', 'a', 'm'},
-    /* 56 */ {'O', 'r', 'k', 'h'},
-    /* 57 */ {'O', 'r', 'y', 'a'},
-    /* 58 */ {'O', 's', 'g', 'e'},
-    /* 59 */ {'P', 'a', 'u', 'c'},
-    /* 60 */ {'P', 'h', 'l', 'i'},
-    /* 61 */ {'P', 'h', 'n', 'x'},
-    /* 62 */ {'P', 'l', 'r', 'd'},
-    /* 63 */ {'P', 'r', 't', 'i'},
-    /* 64 */ {'R', 'u', 'n', 'r'},
-    /* 65 */ {'S', 'a', 'm', 'r'},
-    /* 66 */ {'S', 'a', 'r', 'b'},
-    /* 67 */ {'S', 'a', 'u', 'r'},
-    /* 68 */ {'S', 'g', 'n', 'w'},
-    /* 69 */ {'S', 'i', 'n', 'h'},
-    /* 70 */ {'S', 'o', 'r', 'a'},
-    /* 71 */ {'S', 'y', 'r', 'c'},
-    /* 72 */ {'T', 'a', 'l', 'e'},
-    /* 73 */ {'T', 'a', 'l', 'u'},
-    /* 74 */ {'T', 'a', 'm', 'l'},
-    /* 75 */ {'T', 'a', 'n', 'g'},
-    /* 76 */ {'T', 'a', 'v', 't'},
-    /* 77 */ {'T', 'e', 'l', 'u'},
-    /* 78 */ {'T', 'f', 'n', 'g'},
-    /* 79 */ {'T', 'h', 'a', 'a'},
-    /* 80 */ {'T', 'h', 'a', 'i'},
-    /* 81 */ {'T', 'i', 'b', 't'},
-    /* 82 */ {'U', 'g', 'a', 'r'},
-    /* 83 */ {'V', 'a', 'i', 'i'},
-    /* 84 */ {'X', 'p', 'e', 'o'},
-    /* 85 */ {'X', 's', 'u', 'x'},
-    /* 86 */ {'Y', 'i', 'i', 'i'},
-    /* 87 */ {'~', '~', '~', 'A'},
-    /* 88 */ {'~', '~', '~', 'B'},
+    /* 9  */ {'C', 'a', 'k', 'm'},
+    /* 10 */ {'C', 'a', 'n', 's'},
+    /* 11 */ {'C', 'a', 'r', 'i'},
+    /* 12 */ {'C', 'h', 'a', 'm'},
+    /* 13 */ {'C', 'h', 'e', 'r'},
+    /* 14 */ {'C', 'h', 'r', 's'},
+    /* 15 */ {'C', 'o', 'p', 't'},
+    /* 16 */ {'C', 'p', 'r', 't'},
+    /* 17 */ {'C', 'y', 'r', 'l'},
+    /* 18 */ {'D', 'e', 'v', 'a'},
+    /* 19 */ {'E', 'g', 'y', 'p'},
+    /* 20 */ {'E', 't', 'h', 'i'},
+    /* 21 */ {'G', 'e', 'o', 'r'},
+    /* 22 */ {'G', 'o', 'n', 'g'},
+    /* 23 */ {'G', 'o', 'n', 'm'},
+    /* 24 */ {'G', 'o', 't', 'h'},
+    /* 25 */ {'G', 'r', 'e', 'k'},
+    /* 26 */ {'G', 'u', 'j', 'r'},
+    /* 27 */ {'G', 'u', 'r', 'u'},
+    /* 28 */ {'H', 'a', 'n', 's'},
+    /* 29 */ {'H', 'a', 'n', 't'},
+    /* 30 */ {'H', 'a', 't', 'r'},
+    /* 31 */ {'H', 'e', 'b', 'r'},
+    /* 32 */ {'H', 'l', 'u', 'w'},
+    /* 33 */ {'H', 'm', 'n', 'g'},
+    /* 34 */ {'H', 'm', 'n', 'p'},
+    /* 35 */ {'I', 't', 'a', 'l'},
+    /* 36 */ {'J', 'p', 'a', 'n'},
+    /* 37 */ {'K', 'a', 'l', 'i'},
+    /* 38 */ {'K', 'a', 'n', 'a'},
+    /* 39 */ {'K', 'h', 'a', 'r'},
+    /* 40 */ {'K', 'h', 'm', 'r'},
+    /* 41 */ {'K', 'i', 't', 's'},
+    /* 42 */ {'K', 'n', 'd', 'a'},
+    /* 43 */ {'K', 'o', 'r', 'e'},
+    /* 44 */ {'L', 'a', 'n', 'a'},
+    /* 45 */ {'L', 'a', 'o', 'o'},
+    /* 46 */ {'L', 'a', 't', 'n'},
+    /* 47 */ {'L', 'e', 'p', 'c'},
+    /* 48 */ {'L', 'i', 'n', 'a'},
+    /* 49 */ {'L', 'i', 's', 'u'},
+    /* 50 */ {'L', 'y', 'c', 'i'},
+    /* 51 */ {'L', 'y', 'd', 'i'},
+    /* 52 */ {'M', 'a', 'n', 'd'},
+    /* 53 */ {'M', 'a', 'n', 'i'},
+    /* 54 */ {'M', 'e', 'r', 'c'},
+    /* 55 */ {'M', 'l', 'y', 'm'},
+    /* 56 */ {'M', 'o', 'n', 'g'},
+    /* 57 */ {'M', 'r', 'o', 'o'},
+    /* 58 */ {'M', 'y', 'm', 'r'},
+    /* 59 */ {'N', 'a', 'r', 'b'},
+    /* 60 */ {'N', 'k', 'o', 'o'},
+    /* 61 */ {'N', 's', 'h', 'u'},
+    /* 62 */ {'O', 'g', 'a', 'm'},
+    /* 63 */ {'O', 'r', 'k', 'h'},
+    /* 64 */ {'O', 'r', 'y', 'a'},
+    /* 65 */ {'O', 's', 'g', 'e'},
+    /* 66 */ {'P', 'a', 'u', 'c'},
+    /* 67 */ {'P', 'h', 'l', 'i'},
+    /* 68 */ {'P', 'h', 'n', 'x'},
+    /* 69 */ {'P', 'l', 'r', 'd'},
+    /* 70 */ {'P', 'r', 't', 'i'},
+    /* 71 */ {'R', 'u', 'n', 'r'},
+    /* 72 */ {'S', 'a', 'm', 'r'},
+    /* 73 */ {'S', 'a', 'r', 'b'},
+    /* 74 */ {'S', 'a', 'u', 'r'},
+    /* 75 */ {'S', 'g', 'n', 'w'},
+    /* 76 */ {'S', 'i', 'n', 'h'},
+    /* 77 */ {'S', 'o', 'g', 'd'},
+    /* 78 */ {'S', 'o', 'r', 'a'},
+    /* 79 */ {'S', 'o', 'y', 'o'},
+    /* 80 */ {'S', 'y', 'r', 'c'},
+    /* 81 */ {'T', 'a', 'l', 'e'},
+    /* 82 */ {'T', 'a', 'l', 'u'},
+    /* 83 */ {'T', 'a', 'm', 'l'},
+    /* 84 */ {'T', 'a', 'n', 'g'},
+    /* 85 */ {'T', 'a', 'v', 't'},
+    /* 86 */ {'T', 'e', 'l', 'u'},
+    /* 87 */ {'T', 'f', 'n', 'g'},
+    /* 88 */ {'T', 'h', 'a', 'a'},
+    /* 89 */ {'T', 'h', 'a', 'i'},
+    /* 90 */ {'T', 'i', 'b', 't'},
+    /* 91 */ {'U', 'g', 'a', 'r'},
+    /* 92 */ {'V', 'a', 'i', 'i'},
+    /* 93 */ {'W', 'c', 'h', 'o'},
+    /* 94 */ {'X', 'p', 'e', 'o'},
+    /* 95 */ {'X', 's', 'u', 'x'},
+    /* 96 */ {'Y', 'i', 'i', 'i'},
+    /* 97 */ {'~', '~', '~', 'A'},
+    /* 98 */ {'~', '~', '~', 'B'},
 };
 
 
 const std::unordered_map<uint32_t, uint8_t> LIKELY_SCRIPTS({
-    {0x61610000u, 40u}, // aa -> Latn
-    {0xA0000000u, 40u}, // aai -> Latn
-    {0xA8000000u, 40u}, // aak -> Latn
-    {0xD0000000u, 40u}, // aau -> Latn
-    {0x61620000u, 15u}, // ab -> Cyrl
-    {0xA0200000u, 40u}, // abi -> Latn
-    {0xC4200000u, 40u}, // abr -> Latn
-    {0xCC200000u, 40u}, // abt -> Latn
-    {0xE0200000u, 40u}, // aby -> Latn
-    {0x8C400000u, 40u}, // acd -> Latn
-    {0x90400000u, 40u}, // ace -> Latn
-    {0x9C400000u, 40u}, // ach -> Latn
-    {0x80600000u, 40u}, // ada -> Latn
-    {0x90600000u, 40u}, // ade -> Latn
-    {0xA4600000u, 40u}, // adj -> Latn
-    {0xE0600000u, 15u}, // ady -> Cyrl
-    {0xE4600000u, 40u}, // adz -> Latn
+    {0x61610000u, 46u}, // aa -> Latn
+    {0xA0000000u, 46u}, // aai -> Latn
+    {0xA8000000u, 46u}, // aak -> Latn
+    {0xD0000000u, 46u}, // aau -> Latn
+    {0x61620000u, 17u}, // ab -> Cyrl
+    {0xA0200000u, 46u}, // abi -> Latn
+    {0xC0200000u, 17u}, // abq -> Cyrl
+    {0xC4200000u, 46u}, // abr -> Latn
+    {0xCC200000u, 46u}, // abt -> Latn
+    {0xE0200000u, 46u}, // aby -> Latn
+    {0x8C400000u, 46u}, // acd -> Latn
+    {0x90400000u, 46u}, // ace -> Latn
+    {0x9C400000u, 46u}, // ach -> Latn
+    {0x80600000u, 46u}, // ada -> Latn
+    {0x90600000u, 46u}, // ade -> Latn
+    {0xA4600000u, 46u}, // adj -> Latn
+    {0xBC600000u, 90u}, // adp -> Tibt
+    {0xE0600000u, 17u}, // ady -> Cyrl
+    {0xE4600000u, 46u}, // adz -> Latn
     {0x61650000u,  4u}, // ae -> Avst
     {0x84800000u,  1u}, // aeb -> Arab
-    {0xE0800000u, 40u}, // aey -> Latn
-    {0x61660000u, 40u}, // af -> Latn
-    {0x88C00000u, 40u}, // agc -> Latn
-    {0x8CC00000u, 40u}, // agd -> Latn
-    {0x98C00000u, 40u}, // agg -> Latn
-    {0xB0C00000u, 40u}, // agm -> Latn
-    {0xB8C00000u, 40u}, // ago -> Latn
-    {0xC0C00000u, 40u}, // agq -> Latn
-    {0x80E00000u, 40u}, // aha -> Latn
-    {0xACE00000u, 40u}, // ahl -> Latn
+    {0xE0800000u, 46u}, // aey -> Latn
+    {0x61660000u, 46u}, // af -> Latn
+    {0x88C00000u, 46u}, // agc -> Latn
+    {0x8CC00000u, 46u}, // agd -> Latn
+    {0x98C00000u, 46u}, // agg -> Latn
+    {0xB0C00000u, 46u}, // agm -> Latn
+    {0xB8C00000u, 46u}, // ago -> Latn
+    {0xC0C00000u, 46u}, // agq -> Latn
+    {0x80E00000u, 46u}, // aha -> Latn
+    {0xACE00000u, 46u}, // ahl -> Latn
     {0xB8E00000u,  0u}, // aho -> Ahom
-    {0x99200000u, 40u}, // ajg -> Latn
-    {0x616B0000u, 40u}, // ak -> Latn
-    {0xA9400000u, 85u}, // akk -> Xsux
-    {0x81600000u, 40u}, // ala -> Latn
-    {0xA1600000u, 40u}, // ali -> Latn
-    {0xB5600000u, 40u}, // aln -> Latn
-    {0xCD600000u, 15u}, // alt -> Cyrl
-    {0x616D0000u, 18u}, // am -> Ethi
-    {0xB1800000u, 40u}, // amm -> Latn
-    {0xB5800000u, 40u}, // amn -> Latn
-    {0xB9800000u, 40u}, // amo -> Latn
-    {0xBD800000u, 40u}, // amp -> Latn
-    {0x89A00000u, 40u}, // anc -> Latn
-    {0xA9A00000u, 40u}, // ank -> Latn
-    {0xB5A00000u, 40u}, // ann -> Latn
-    {0xE1A00000u, 40u}, // any -> Latn
-    {0xA5C00000u, 40u}, // aoj -> Latn
-    {0xB1C00000u, 40u}, // aom -> Latn
-    {0xE5C00000u, 40u}, // aoz -> Latn
+    {0x99200000u, 46u}, // ajg -> Latn
+    {0x616B0000u, 46u}, // ak -> Latn
+    {0xA9400000u, 95u}, // akk -> Xsux
+    {0x81600000u, 46u}, // ala -> Latn
+    {0xA1600000u, 46u}, // ali -> Latn
+    {0xB5600000u, 46u}, // aln -> Latn
+    {0xCD600000u, 17u}, // alt -> Cyrl
+    {0x616D0000u, 20u}, // am -> Ethi
+    {0xB1800000u, 46u}, // amm -> Latn
+    {0xB5800000u, 46u}, // amn -> Latn
+    {0xB9800000u, 46u}, // amo -> Latn
+    {0xBD800000u, 46u}, // amp -> Latn
+    {0x616E0000u, 46u}, // an -> Latn
+    {0x89A00000u, 46u}, // anc -> Latn
+    {0xA9A00000u, 46u}, // ank -> Latn
+    {0xB5A00000u, 46u}, // ann -> Latn
+    {0xE1A00000u, 46u}, // any -> Latn
+    {0xA5C00000u, 46u}, // aoj -> Latn
+    {0xB1C00000u, 46u}, // aom -> Latn
+    {0xE5C00000u, 46u}, // aoz -> Latn
     {0x89E00000u,  1u}, // apc -> Arab
     {0x8DE00000u,  1u}, // apd -> Arab
-    {0x91E00000u, 40u}, // ape -> Latn
-    {0xC5E00000u, 40u}, // apr -> Latn
-    {0xC9E00000u, 40u}, // aps -> Latn
-    {0xE5E00000u, 40u}, // apz -> Latn
+    {0x91E00000u, 46u}, // ape -> Latn
+    {0xC5E00000u, 46u}, // apr -> Latn
+    {0xC9E00000u, 46u}, // aps -> Latn
+    {0xE5E00000u, 46u}, // apz -> Latn
     {0x61720000u,  1u}, // ar -> Arab
-    {0x61725842u, 88u}, // ar-XB -> ~~~B
+    {0x61725842u, 98u}, // ar-XB -> ~~~B
     {0x8A200000u,  2u}, // arc -> Armi
-    {0x9E200000u, 40u}, // arh -> Latn
-    {0xB6200000u, 40u}, // arn -> Latn
-    {0xBA200000u, 40u}, // aro -> Latn
+    {0x9E200000u, 46u}, // arh -> Latn
+    {0xB6200000u, 46u}, // arn -> Latn
+    {0xBA200000u, 46u}, // aro -> Latn
     {0xC2200000u,  1u}, // arq -> Arab
+    {0xCA200000u,  1u}, // ars -> Arab
     {0xE2200000u,  1u}, // ary -> Arab
     {0xE6200000u,  1u}, // arz -> Arab
     {0x61730000u,  7u}, // as -> Beng
-    {0x82400000u, 40u}, // asa -> Latn
-    {0x92400000u, 68u}, // ase -> Sgnw
-    {0x9A400000u, 40u}, // asg -> Latn
-    {0xBA400000u, 40u}, // aso -> Latn
-    {0xCE400000u, 40u}, // ast -> Latn
-    {0x82600000u, 40u}, // ata -> Latn
-    {0x9A600000u, 40u}, // atg -> Latn
-    {0xA6600000u, 40u}, // atj -> Latn
-    {0xE2800000u, 40u}, // auy -> Latn
-    {0x61760000u, 15u}, // av -> Cyrl
+    {0x82400000u, 46u}, // asa -> Latn
+    {0x92400000u, 75u}, // ase -> Sgnw
+    {0x9A400000u, 46u}, // asg -> Latn
+    {0xBA400000u, 46u}, // aso -> Latn
+    {0xCE400000u, 46u}, // ast -> Latn
+    {0x82600000u, 46u}, // ata -> Latn
+    {0x9A600000u, 46u}, // atg -> Latn
+    {0xA6600000u, 46u}, // atj -> Latn
+    {0xE2800000u, 46u}, // auy -> Latn
+    {0x61760000u, 17u}, // av -> Cyrl
     {0xAEA00000u,  1u}, // avl -> Arab
-    {0xB6A00000u, 40u}, // avn -> Latn
-    {0xCEA00000u, 40u}, // avt -> Latn
-    {0xD2A00000u, 40u}, // avu -> Latn
-    {0x82C00000u, 16u}, // awa -> Deva
-    {0x86C00000u, 40u}, // awb -> Latn
-    {0xBAC00000u, 40u}, // awo -> Latn
-    {0xDEC00000u, 40u}, // awx -> Latn
-    {0x61790000u, 40u}, // ay -> Latn
-    {0x87000000u, 40u}, // ayb -> Latn
-    {0x617A0000u, 40u}, // az -> Latn
+    {0xB6A00000u, 46u}, // avn -> Latn
+    {0xCEA00000u, 46u}, // avt -> Latn
+    {0xD2A00000u, 46u}, // avu -> Latn
+    {0x82C00000u, 18u}, // awa -> Deva
+    {0x86C00000u, 46u}, // awb -> Latn
+    {0xBAC00000u, 46u}, // awo -> Latn
+    {0xDEC00000u, 46u}, // awx -> Latn
+    {0x61790000u, 46u}, // ay -> Latn
+    {0x87000000u, 46u}, // ayb -> Latn
+    {0x617A0000u, 46u}, // az -> Latn
     {0x617A4951u,  1u}, // az-IQ -> Arab
     {0x617A4952u,  1u}, // az-IR -> Arab
-    {0x617A5255u, 15u}, // az-RU -> Cyrl
-    {0x62610000u, 15u}, // ba -> Cyrl
+    {0x617A5255u, 17u}, // az-RU -> Cyrl
+    {0x62610000u, 17u}, // ba -> Cyrl
     {0xAC010000u,  1u}, // bal -> Arab
-    {0xB4010000u, 40u}, // ban -> Latn
-    {0xBC010000u, 16u}, // bap -> Deva
-    {0xC4010000u, 40u}, // bar -> Latn
-    {0xC8010000u, 40u}, // bas -> Latn
-    {0xD4010000u, 40u}, // bav -> Latn
+    {0xB4010000u, 46u}, // ban -> Latn
+    {0xBC010000u, 18u}, // bap -> Deva
+    {0xC4010000u, 46u}, // bar -> Latn
+    {0xC8010000u, 46u}, // bas -> Latn
+    {0xD4010000u, 46u}, // bav -> Latn
     {0xDC010000u,  5u}, // bax -> Bamu
-    {0x80210000u, 40u}, // bba -> Latn
-    {0x84210000u, 40u}, // bbb -> Latn
-    {0x88210000u, 40u}, // bbc -> Latn
-    {0x8C210000u, 40u}, // bbd -> Latn
-    {0xA4210000u, 40u}, // bbj -> Latn
-    {0xBC210000u, 40u}, // bbp -> Latn
-    {0xC4210000u, 40u}, // bbr -> Latn
-    {0x94410000u, 40u}, // bcf -> Latn
-    {0x9C410000u, 40u}, // bch -> Latn
-    {0xA0410000u, 40u}, // bci -> Latn
-    {0xB0410000u, 40u}, // bcm -> Latn
-    {0xB4410000u, 40u}, // bcn -> Latn
-    {0xB8410000u, 40u}, // bco -> Latn
-    {0xC0410000u, 18u}, // bcq -> Ethi
-    {0xD0410000u, 40u}, // bcu -> Latn
-    {0x8C610000u, 40u}, // bdd -> Latn
-    {0x62650000u, 15u}, // be -> Cyrl
-    {0x94810000u, 40u}, // bef -> Latn
-    {0x9C810000u, 40u}, // beh -> Latn
+    {0x80210000u, 46u}, // bba -> Latn
+    {0x84210000u, 46u}, // bbb -> Latn
+    {0x88210000u, 46u}, // bbc -> Latn
+    {0x8C210000u, 46u}, // bbd -> Latn
+    {0xA4210000u, 46u}, // bbj -> Latn
+    {0xBC210000u, 46u}, // bbp -> Latn
+    {0xC4210000u, 46u}, // bbr -> Latn
+    {0x94410000u, 46u}, // bcf -> Latn
+    {0x9C410000u, 46u}, // bch -> Latn
+    {0xA0410000u, 46u}, // bci -> Latn
+    {0xB0410000u, 46u}, // bcm -> Latn
+    {0xB4410000u, 46u}, // bcn -> Latn
+    {0xB8410000u, 46u}, // bco -> Latn
+    {0xC0410000u, 20u}, // bcq -> Ethi
+    {0xD0410000u, 46u}, // bcu -> Latn
+    {0x8C610000u, 46u}, // bdd -> Latn
+    {0x62650000u, 17u}, // be -> Cyrl
+    {0x94810000u, 46u}, // bef -> Latn
+    {0x9C810000u, 46u}, // beh -> Latn
     {0xA4810000u,  1u}, // bej -> Arab
-    {0xB0810000u, 40u}, // bem -> Latn
-    {0xCC810000u, 40u}, // bet -> Latn
-    {0xD8810000u, 40u}, // bew -> Latn
-    {0xDC810000u, 40u}, // bex -> Latn
-    {0xE4810000u, 40u}, // bez -> Latn
-    {0x8CA10000u, 40u}, // bfd -> Latn
-    {0xC0A10000u, 74u}, // bfq -> Taml
+    {0xB0810000u, 46u}, // bem -> Latn
+    {0xCC810000u, 46u}, // bet -> Latn
+    {0xD8810000u, 46u}, // bew -> Latn
+    {0xDC810000u, 46u}, // bex -> Latn
+    {0xE4810000u, 46u}, // bez -> Latn
+    {0x8CA10000u, 46u}, // bfd -> Latn
+    {0xC0A10000u, 83u}, // bfq -> Taml
     {0xCCA10000u,  1u}, // bft -> Arab
-    {0xE0A10000u, 16u}, // bfy -> Deva
-    {0x62670000u, 15u}, // bg -> Cyrl
-    {0x88C10000u, 16u}, // bgc -> Deva
+    {0xE0A10000u, 18u}, // bfy -> Deva
+    {0x62670000u, 17u}, // bg -> Cyrl
+    {0x88C10000u, 18u}, // bgc -> Deva
     {0xB4C10000u,  1u}, // bgn -> Arab
-    {0xDCC10000u, 21u}, // bgx -> Grek
-    {0x84E10000u, 16u}, // bhb -> Deva
-    {0x98E10000u, 40u}, // bhg -> Latn
-    {0xA0E10000u, 16u}, // bhi -> Deva
-    {0xA8E10000u, 40u}, // bhk -> Latn
-    {0xACE10000u, 40u}, // bhl -> Latn
-    {0xB8E10000u, 16u}, // bho -> Deva
-    {0xE0E10000u, 40u}, // bhy -> Latn
-    {0x62690000u, 40u}, // bi -> Latn
-    {0x85010000u, 40u}, // bib -> Latn
-    {0x99010000u, 40u}, // big -> Latn
-    {0xA9010000u, 40u}, // bik -> Latn
-    {0xB1010000u, 40u}, // bim -> Latn
-    {0xB5010000u, 40u}, // bin -> Latn
-    {0xB9010000u, 40u}, // bio -> Latn
-    {0xC1010000u, 40u}, // biq -> Latn
-    {0x9D210000u, 40u}, // bjh -> Latn
-    {0xA1210000u, 18u}, // bji -> Ethi
-    {0xA5210000u, 16u}, // bjj -> Deva
-    {0xB5210000u, 40u}, // bjn -> Latn
-    {0xB9210000u, 40u}, // bjo -> Latn
-    {0xC5210000u, 40u}, // bjr -> Latn
-    {0xE5210000u, 40u}, // bjz -> Latn
-    {0x89410000u, 40u}, // bkc -> Latn
-    {0xB1410000u, 40u}, // bkm -> Latn
-    {0xC1410000u, 40u}, // bkq -> Latn
-    {0xD1410000u, 40u}, // bku -> Latn
-    {0xD5410000u, 40u}, // bkv -> Latn
-    {0xCD610000u, 76u}, // blt -> Tavt
-    {0x626D0000u, 40u}, // bm -> Latn
-    {0x9D810000u, 40u}, // bmh -> Latn
-    {0xA9810000u, 40u}, // bmk -> Latn
-    {0xC1810000u, 40u}, // bmq -> Latn
-    {0xD1810000u, 40u}, // bmu -> Latn
+    {0xDCC10000u, 25u}, // bgx -> Grek
+    {0x84E10000u, 18u}, // bhb -> Deva
+    {0x98E10000u, 46u}, // bhg -> Latn
+    {0xA0E10000u, 18u}, // bhi -> Deva
+    {0xACE10000u, 46u}, // bhl -> Latn
+    {0xB8E10000u, 18u}, // bho -> Deva
+    {0xE0E10000u, 46u}, // bhy -> Latn
+    {0x62690000u, 46u}, // bi -> Latn
+    {0x85010000u, 46u}, // bib -> Latn
+    {0x99010000u, 46u}, // big -> Latn
+    {0xA9010000u, 46u}, // bik -> Latn
+    {0xB1010000u, 46u}, // bim -> Latn
+    {0xB5010000u, 46u}, // bin -> Latn
+    {0xB9010000u, 46u}, // bio -> Latn
+    {0xC1010000u, 46u}, // biq -> Latn
+    {0x9D210000u, 46u}, // bjh -> Latn
+    {0xA1210000u, 20u}, // bji -> Ethi
+    {0xA5210000u, 18u}, // bjj -> Deva
+    {0xB5210000u, 46u}, // bjn -> Latn
+    {0xB9210000u, 46u}, // bjo -> Latn
+    {0xC5210000u, 46u}, // bjr -> Latn
+    {0xCD210000u, 46u}, // bjt -> Latn
+    {0xE5210000u, 46u}, // bjz -> Latn
+    {0x89410000u, 46u}, // bkc -> Latn
+    {0xB1410000u, 46u}, // bkm -> Latn
+    {0xC1410000u, 46u}, // bkq -> Latn
+    {0xD1410000u, 46u}, // bku -> Latn
+    {0xD5410000u, 46u}, // bkv -> Latn
+    {0xCD610000u, 85u}, // blt -> Tavt
+    {0x626D0000u, 46u}, // bm -> Latn
+    {0x9D810000u, 46u}, // bmh -> Latn
+    {0xA9810000u, 46u}, // bmk -> Latn
+    {0xC1810000u, 46u}, // bmq -> Latn
+    {0xD1810000u, 46u}, // bmu -> Latn
     {0x626E0000u,  7u}, // bn -> Beng
-    {0x99A10000u, 40u}, // bng -> Latn
-    {0xB1A10000u, 40u}, // bnm -> Latn
-    {0xBDA10000u, 40u}, // bnp -> Latn
-    {0x626F0000u, 81u}, // bo -> Tibt
-    {0xA5C10000u, 40u}, // boj -> Latn
-    {0xB1C10000u, 40u}, // bom -> Latn
-    {0xB5C10000u, 40u}, // bon -> Latn
+    {0x99A10000u, 46u}, // bng -> Latn
+    {0xB1A10000u, 46u}, // bnm -> Latn
+    {0xBDA10000u, 46u}, // bnp -> Latn
+    {0x626F0000u, 90u}, // bo -> Tibt
+    {0xA5C10000u, 46u}, // boj -> Latn
+    {0xB1C10000u, 46u}, // bom -> Latn
+    {0xB5C10000u, 46u}, // bon -> Latn
     {0xE1E10000u,  7u}, // bpy -> Beng
-    {0x8A010000u, 40u}, // bqc -> Latn
+    {0x8A010000u, 46u}, // bqc -> Latn
     {0xA2010000u,  1u}, // bqi -> Arab
-    {0xBE010000u, 40u}, // bqp -> Latn
-    {0xD6010000u, 40u}, // bqv -> Latn
-    {0x62720000u, 40u}, // br -> Latn
-    {0x82210000u, 16u}, // bra -> Deva
+    {0xBE010000u, 46u}, // bqp -> Latn
+    {0xD6010000u, 46u}, // bqv -> Latn
+    {0x62720000u, 46u}, // br -> Latn
+    {0x82210000u, 18u}, // bra -> Deva
     {0x9E210000u,  1u}, // brh -> Arab
-    {0xDE210000u, 16u}, // brx -> Deva
-    {0xE6210000u, 40u}, // brz -> Latn
-    {0x62730000u, 40u}, // bs -> Latn
-    {0xA6410000u, 40u}, // bsj -> Latn
+    {0xDE210000u, 18u}, // brx -> Deva
+    {0xE6210000u, 46u}, // brz -> Latn
+    {0x62730000u, 46u}, // bs -> Latn
+    {0xA6410000u, 46u}, // bsj -> Latn
     {0xC2410000u,  6u}, // bsq -> Bass
-    {0xCA410000u, 40u}, // bss -> Latn
-    {0xCE410000u, 18u}, // bst -> Ethi
-    {0xBA610000u, 40u}, // bto -> Latn
-    {0xCE610000u, 40u}, // btt -> Latn
-    {0xD6610000u, 16u}, // btv -> Deva
-    {0x82810000u, 15u}, // bua -> Cyrl
-    {0x8A810000u, 40u}, // buc -> Latn
-    {0x8E810000u, 40u}, // bud -> Latn
-    {0x9A810000u, 40u}, // bug -> Latn
-    {0xAA810000u, 40u}, // buk -> Latn
-    {0xB2810000u, 40u}, // bum -> Latn
-    {0xBA810000u, 40u}, // buo -> Latn
-    {0xCA810000u, 40u}, // bus -> Latn
-    {0xD2810000u, 40u}, // buu -> Latn
-    {0x86A10000u, 40u}, // bvb -> Latn
-    {0x8EC10000u, 40u}, // bwd -> Latn
-    {0xC6C10000u, 40u}, // bwr -> Latn
-    {0x9EE10000u, 40u}, // bxh -> Latn
-    {0x93010000u, 40u}, // bye -> Latn
-    {0xB7010000u, 18u}, // byn -> Ethi
-    {0xC7010000u, 40u}, // byr -> Latn
-    {0xCB010000u, 40u}, // bys -> Latn
-    {0xD7010000u, 40u}, // byv -> Latn
-    {0xDF010000u, 40u}, // byx -> Latn
-    {0x83210000u, 40u}, // bza -> Latn
-    {0x93210000u, 40u}, // bze -> Latn
-    {0x97210000u, 40u}, // bzf -> Latn
-    {0x9F210000u, 40u}, // bzh -> Latn
-    {0xDB210000u, 40u}, // bzw -> Latn
-    {0x63610000u, 40u}, // ca -> Latn
-    {0xB4020000u, 40u}, // can -> Latn
-    {0xA4220000u, 40u}, // cbj -> Latn
-    {0x9C420000u, 40u}, // cch -> Latn
-    {0xBC420000u,  7u}, // ccp -> Beng
-    {0x63650000u, 15u}, // ce -> Cyrl
-    {0x84820000u, 40u}, // ceb -> Latn
-    {0x80A20000u, 40u}, // cfa -> Latn
-    {0x98C20000u, 40u}, // cgg -> Latn
-    {0x63680000u, 40u}, // ch -> Latn
-    {0xA8E20000u, 40u}, // chk -> Latn
-    {0xB0E20000u, 15u}, // chm -> Cyrl
-    {0xB8E20000u, 40u}, // cho -> Latn
-    {0xBCE20000u, 40u}, // chp -> Latn
-    {0xC4E20000u, 12u}, // chr -> Cher
+    {0xCA410000u, 46u}, // bss -> Latn
+    {0xCE410000u, 20u}, // bst -> Ethi
+    {0xBA610000u, 46u}, // bto -> Latn
+    {0xCE610000u, 46u}, // btt -> Latn
+    {0xD6610000u, 18u}, // btv -> Deva
+    {0x82810000u, 17u}, // bua -> Cyrl
+    {0x8A810000u, 46u}, // buc -> Latn
+    {0x8E810000u, 46u}, // bud -> Latn
+    {0x9A810000u, 46u}, // bug -> Latn
+    {0xAA810000u, 46u}, // buk -> Latn
+    {0xB2810000u, 46u}, // bum -> Latn
+    {0xBA810000u, 46u}, // buo -> Latn
+    {0xCA810000u, 46u}, // bus -> Latn
+    {0xD2810000u, 46u}, // buu -> Latn
+    {0x86A10000u, 46u}, // bvb -> Latn
+    {0x8EC10000u, 46u}, // bwd -> Latn
+    {0xC6C10000u, 46u}, // bwr -> Latn
+    {0x9EE10000u, 46u}, // bxh -> Latn
+    {0x93010000u, 46u}, // bye -> Latn
+    {0xB7010000u, 20u}, // byn -> Ethi
+    {0xC7010000u, 46u}, // byr -> Latn
+    {0xCB010000u, 46u}, // bys -> Latn
+    {0xD7010000u, 46u}, // byv -> Latn
+    {0xDF010000u, 46u}, // byx -> Latn
+    {0x83210000u, 46u}, // bza -> Latn
+    {0x93210000u, 46u}, // bze -> Latn
+    {0x97210000u, 46u}, // bzf -> Latn
+    {0x9F210000u, 46u}, // bzh -> Latn
+    {0xDB210000u, 46u}, // bzw -> Latn
+    {0x63610000u, 46u}, // ca -> Latn
+    {0xB4020000u, 46u}, // can -> Latn
+    {0xA4220000u, 46u}, // cbj -> Latn
+    {0x9C420000u, 46u}, // cch -> Latn
+    {0xBC420000u,  9u}, // ccp -> Cakm
+    {0x63650000u, 17u}, // ce -> Cyrl
+    {0x84820000u, 46u}, // ceb -> Latn
+    {0x80A20000u, 46u}, // cfa -> Latn
+    {0x98C20000u, 46u}, // cgg -> Latn
+    {0x63680000u, 46u}, // ch -> Latn
+    {0xA8E20000u, 46u}, // chk -> Latn
+    {0xB0E20000u, 17u}, // chm -> Cyrl
+    {0xB8E20000u, 46u}, // cho -> Latn
+    {0xBCE20000u, 46u}, // chp -> Latn
+    {0xC4E20000u, 13u}, // chr -> Cher
+    {0x89020000u, 46u}, // cic -> Latn
     {0x81220000u,  1u}, // cja -> Arab
-    {0xB1220000u, 11u}, // cjm -> Cham
-    {0xD5220000u, 40u}, // cjv -> Latn
+    {0xB1220000u, 12u}, // cjm -> Cham
+    {0xD5220000u, 46u}, // cjv -> Latn
     {0x85420000u,  1u}, // ckb -> Arab
-    {0xAD420000u, 40u}, // ckl -> Latn
-    {0xB9420000u, 40u}, // cko -> Latn
-    {0xE1420000u, 40u}, // cky -> Latn
-    {0x81620000u, 40u}, // cla -> Latn
-    {0x91820000u, 40u}, // cme -> Latn
-    {0x636F0000u, 40u}, // co -> Latn
-    {0xBDC20000u, 13u}, // cop -> Copt
-    {0xC9E20000u, 40u}, // cps -> Latn
-    {0x63720000u,  9u}, // cr -> Cans
-    {0xA6220000u,  9u}, // crj -> Cans
-    {0xAA220000u,  9u}, // crk -> Cans
-    {0xAE220000u,  9u}, // crl -> Cans
-    {0xB2220000u,  9u}, // crm -> Cans
-    {0xCA220000u, 40u}, // crs -> Latn
-    {0x63730000u, 40u}, // cs -> Latn
-    {0x86420000u, 40u}, // csb -> Latn
-    {0xDA420000u,  9u}, // csw -> Cans
-    {0x8E620000u, 59u}, // ctd -> Pauc
-    {0x63750000u, 15u}, // cu -> Cyrl
-    {0x63760000u, 15u}, // cv -> Cyrl
-    {0x63790000u, 40u}, // cy -> Latn
-    {0x64610000u, 40u}, // da -> Latn
-    {0x8C030000u, 40u}, // dad -> Latn
-    {0x94030000u, 40u}, // daf -> Latn
-    {0x98030000u, 40u}, // dag -> Latn
-    {0x9C030000u, 40u}, // dah -> Latn
-    {0xA8030000u, 40u}, // dak -> Latn
-    {0xC4030000u, 15u}, // dar -> Cyrl
-    {0xD4030000u, 40u}, // dav -> Latn
-    {0x8C230000u, 40u}, // dbd -> Latn
-    {0xC0230000u, 40u}, // dbq -> Latn
+    {0xAD420000u, 46u}, // ckl -> Latn
+    {0xB9420000u, 46u}, // cko -> Latn
+    {0xE1420000u, 46u}, // cky -> Latn
+    {0x81620000u, 46u}, // cla -> Latn
+    {0x91820000u, 46u}, // cme -> Latn
+    {0x99820000u, 79u}, // cmg -> Soyo
+    {0x636F0000u, 46u}, // co -> Latn
+    {0xBDC20000u, 15u}, // cop -> Copt
+    {0xC9E20000u, 46u}, // cps -> Latn
+    {0x63720000u, 10u}, // cr -> Cans
+    {0x9E220000u, 17u}, // crh -> Cyrl
+    {0xA6220000u, 10u}, // crj -> Cans
+    {0xAA220000u, 10u}, // crk -> Cans
+    {0xAE220000u, 10u}, // crl -> Cans
+    {0xB2220000u, 10u}, // crm -> Cans
+    {0xCA220000u, 46u}, // crs -> Latn
+    {0x63730000u, 46u}, // cs -> Latn
+    {0x86420000u, 46u}, // csb -> Latn
+    {0xDA420000u, 10u}, // csw -> Cans
+    {0x8E620000u, 66u}, // ctd -> Pauc
+    {0x63750000u, 17u}, // cu -> Cyrl
+    {0x63760000u, 17u}, // cv -> Cyrl
+    {0x63790000u, 46u}, // cy -> Latn
+    {0x64610000u, 46u}, // da -> Latn
+    {0x8C030000u, 46u}, // dad -> Latn
+    {0x94030000u, 46u}, // daf -> Latn
+    {0x98030000u, 46u}, // dag -> Latn
+    {0x9C030000u, 46u}, // dah -> Latn
+    {0xA8030000u, 46u}, // dak -> Latn
+    {0xC4030000u, 17u}, // dar -> Cyrl
+    {0xD4030000u, 46u}, // dav -> Latn
+    {0x8C230000u, 46u}, // dbd -> Latn
+    {0xC0230000u, 46u}, // dbq -> Latn
     {0x88430000u,  1u}, // dcc -> Arab
-    {0xB4630000u, 40u}, // ddn -> Latn
-    {0x64650000u, 40u}, // de -> Latn
-    {0x8C830000u, 40u}, // ded -> Latn
-    {0xB4830000u, 40u}, // den -> Latn
-    {0x80C30000u, 40u}, // dga -> Latn
-    {0x9CC30000u, 40u}, // dgh -> Latn
-    {0xA0C30000u, 40u}, // dgi -> Latn
+    {0xB4630000u, 46u}, // ddn -> Latn
+    {0x64650000u, 46u}, // de -> Latn
+    {0x8C830000u, 46u}, // ded -> Latn
+    {0xB4830000u, 46u}, // den -> Latn
+    {0x80C30000u, 46u}, // dga -> Latn
+    {0x9CC30000u, 46u}, // dgh -> Latn
+    {0xA0C30000u, 46u}, // dgi -> Latn
     {0xACC30000u,  1u}, // dgl -> Arab
-    {0xC4C30000u, 40u}, // dgr -> Latn
-    {0xE4C30000u, 40u}, // dgz -> Latn
-    {0x81030000u, 40u}, // dia -> Latn
-    {0x91230000u, 40u}, // dje -> Latn
-    {0xA5A30000u, 40u}, // dnj -> Latn
-    {0x85C30000u, 40u}, // dob -> Latn
+    {0xC4C30000u, 46u}, // dgr -> Latn
+    {0xE4C30000u, 46u}, // dgz -> Latn
+    {0x81030000u, 46u}, // dia -> Latn
+    {0x91230000u, 46u}, // dje -> Latn
+    {0xA5A30000u, 46u}, // dnj -> Latn
+    {0x85C30000u, 46u}, // dob -> Latn
     {0xA1C30000u,  1u}, // doi -> Arab
-    {0xBDC30000u, 40u}, // dop -> Latn
-    {0xD9C30000u, 40u}, // dow -> Latn
-    {0xA2230000u, 40u}, // dri -> Latn
-    {0xCA230000u, 18u}, // drs -> Ethi
-    {0x86430000u, 40u}, // dsb -> Latn
-    {0xB2630000u, 40u}, // dtm -> Latn
-    {0xBE630000u, 40u}, // dtp -> Latn
-    {0xCA630000u, 40u}, // dts -> Latn
-    {0xE2630000u, 16u}, // dty -> Deva
-    {0x82830000u, 40u}, // dua -> Latn
-    {0x8A830000u, 40u}, // duc -> Latn
-    {0x8E830000u, 40u}, // dud -> Latn
-    {0x9A830000u, 40u}, // dug -> Latn
-    {0x64760000u, 79u}, // dv -> Thaa
-    {0x82A30000u, 40u}, // dva -> Latn
-    {0xDAC30000u, 40u}, // dww -> Latn
-    {0xBB030000u, 40u}, // dyo -> Latn
-    {0xD3030000u, 40u}, // dyu -> Latn
-    {0x647A0000u, 81u}, // dz -> Tibt
-    {0x9B230000u, 40u}, // dzg -> Latn
-    {0xD0240000u, 40u}, // ebu -> Latn
-    {0x65650000u, 40u}, // ee -> Latn
-    {0xA0A40000u, 40u}, // efi -> Latn
-    {0xACC40000u, 40u}, // egl -> Latn
-    {0xE0C40000u, 17u}, // egy -> Egyp
-    {0xE1440000u, 32u}, // eky -> Kali
-    {0x656C0000u, 21u}, // el -> Grek
-    {0x81840000u, 40u}, // ema -> Latn
-    {0xA1840000u, 40u}, // emi -> Latn
-    {0x656E0000u, 40u}, // en -> Latn
-    {0x656E5841u, 87u}, // en-XA -> ~~~A
-    {0xB5A40000u, 40u}, // enn -> Latn
-    {0xC1A40000u, 40u}, // enq -> Latn
-    {0x656F0000u, 40u}, // eo -> Latn
-    {0xA2240000u, 40u}, // eri -> Latn
-    {0x65730000u, 40u}, // es -> Latn
-    {0xD2440000u, 40u}, // esu -> Latn
-    {0x65740000u, 40u}, // et -> Latn
-    {0xC6640000u, 40u}, // etr -> Latn
-    {0xCE640000u, 30u}, // ett -> Ital
-    {0xD2640000u, 40u}, // etu -> Latn
-    {0xDE640000u, 40u}, // etx -> Latn
-    {0x65750000u, 40u}, // eu -> Latn
-    {0xBAC40000u, 40u}, // ewo -> Latn
-    {0xCEE40000u, 40u}, // ext -> Latn
+    {0xBDC30000u, 46u}, // dop -> Latn
+    {0xD9C30000u, 46u}, // dow -> Latn
+    {0x9E230000u, 56u}, // drh -> Mong
+    {0xA2230000u, 46u}, // dri -> Latn
+    {0xCA230000u, 20u}, // drs -> Ethi
+    {0x86430000u, 46u}, // dsb -> Latn
+    {0xB2630000u, 46u}, // dtm -> Latn
+    {0xBE630000u, 46u}, // dtp -> Latn
+    {0xCA630000u, 46u}, // dts -> Latn
+    {0xE2630000u, 18u}, // dty -> Deva
+    {0x82830000u, 46u}, // dua -> Latn
+    {0x8A830000u, 46u}, // duc -> Latn
+    {0x8E830000u, 46u}, // dud -> Latn
+    {0x9A830000u, 46u}, // dug -> Latn
+    {0x64760000u, 88u}, // dv -> Thaa
+    {0x82A30000u, 46u}, // dva -> Latn
+    {0xDAC30000u, 46u}, // dww -> Latn
+    {0xBB030000u, 46u}, // dyo -> Latn
+    {0xD3030000u, 46u}, // dyu -> Latn
+    {0x647A0000u, 90u}, // dz -> Tibt
+    {0x9B230000u, 46u}, // dzg -> Latn
+    {0xD0240000u, 46u}, // ebu -> Latn
+    {0x65650000u, 46u}, // ee -> Latn
+    {0xA0A40000u, 46u}, // efi -> Latn
+    {0xACC40000u, 46u}, // egl -> Latn
+    {0xE0C40000u, 19u}, // egy -> Egyp
+    {0x81440000u, 46u}, // eka -> Latn
+    {0xE1440000u, 37u}, // eky -> Kali
+    {0x656C0000u, 25u}, // el -> Grek
+    {0x81840000u, 46u}, // ema -> Latn
+    {0xA1840000u, 46u}, // emi -> Latn
+    {0x656E0000u, 46u}, // en -> Latn
+    {0x656E5841u, 97u}, // en-XA -> ~~~A
+    {0xB5A40000u, 46u}, // enn -> Latn
+    {0xC1A40000u, 46u}, // enq -> Latn
+    {0x656F0000u, 46u}, // eo -> Latn
+    {0xA2240000u, 46u}, // eri -> Latn
+    {0x65730000u, 46u}, // es -> Latn
+    {0x9A440000u, 23u}, // esg -> Gonm
+    {0xD2440000u, 46u}, // esu -> Latn
+    {0x65740000u, 46u}, // et -> Latn
+    {0xC6640000u, 46u}, // etr -> Latn
+    {0xCE640000u, 35u}, // ett -> Ital
+    {0xD2640000u, 46u}, // etu -> Latn
+    {0xDE640000u, 46u}, // etx -> Latn
+    {0x65750000u, 46u}, // eu -> Latn
+    {0xBAC40000u, 46u}, // ewo -> Latn
+    {0xCEE40000u, 46u}, // ext -> Latn
     {0x66610000u,  1u}, // fa -> Arab
-    {0x80050000u, 40u}, // faa -> Latn
-    {0x84050000u, 40u}, // fab -> Latn
-    {0x98050000u, 40u}, // fag -> Latn
-    {0xA0050000u, 40u}, // fai -> Latn
-    {0xB4050000u, 40u}, // fan -> Latn
-    {0x66660000u, 40u}, // ff -> Latn
-    {0xA0A50000u, 40u}, // ffi -> Latn
-    {0xB0A50000u, 40u}, // ffm -> Latn
-    {0x66690000u, 40u}, // fi -> Latn
+    {0x80050000u, 46u}, // faa -> Latn
+    {0x84050000u, 46u}, // fab -> Latn
+    {0x98050000u, 46u}, // fag -> Latn
+    {0xA0050000u, 46u}, // fai -> Latn
+    {0xB4050000u, 46u}, // fan -> Latn
+    {0x66660000u, 46u}, // ff -> Latn
+    {0xA0A50000u, 46u}, // ffi -> Latn
+    {0xB0A50000u, 46u}, // ffm -> Latn
+    {0x66690000u, 46u}, // fi -> Latn
     {0x81050000u,  1u}, // fia -> Arab
-    {0xAD050000u, 40u}, // fil -> Latn
-    {0xCD050000u, 40u}, // fit -> Latn
-    {0x666A0000u, 40u}, // fj -> Latn
-    {0xC5650000u, 40u}, // flr -> Latn
-    {0xBD850000u, 40u}, // fmp -> Latn
-    {0x666F0000u, 40u}, // fo -> Latn
-    {0x8DC50000u, 40u}, // fod -> Latn
-    {0xB5C50000u, 40u}, // fon -> Latn
-    {0xC5C50000u, 40u}, // for -> Latn
-    {0x91E50000u, 40u}, // fpe -> Latn
-    {0xCA050000u, 40u}, // fqs -> Latn
-    {0x66720000u, 40u}, // fr -> Latn
-    {0x8A250000u, 40u}, // frc -> Latn
-    {0xBE250000u, 40u}, // frp -> Latn
-    {0xC6250000u, 40u}, // frr -> Latn
-    {0xCA250000u, 40u}, // frs -> Latn
+    {0xAD050000u, 46u}, // fil -> Latn
+    {0xCD050000u, 46u}, // fit -> Latn
+    {0x666A0000u, 46u}, // fj -> Latn
+    {0xC5650000u, 46u}, // flr -> Latn
+    {0xBD850000u, 46u}, // fmp -> Latn
+    {0x666F0000u, 46u}, // fo -> Latn
+    {0x8DC50000u, 46u}, // fod -> Latn
+    {0xB5C50000u, 46u}, // fon -> Latn
+    {0xC5C50000u, 46u}, // for -> Latn
+    {0x91E50000u, 46u}, // fpe -> Latn
+    {0xCA050000u, 46u}, // fqs -> Latn
+    {0x66720000u, 46u}, // fr -> Latn
+    {0x8A250000u, 46u}, // frc -> Latn
+    {0xBE250000u, 46u}, // frp -> Latn
+    {0xC6250000u, 46u}, // frr -> Latn
+    {0xCA250000u, 46u}, // frs -> Latn
     {0x86850000u,  1u}, // fub -> Arab
-    {0x8E850000u, 40u}, // fud -> Latn
-    {0x92850000u, 40u}, // fue -> Latn
-    {0x96850000u, 40u}, // fuf -> Latn
-    {0x9E850000u, 40u}, // fuh -> Latn
-    {0xC2850000u, 40u}, // fuq -> Latn
-    {0xC6850000u, 40u}, // fur -> Latn
-    {0xD6850000u, 40u}, // fuv -> Latn
-    {0xE2850000u, 40u}, // fuy -> Latn
-    {0xC6A50000u, 40u}, // fvr -> Latn
-    {0x66790000u, 40u}, // fy -> Latn
-    {0x67610000u, 40u}, // ga -> Latn
-    {0x80060000u, 40u}, // gaa -> Latn
-    {0x94060000u, 40u}, // gaf -> Latn
-    {0x98060000u, 40u}, // gag -> Latn
-    {0x9C060000u, 40u}, // gah -> Latn
-    {0xA4060000u, 40u}, // gaj -> Latn
-    {0xB0060000u, 40u}, // gam -> Latn
-    {0xB4060000u, 24u}, // gan -> Hans
-    {0xD8060000u, 40u}, // gaw -> Latn
-    {0xE0060000u, 40u}, // gay -> Latn
-    {0x94260000u, 40u}, // gbf -> Latn
-    {0xB0260000u, 16u}, // gbm -> Deva
-    {0xE0260000u, 40u}, // gby -> Latn
+    {0x8E850000u, 46u}, // fud -> Latn
+    {0x92850000u, 46u}, // fue -> Latn
+    {0x96850000u, 46u}, // fuf -> Latn
+    {0x9E850000u, 46u}, // fuh -> Latn
+    {0xC2850000u, 46u}, // fuq -> Latn
+    {0xC6850000u, 46u}, // fur -> Latn
+    {0xD6850000u, 46u}, // fuv -> Latn
+    {0xE2850000u, 46u}, // fuy -> Latn
+    {0xC6A50000u, 46u}, // fvr -> Latn
+    {0x66790000u, 46u}, // fy -> Latn
+    {0x67610000u, 46u}, // ga -> Latn
+    {0x80060000u, 46u}, // gaa -> Latn
+    {0x94060000u, 46u}, // gaf -> Latn
+    {0x98060000u, 46u}, // gag -> Latn
+    {0x9C060000u, 46u}, // gah -> Latn
+    {0xA4060000u, 46u}, // gaj -> Latn
+    {0xB0060000u, 46u}, // gam -> Latn
+    {0xB4060000u, 28u}, // gan -> Hans
+    {0xD8060000u, 46u}, // gaw -> Latn
+    {0xE0060000u, 46u}, // gay -> Latn
+    {0x80260000u, 46u}, // gba -> Latn
+    {0x94260000u, 46u}, // gbf -> Latn
+    {0xB0260000u, 18u}, // gbm -> Deva
+    {0xE0260000u, 46u}, // gby -> Latn
     {0xE4260000u,  1u}, // gbz -> Arab
-    {0xC4460000u, 40u}, // gcr -> Latn
-    {0x67640000u, 40u}, // gd -> Latn
-    {0x90660000u, 40u}, // gde -> Latn
-    {0xB4660000u, 40u}, // gdn -> Latn
-    {0xC4660000u, 40u}, // gdr -> Latn
-    {0x84860000u, 40u}, // geb -> Latn
-    {0xA4860000u, 40u}, // gej -> Latn
-    {0xAC860000u, 40u}, // gel -> Latn
-    {0xE4860000u, 18u}, // gez -> Ethi
-    {0xA8A60000u, 40u}, // gfk -> Latn
-    {0xB4C60000u, 16u}, // ggn -> Deva
-    {0xC8E60000u, 40u}, // ghs -> Latn
-    {0xAD060000u, 40u}, // gil -> Latn
-    {0xB1060000u, 40u}, // gim -> Latn
+    {0xC4460000u, 46u}, // gcr -> Latn
+    {0x67640000u, 46u}, // gd -> Latn
+    {0x90660000u, 46u}, // gde -> Latn
+    {0xB4660000u, 46u}, // gdn -> Latn
+    {0xC4660000u, 46u}, // gdr -> Latn
+    {0x84860000u, 46u}, // geb -> Latn
+    {0xA4860000u, 46u}, // gej -> Latn
+    {0xAC860000u, 46u}, // gel -> Latn
+    {0xE4860000u, 20u}, // gez -> Ethi
+    {0xA8A60000u, 46u}, // gfk -> Latn
+    {0xB4C60000u, 18u}, // ggn -> Deva
+    {0xC8E60000u, 46u}, // ghs -> Latn
+    {0xAD060000u, 46u}, // gil -> Latn
+    {0xB1060000u, 46u}, // gim -> Latn
     {0xA9260000u,  1u}, // gjk -> Arab
-    {0xB5260000u, 40u}, // gjn -> Latn
+    {0xB5260000u, 46u}, // gjn -> Latn
     {0xD1260000u,  1u}, // gju -> Arab
-    {0xB5460000u, 40u}, // gkn -> Latn
-    {0xBD460000u, 40u}, // gkp -> Latn
-    {0x676C0000u, 40u}, // gl -> Latn
+    {0xB5460000u, 46u}, // gkn -> Latn
+    {0xBD460000u, 46u}, // gkp -> Latn
+    {0x676C0000u, 46u}, // gl -> Latn
     {0xA9660000u,  1u}, // glk -> Arab
-    {0xB1860000u, 40u}, // gmm -> Latn
-    {0xD5860000u, 18u}, // gmv -> Ethi
-    {0x676E0000u, 40u}, // gn -> Latn
-    {0x8DA60000u, 40u}, // gnd -> Latn
-    {0x99A60000u, 40u}, // gng -> Latn
-    {0x8DC60000u, 40u}, // god -> Latn
-    {0x95C60000u, 18u}, // gof -> Ethi
-    {0xA1C60000u, 40u}, // goi -> Latn
-    {0xB1C60000u, 16u}, // gom -> Deva
-    {0xB5C60000u, 77u}, // gon -> Telu
-    {0xC5C60000u, 40u}, // gor -> Latn
-    {0xC9C60000u, 40u}, // gos -> Latn
-    {0xCDC60000u, 20u}, // got -> Goth
-    {0x8A260000u, 14u}, // grc -> Cprt
+    {0xB1860000u, 46u}, // gmm -> Latn
+    {0xD5860000u, 20u}, // gmv -> Ethi
+    {0x676E0000u, 46u}, // gn -> Latn
+    {0x8DA60000u, 46u}, // gnd -> Latn
+    {0x99A60000u, 46u}, // gng -> Latn
+    {0x8DC60000u, 46u}, // god -> Latn
+    {0x95C60000u, 20u}, // gof -> Ethi
+    {0xA1C60000u, 46u}, // goi -> Latn
+    {0xB1C60000u, 18u}, // gom -> Deva
+    {0xB5C60000u, 86u}, // gon -> Telu
+    {0xC5C60000u, 46u}, // gor -> Latn
+    {0xC9C60000u, 46u}, // gos -> Latn
+    {0xCDC60000u, 24u}, // got -> Goth
+    {0x86260000u, 46u}, // grb -> Latn
+    {0x8A260000u, 16u}, // grc -> Cprt
     {0xCE260000u,  7u}, // grt -> Beng
-    {0xDA260000u, 40u}, // grw -> Latn
-    {0xDA460000u, 40u}, // gsw -> Latn
-    {0x67750000u, 22u}, // gu -> Gujr
-    {0x86860000u, 40u}, // gub -> Latn
-    {0x8A860000u, 40u}, // guc -> Latn
-    {0x8E860000u, 40u}, // gud -> Latn
-    {0xC6860000u, 40u}, // gur -> Latn
-    {0xDA860000u, 40u}, // guw -> Latn
-    {0xDE860000u, 40u}, // gux -> Latn
-    {0xE6860000u, 40u}, // guz -> Latn
-    {0x67760000u, 40u}, // gv -> Latn
-    {0x96A60000u, 40u}, // gvf -> Latn
-    {0xC6A60000u, 16u}, // gvr -> Deva
-    {0xCAA60000u, 40u}, // gvs -> Latn
+    {0xDA260000u, 46u}, // grw -> Latn
+    {0xDA460000u, 46u}, // gsw -> Latn
+    {0x67750000u, 26u}, // gu -> Gujr
+    {0x86860000u, 46u}, // gub -> Latn
+    {0x8A860000u, 46u}, // guc -> Latn
+    {0x8E860000u, 46u}, // gud -> Latn
+    {0xC6860000u, 46u}, // gur -> Latn
+    {0xDA860000u, 46u}, // guw -> Latn
+    {0xDE860000u, 46u}, // gux -> Latn
+    {0xE6860000u, 46u}, // guz -> Latn
+    {0x67760000u, 46u}, // gv -> Latn
+    {0x96A60000u, 46u}, // gvf -> Latn
+    {0xC6A60000u, 18u}, // gvr -> Deva
+    {0xCAA60000u, 46u}, // gvs -> Latn
     {0x8AC60000u,  1u}, // gwc -> Arab
-    {0xA2C60000u, 40u}, // gwi -> Latn
+    {0xA2C60000u, 46u}, // gwi -> Latn
     {0xCEC60000u,  1u}, // gwt -> Arab
-    {0xA3060000u, 40u}, // gyi -> Latn
-    {0x68610000u, 40u}, // ha -> Latn
+    {0xA3060000u, 46u}, // gyi -> Latn
+    {0x68610000u, 46u}, // ha -> Latn
     {0x6861434Du,  1u}, // ha-CM -> Arab
     {0x68615344u,  1u}, // ha-SD -> Arab
-    {0x98070000u, 40u}, // hag -> Latn
-    {0xA8070000u, 24u}, // hak -> Hans
-    {0xB0070000u, 40u}, // ham -> Latn
-    {0xD8070000u, 40u}, // haw -> Latn
+    {0x98070000u, 46u}, // hag -> Latn
+    {0xA8070000u, 28u}, // hak -> Hans
+    {0xB0070000u, 46u}, // ham -> Latn
+    {0xD8070000u, 46u}, // haw -> Latn
     {0xE4070000u,  1u}, // haz -> Arab
-    {0x84270000u, 40u}, // hbb -> Latn
-    {0xE0670000u, 18u}, // hdy -> Ethi
-    {0x68650000u, 27u}, // he -> Hebr
-    {0xE0E70000u, 40u}, // hhy -> Latn
-    {0x68690000u, 16u}, // hi -> Deva
-    {0x81070000u, 40u}, // hia -> Latn
-    {0x95070000u, 40u}, // hif -> Latn
-    {0x99070000u, 40u}, // hig -> Latn
-    {0x9D070000u, 40u}, // hih -> Latn
-    {0xAD070000u, 40u}, // hil -> Latn
-    {0x81670000u, 40u}, // hla -> Latn
-    {0xD1670000u, 28u}, // hlu -> Hluw
-    {0x8D870000u, 62u}, // hmd -> Plrd
-    {0xCD870000u, 40u}, // hmt -> Latn
+    {0x84270000u, 46u}, // hbb -> Latn
+    {0xE0670000u, 20u}, // hdy -> Ethi
+    {0x68650000u, 31u}, // he -> Hebr
+    {0xE0E70000u, 46u}, // hhy -> Latn
+    {0x68690000u, 18u}, // hi -> Deva
+    {0x81070000u, 46u}, // hia -> Latn
+    {0x95070000u, 46u}, // hif -> Latn
+    {0x99070000u, 46u}, // hig -> Latn
+    {0x9D070000u, 46u}, // hih -> Latn
+    {0xAD070000u, 46u}, // hil -> Latn
+    {0x81670000u, 46u}, // hla -> Latn
+    {0xD1670000u, 32u}, // hlu -> Hluw
+    {0x8D870000u, 69u}, // hmd -> Plrd
+    {0xCD870000u, 46u}, // hmt -> Latn
     {0x8DA70000u,  1u}, // hnd -> Arab
-    {0x91A70000u, 16u}, // hne -> Deva
-    {0xA5A70000u, 29u}, // hnj -> Hmng
-    {0xB5A70000u, 40u}, // hnn -> Latn
+    {0x91A70000u, 18u}, // hne -> Deva
+    {0xA5A70000u, 33u}, // hnj -> Hmng
+    {0xB5A70000u, 46u}, // hnn -> Latn
     {0xB9A70000u,  1u}, // hno -> Arab
-    {0x686F0000u, 40u}, // ho -> Latn
-    {0x89C70000u, 16u}, // hoc -> Deva
-    {0xA5C70000u, 16u}, // hoj -> Deva
-    {0xCDC70000u, 40u}, // hot -> Latn
-    {0x68720000u, 40u}, // hr -> Latn
-    {0x86470000u, 40u}, // hsb -> Latn
-    {0xB6470000u, 24u}, // hsn -> Hans
-    {0x68740000u, 40u}, // ht -> Latn
-    {0x68750000u, 40u}, // hu -> Latn
-    {0xA2870000u, 40u}, // hui -> Latn
+    {0x686F0000u, 46u}, // ho -> Latn
+    {0x89C70000u, 18u}, // hoc -> Deva
+    {0xA5C70000u, 18u}, // hoj -> Deva
+    {0xCDC70000u, 46u}, // hot -> Latn
+    {0x68720000u, 46u}, // hr -> Latn
+    {0x86470000u, 46u}, // hsb -> Latn
+    {0xB6470000u, 28u}, // hsn -> Hans
+    {0x68740000u, 46u}, // ht -> Latn
+    {0x68750000u, 46u}, // hu -> Latn
+    {0xA2870000u, 46u}, // hui -> Latn
     {0x68790000u,  3u}, // hy -> Armn
-    {0x687A0000u, 40u}, // hz -> Latn
-    {0x69610000u, 40u}, // ia -> Latn
-    {0xB4080000u, 40u}, // ian -> Latn
-    {0xC4080000u, 40u}, // iar -> Latn
-    {0x80280000u, 40u}, // iba -> Latn
-    {0x84280000u, 40u}, // ibb -> Latn
-    {0xE0280000u, 40u}, // iby -> Latn
-    {0x80480000u, 40u}, // ica -> Latn
-    {0x9C480000u, 40u}, // ich -> Latn
-    {0x69640000u, 40u}, // id -> Latn
-    {0x8C680000u, 40u}, // idd -> Latn
-    {0xA0680000u, 40u}, // idi -> Latn
-    {0xD0680000u, 40u}, // idu -> Latn
-    {0x69670000u, 40u}, // ig -> Latn
-    {0x84C80000u, 40u}, // igb -> Latn
-    {0x90C80000u, 40u}, // ige -> Latn
-    {0x69690000u, 86u}, // ii -> Yiii
-    {0xA5280000u, 40u}, // ijj -> Latn
-    {0x696B0000u, 40u}, // ik -> Latn
-    {0xA9480000u, 40u}, // ikk -> Latn
-    {0xCD480000u, 40u}, // ikt -> Latn
-    {0xD9480000u, 40u}, // ikw -> Latn
-    {0xDD480000u, 40u}, // ikx -> Latn
-    {0xB9680000u, 40u}, // ilo -> Latn
-    {0xB9880000u, 40u}, // imo -> Latn
-    {0x696E0000u, 40u}, // in -> Latn
-    {0x9DA80000u, 15u}, // inh -> Cyrl
-    {0xD1C80000u, 40u}, // iou -> Latn
-    {0xA2280000u, 40u}, // iri -> Latn
-    {0x69730000u, 40u}, // is -> Latn
-    {0x69740000u, 40u}, // it -> Latn
-    {0x69750000u,  9u}, // iu -> Cans
-    {0x69770000u, 27u}, // iw -> Hebr
-    {0xB2C80000u, 40u}, // iwm -> Latn
-    {0xCAC80000u, 40u}, // iws -> Latn
-    {0x9F280000u, 40u}, // izh -> Latn
-    {0xA3280000u, 40u}, // izi -> Latn
-    {0x6A610000u, 31u}, // ja -> Jpan
-    {0x84090000u, 40u}, // jab -> Latn
-    {0xB0090000u, 40u}, // jam -> Latn
-    {0xD0290000u, 40u}, // jbu -> Latn
-    {0xB4890000u, 40u}, // jen -> Latn
-    {0xA8C90000u, 40u}, // jgk -> Latn
-    {0xB8C90000u, 40u}, // jgo -> Latn
-    {0x6A690000u, 27u}, // ji -> Hebr
-    {0x85090000u, 40u}, // jib -> Latn
-    {0x89890000u, 40u}, // jmc -> Latn
-    {0xAD890000u, 16u}, // jml -> Deva
-    {0x82290000u, 40u}, // jra -> Latn
-    {0xCE890000u, 40u}, // jut -> Latn
-    {0x6A760000u, 40u}, // jv -> Latn
-    {0x6A770000u, 40u}, // jw -> Latn
-    {0x6B610000u, 19u}, // ka -> Geor
-    {0x800A0000u, 15u}, // kaa -> Cyrl
-    {0x840A0000u, 40u}, // kab -> Latn
-    {0x880A0000u, 40u}, // kac -> Latn
-    {0x8C0A0000u, 40u}, // kad -> Latn
-    {0xA00A0000u, 40u}, // kai -> Latn
-    {0xA40A0000u, 40u}, // kaj -> Latn
-    {0xB00A0000u, 40u}, // kam -> Latn
-    {0xB80A0000u, 40u}, // kao -> Latn
-    {0x8C2A0000u, 15u}, // kbd -> Cyrl
-    {0xB02A0000u, 40u}, // kbm -> Latn
-    {0xBC2A0000u, 40u}, // kbp -> Latn
-    {0xC02A0000u, 40u}, // kbq -> Latn
-    {0xDC2A0000u, 40u}, // kbx -> Latn
+    {0x687A0000u, 46u}, // hz -> Latn
+    {0x69610000u, 46u}, // ia -> Latn
+    {0xB4080000u, 46u}, // ian -> Latn
+    {0xC4080000u, 46u}, // iar -> Latn
+    {0x80280000u, 46u}, // iba -> Latn
+    {0x84280000u, 46u}, // ibb -> Latn
+    {0xE0280000u, 46u}, // iby -> Latn
+    {0x80480000u, 46u}, // ica -> Latn
+    {0x9C480000u, 46u}, // ich -> Latn
+    {0x69640000u, 46u}, // id -> Latn
+    {0x8C680000u, 46u}, // idd -> Latn
+    {0xA0680000u, 46u}, // idi -> Latn
+    {0xD0680000u, 46u}, // idu -> Latn
+    {0x90A80000u, 46u}, // ife -> Latn
+    {0x69670000u, 46u}, // ig -> Latn
+    {0x84C80000u, 46u}, // igb -> Latn
+    {0x90C80000u, 46u}, // ige -> Latn
+    {0x69690000u, 96u}, // ii -> Yiii
+    {0xA5280000u, 46u}, // ijj -> Latn
+    {0x696B0000u, 46u}, // ik -> Latn
+    {0xA9480000u, 46u}, // ikk -> Latn
+    {0xCD480000u, 46u}, // ikt -> Latn
+    {0xD9480000u, 46u}, // ikw -> Latn
+    {0xDD480000u, 46u}, // ikx -> Latn
+    {0xB9680000u, 46u}, // ilo -> Latn
+    {0xB9880000u, 46u}, // imo -> Latn
+    {0x696E0000u, 46u}, // in -> Latn
+    {0x9DA80000u, 17u}, // inh -> Cyrl
+    {0x696F0000u, 46u}, // io -> Latn
+    {0xD1C80000u, 46u}, // iou -> Latn
+    {0xA2280000u, 46u}, // iri -> Latn
+    {0x69730000u, 46u}, // is -> Latn
+    {0x69740000u, 46u}, // it -> Latn
+    {0x69750000u, 10u}, // iu -> Cans
+    {0x69770000u, 31u}, // iw -> Hebr
+    {0xB2C80000u, 46u}, // iwm -> Latn
+    {0xCAC80000u, 46u}, // iws -> Latn
+    {0x9F280000u, 46u}, // izh -> Latn
+    {0xA3280000u, 46u}, // izi -> Latn
+    {0x6A610000u, 36u}, // ja -> Jpan
+    {0x84090000u, 46u}, // jab -> Latn
+    {0xB0090000u, 46u}, // jam -> Latn
+    {0xB8290000u, 46u}, // jbo -> Latn
+    {0xD0290000u, 46u}, // jbu -> Latn
+    {0xB4890000u, 46u}, // jen -> Latn
+    {0xA8C90000u, 46u}, // jgk -> Latn
+    {0xB8C90000u, 46u}, // jgo -> Latn
+    {0x6A690000u, 31u}, // ji -> Hebr
+    {0x85090000u, 46u}, // jib -> Latn
+    {0x89890000u, 46u}, // jmc -> Latn
+    {0xAD890000u, 18u}, // jml -> Deva
+    {0x82290000u, 46u}, // jra -> Latn
+    {0xCE890000u, 46u}, // jut -> Latn
+    {0x6A760000u, 46u}, // jv -> Latn
+    {0x6A770000u, 46u}, // jw -> Latn
+    {0x6B610000u, 21u}, // ka -> Geor
+    {0x800A0000u, 17u}, // kaa -> Cyrl
+    {0x840A0000u, 46u}, // kab -> Latn
+    {0x880A0000u, 46u}, // kac -> Latn
+    {0x8C0A0000u, 46u}, // kad -> Latn
+    {0xA00A0000u, 46u}, // kai -> Latn
+    {0xA40A0000u, 46u}, // kaj -> Latn
+    {0xB00A0000u, 46u}, // kam -> Latn
+    {0xB80A0000u, 46u}, // kao -> Latn
+    {0x8C2A0000u, 17u}, // kbd -> Cyrl
+    {0xB02A0000u, 46u}, // kbm -> Latn
+    {0xBC2A0000u, 46u}, // kbp -> Latn
+    {0xC02A0000u, 46u}, // kbq -> Latn
+    {0xDC2A0000u, 46u}, // kbx -> Latn
     {0xE02A0000u,  1u}, // kby -> Arab
-    {0x984A0000u, 40u}, // kcg -> Latn
-    {0xA84A0000u, 40u}, // kck -> Latn
-    {0xAC4A0000u, 40u}, // kcl -> Latn
-    {0xCC4A0000u, 40u}, // kct -> Latn
-    {0x906A0000u, 40u}, // kde -> Latn
+    {0x984A0000u, 46u}, // kcg -> Latn
+    {0xA84A0000u, 46u}, // kck -> Latn
+    {0xAC4A0000u, 46u}, // kcl -> Latn
+    {0xCC4A0000u, 46u}, // kct -> Latn
+    {0x906A0000u, 46u}, // kde -> Latn
     {0x9C6A0000u,  1u}, // kdh -> Arab
-    {0xAC6A0000u, 40u}, // kdl -> Latn
-    {0xCC6A0000u, 80u}, // kdt -> Thai
-    {0x808A0000u, 40u}, // kea -> Latn
-    {0xB48A0000u, 40u}, // ken -> Latn
-    {0xE48A0000u, 40u}, // kez -> Latn
-    {0xB8AA0000u, 40u}, // kfo -> Latn
-    {0xC4AA0000u, 16u}, // kfr -> Deva
-    {0xE0AA0000u, 16u}, // kfy -> Deva
-    {0x6B670000u, 40u}, // kg -> Latn
-    {0x90CA0000u, 40u}, // kge -> Latn
-    {0x94CA0000u, 40u}, // kgf -> Latn
-    {0xBCCA0000u, 40u}, // kgp -> Latn
-    {0x80EA0000u, 40u}, // kha -> Latn
-    {0x84EA0000u, 73u}, // khb -> Talu
-    {0xB4EA0000u, 16u}, // khn -> Deva
-    {0xC0EA0000u, 40u}, // khq -> Latn
-    {0xC8EA0000u, 40u}, // khs -> Latn
-    {0xCCEA0000u, 52u}, // kht -> Mymr
+    {0xAC6A0000u, 46u}, // kdl -> Latn
+    {0xCC6A0000u, 89u}, // kdt -> Thai
+    {0x808A0000u, 46u}, // kea -> Latn
+    {0xB48A0000u, 46u}, // ken -> Latn
+    {0xE48A0000u, 46u}, // kez -> Latn
+    {0xB8AA0000u, 46u}, // kfo -> Latn
+    {0xC4AA0000u, 18u}, // kfr -> Deva
+    {0xE0AA0000u, 18u}, // kfy -> Deva
+    {0x6B670000u, 46u}, // kg -> Latn
+    {0x90CA0000u, 46u}, // kge -> Latn
+    {0x94CA0000u, 46u}, // kgf -> Latn
+    {0xBCCA0000u, 46u}, // kgp -> Latn
+    {0x80EA0000u, 46u}, // kha -> Latn
+    {0x84EA0000u, 82u}, // khb -> Talu
+    {0xB4EA0000u, 18u}, // khn -> Deva
+    {0xC0EA0000u, 46u}, // khq -> Latn
+    {0xC8EA0000u, 46u}, // khs -> Latn
+    {0xCCEA0000u, 58u}, // kht -> Mymr
     {0xD8EA0000u,  1u}, // khw -> Arab
-    {0xE4EA0000u, 40u}, // khz -> Latn
-    {0x6B690000u, 40u}, // ki -> Latn
-    {0xA50A0000u, 40u}, // kij -> Latn
-    {0xD10A0000u, 40u}, // kiu -> Latn
-    {0xD90A0000u, 40u}, // kiw -> Latn
-    {0x6B6A0000u, 40u}, // kj -> Latn
-    {0x8D2A0000u, 40u}, // kjd -> Latn
-    {0x992A0000u, 39u}, // kjg -> Laoo
-    {0xC92A0000u, 40u}, // kjs -> Latn
-    {0xE12A0000u, 40u}, // kjy -> Latn
-    {0x6B6B0000u, 15u}, // kk -> Cyrl
+    {0xE4EA0000u, 46u}, // khz -> Latn
+    {0x6B690000u, 46u}, // ki -> Latn
+    {0xA50A0000u, 46u}, // kij -> Latn
+    {0xD10A0000u, 46u}, // kiu -> Latn
+    {0xD90A0000u, 46u}, // kiw -> Latn
+    {0x6B6A0000u, 46u}, // kj -> Latn
+    {0x8D2A0000u, 46u}, // kjd -> Latn
+    {0x992A0000u, 45u}, // kjg -> Laoo
+    {0xC92A0000u, 46u}, // kjs -> Latn
+    {0xE12A0000u, 46u}, // kjy -> Latn
+    {0x6B6B0000u, 17u}, // kk -> Cyrl
     {0x6B6B4146u,  1u}, // kk-AF -> Arab
     {0x6B6B434Eu,  1u}, // kk-CN -> Arab
     {0x6B6B4952u,  1u}, // kk-IR -> Arab
     {0x6B6B4D4Eu,  1u}, // kk-MN -> Arab
-    {0x894A0000u, 40u}, // kkc -> Latn
-    {0xA54A0000u, 40u}, // kkj -> Latn
-    {0x6B6C0000u, 40u}, // kl -> Latn
-    {0xB56A0000u, 40u}, // kln -> Latn
-    {0xC16A0000u, 40u}, // klq -> Latn
-    {0xCD6A0000u, 40u}, // klt -> Latn
-    {0xDD6A0000u, 40u}, // klx -> Latn
-    {0x6B6D0000u, 35u}, // km -> Khmr
-    {0x858A0000u, 40u}, // kmb -> Latn
-    {0x9D8A0000u, 40u}, // kmh -> Latn
-    {0xB98A0000u, 40u}, // kmo -> Latn
-    {0xC98A0000u, 40u}, // kms -> Latn
-    {0xD18A0000u, 40u}, // kmu -> Latn
-    {0xD98A0000u, 40u}, // kmw -> Latn
-    {0x6B6E0000u, 36u}, // kn -> Knda
-    {0xBDAA0000u, 40u}, // knp -> Latn
-    {0x6B6F0000u, 37u}, // ko -> Kore
-    {0xA1CA0000u, 15u}, // koi -> Cyrl
-    {0xA9CA0000u, 16u}, // kok -> Deva
-    {0xADCA0000u, 40u}, // kol -> Latn
-    {0xC9CA0000u, 40u}, // kos -> Latn
-    {0xE5CA0000u, 40u}, // koz -> Latn
-    {0x91EA0000u, 40u}, // kpe -> Latn
-    {0x95EA0000u, 40u}, // kpf -> Latn
-    {0xB9EA0000u, 40u}, // kpo -> Latn
-    {0xC5EA0000u, 40u}, // kpr -> Latn
-    {0xDDEA0000u, 40u}, // kpx -> Latn
-    {0x860A0000u, 40u}, // kqb -> Latn
-    {0x960A0000u, 40u}, // kqf -> Latn
-    {0xCA0A0000u, 40u}, // kqs -> Latn
-    {0xE20A0000u, 18u}, // kqy -> Ethi
-    {0x8A2A0000u, 15u}, // krc -> Cyrl
-    {0xA22A0000u, 40u}, // kri -> Latn
-    {0xA62A0000u, 40u}, // krj -> Latn
-    {0xAE2A0000u, 40u}, // krl -> Latn
-    {0xCA2A0000u, 40u}, // krs -> Latn
-    {0xD22A0000u, 16u}, // kru -> Deva
+    {0x894A0000u, 46u}, // kkc -> Latn
+    {0xA54A0000u, 46u}, // kkj -> Latn
+    {0x6B6C0000u, 46u}, // kl -> Latn
+    {0xB56A0000u, 46u}, // kln -> Latn
+    {0xC16A0000u, 46u}, // klq -> Latn
+    {0xCD6A0000u, 46u}, // klt -> Latn
+    {0xDD6A0000u, 46u}, // klx -> Latn
+    {0x6B6D0000u, 40u}, // km -> Khmr
+    {0x858A0000u, 46u}, // kmb -> Latn
+    {0x9D8A0000u, 46u}, // kmh -> Latn
+    {0xB98A0000u, 46u}, // kmo -> Latn
+    {0xC98A0000u, 46u}, // kms -> Latn
+    {0xD18A0000u, 46u}, // kmu -> Latn
+    {0xD98A0000u, 46u}, // kmw -> Latn
+    {0x6B6E0000u, 42u}, // kn -> Knda
+    {0x95AA0000u, 46u}, // knf -> Latn
+    {0xBDAA0000u, 46u}, // knp -> Latn
+    {0x6B6F0000u, 43u}, // ko -> Kore
+    {0xA1CA0000u, 17u}, // koi -> Cyrl
+    {0xA9CA0000u, 18u}, // kok -> Deva
+    {0xADCA0000u, 46u}, // kol -> Latn
+    {0xC9CA0000u, 46u}, // kos -> Latn
+    {0xE5CA0000u, 46u}, // koz -> Latn
+    {0x91EA0000u, 46u}, // kpe -> Latn
+    {0x95EA0000u, 46u}, // kpf -> Latn
+    {0xB9EA0000u, 46u}, // kpo -> Latn
+    {0xC5EA0000u, 46u}, // kpr -> Latn
+    {0xDDEA0000u, 46u}, // kpx -> Latn
+    {0x860A0000u, 46u}, // kqb -> Latn
+    {0x960A0000u, 46u}, // kqf -> Latn
+    {0xCA0A0000u, 46u}, // kqs -> Latn
+    {0xE20A0000u, 20u}, // kqy -> Ethi
+    {0x6B720000u, 46u}, // kr -> Latn
+    {0x8A2A0000u, 17u}, // krc -> Cyrl
+    {0xA22A0000u, 46u}, // kri -> Latn
+    {0xA62A0000u, 46u}, // krj -> Latn
+    {0xAE2A0000u, 46u}, // krl -> Latn
+    {0xCA2A0000u, 46u}, // krs -> Latn
+    {0xD22A0000u, 18u}, // kru -> Deva
     {0x6B730000u,  1u}, // ks -> Arab
-    {0x864A0000u, 40u}, // ksb -> Latn
-    {0x8E4A0000u, 40u}, // ksd -> Latn
-    {0x964A0000u, 40u}, // ksf -> Latn
-    {0x9E4A0000u, 40u}, // ksh -> Latn
-    {0xA64A0000u, 40u}, // ksj -> Latn
-    {0xC64A0000u, 40u}, // ksr -> Latn
-    {0x866A0000u, 18u}, // ktb -> Ethi
-    {0xB26A0000u, 40u}, // ktm -> Latn
-    {0xBA6A0000u, 40u}, // kto -> Latn
-    {0x6B750000u, 40u}, // ku -> Latn
+    {0x864A0000u, 46u}, // ksb -> Latn
+    {0x8E4A0000u, 46u}, // ksd -> Latn
+    {0x964A0000u, 46u}, // ksf -> Latn
+    {0x9E4A0000u, 46u}, // ksh -> Latn
+    {0xA64A0000u, 46u}, // ksj -> Latn
+    {0xC64A0000u, 46u}, // ksr -> Latn
+    {0x866A0000u, 20u}, // ktb -> Ethi
+    {0xB26A0000u, 46u}, // ktm -> Latn
+    {0xBA6A0000u, 46u}, // kto -> Latn
+    {0xC66A0000u, 46u}, // ktr -> Latn
+    {0x6B750000u, 46u}, // ku -> Latn
     {0x6B754952u,  1u}, // ku-IR -> Arab
     {0x6B754C42u,  1u}, // ku-LB -> Arab
-    {0x868A0000u, 40u}, // kub -> Latn
-    {0x8E8A0000u, 40u}, // kud -> Latn
-    {0x928A0000u, 40u}, // kue -> Latn
-    {0xA68A0000u, 40u}, // kuj -> Latn
-    {0xB28A0000u, 15u}, // kum -> Cyrl
-    {0xB68A0000u, 40u}, // kun -> Latn
-    {0xBE8A0000u, 40u}, // kup -> Latn
-    {0xCA8A0000u, 40u}, // kus -> Latn
-    {0x6B760000u, 15u}, // kv -> Cyrl
-    {0x9AAA0000u, 40u}, // kvg -> Latn
-    {0xC6AA0000u, 40u}, // kvr -> Latn
+    {0x868A0000u, 46u}, // kub -> Latn
+    {0x8E8A0000u, 46u}, // kud -> Latn
+    {0x928A0000u, 46u}, // kue -> Latn
+    {0xA68A0000u, 46u}, // kuj -> Latn
+    {0xB28A0000u, 17u}, // kum -> Cyrl
+    {0xB68A0000u, 46u}, // kun -> Latn
+    {0xBE8A0000u, 46u}, // kup -> Latn
+    {0xCA8A0000u, 46u}, // kus -> Latn
+    {0x6B760000u, 17u}, // kv -> Cyrl
+    {0x9AAA0000u, 46u}, // kvg -> Latn
+    {0xC6AA0000u, 46u}, // kvr -> Latn
     {0xDEAA0000u,  1u}, // kvx -> Arab
-    {0x6B770000u, 40u}, // kw -> Latn
-    {0xA6CA0000u, 40u}, // kwj -> Latn
-    {0xBACA0000u, 40u}, // kwo -> Latn
-    {0x82EA0000u, 40u}, // kxa -> Latn
-    {0x8AEA0000u, 18u}, // kxc -> Ethi
-    {0xB2EA0000u, 80u}, // kxm -> Thai
+    {0x6B770000u, 46u}, // kw -> Latn
+    {0xA6CA0000u, 46u}, // kwj -> Latn
+    {0xBACA0000u, 46u}, // kwo -> Latn
+    {0xC2CA0000u, 46u}, // kwq -> Latn
+    {0x82EA0000u, 46u}, // kxa -> Latn
+    {0x8AEA0000u, 20u}, // kxc -> Ethi
+    {0x92EA0000u, 46u}, // kxe -> Latn
+    {0xB2EA0000u, 89u}, // kxm -> Thai
     {0xBEEA0000u,  1u}, // kxp -> Arab
-    {0xDAEA0000u, 40u}, // kxw -> Latn
-    {0xE6EA0000u, 40u}, // kxz -> Latn
-    {0x6B790000u, 15u}, // ky -> Cyrl
+    {0xDAEA0000u, 46u}, // kxw -> Latn
+    {0xE6EA0000u, 46u}, // kxz -> Latn
+    {0x6B790000u, 17u}, // ky -> Cyrl
     {0x6B79434Eu,  1u}, // ky-CN -> Arab
-    {0x6B795452u, 40u}, // ky-TR -> Latn
-    {0x930A0000u, 40u}, // kye -> Latn
-    {0xDF0A0000u, 40u}, // kyx -> Latn
-    {0xC72A0000u, 40u}, // kzr -> Latn
-    {0x6C610000u, 40u}, // la -> Latn
-    {0x840B0000u, 42u}, // lab -> Lina
-    {0x8C0B0000u, 27u}, // lad -> Hebr
-    {0x980B0000u, 40u}, // lag -> Latn
+    {0x6B795452u, 46u}, // ky-TR -> Latn
+    {0x930A0000u, 46u}, // kye -> Latn
+    {0xDF0A0000u, 46u}, // kyx -> Latn
+    {0xA72A0000u, 46u}, // kzj -> Latn
+    {0xC72A0000u, 46u}, // kzr -> Latn
+    {0xCF2A0000u, 46u}, // kzt -> Latn
+    {0x6C610000u, 46u}, // la -> Latn
+    {0x840B0000u, 48u}, // lab -> Lina
+    {0x8C0B0000u, 31u}, // lad -> Hebr
+    {0x980B0000u, 46u}, // lag -> Latn
     {0x9C0B0000u,  1u}, // lah -> Arab
-    {0xA40B0000u, 40u}, // laj -> Latn
-    {0xC80B0000u, 40u}, // las -> Latn
-    {0x6C620000u, 40u}, // lb -> Latn
-    {0x902B0000u, 15u}, // lbe -> Cyrl
-    {0xD02B0000u, 40u}, // lbu -> Latn
-    {0xD82B0000u, 40u}, // lbw -> Latn
-    {0xB04B0000u, 40u}, // lcm -> Latn
-    {0xBC4B0000u, 80u}, // lcp -> Thai
-    {0x846B0000u, 40u}, // ldb -> Latn
-    {0x8C8B0000u, 40u}, // led -> Latn
-    {0x908B0000u, 40u}, // lee -> Latn
-    {0xB08B0000u, 40u}, // lem -> Latn
-    {0xBC8B0000u, 41u}, // lep -> Lepc
-    {0xC08B0000u, 40u}, // leq -> Latn
-    {0xD08B0000u, 40u}, // leu -> Latn
-    {0xE48B0000u, 15u}, // lez -> Cyrl
-    {0x6C670000u, 40u}, // lg -> Latn
-    {0x98CB0000u, 40u}, // lgg -> Latn
-    {0x6C690000u, 40u}, // li -> Latn
-    {0x810B0000u, 40u}, // lia -> Latn
-    {0x8D0B0000u, 40u}, // lid -> Latn
-    {0x950B0000u, 16u}, // lif -> Deva
-    {0x990B0000u, 40u}, // lig -> Latn
-    {0x9D0B0000u, 40u}, // lih -> Latn
-    {0xA50B0000u, 40u}, // lij -> Latn
-    {0xC90B0000u, 43u}, // lis -> Lisu
-    {0xBD2B0000u, 40u}, // ljp -> Latn
+    {0xA40B0000u, 46u}, // laj -> Latn
+    {0xC80B0000u, 46u}, // las -> Latn
+    {0x6C620000u, 46u}, // lb -> Latn
+    {0x902B0000u, 17u}, // lbe -> Cyrl
+    {0xD02B0000u, 46u}, // lbu -> Latn
+    {0xD82B0000u, 46u}, // lbw -> Latn
+    {0xB04B0000u, 46u}, // lcm -> Latn
+    {0xBC4B0000u, 89u}, // lcp -> Thai
+    {0x846B0000u, 46u}, // ldb -> Latn
+    {0x8C8B0000u, 46u}, // led -> Latn
+    {0x908B0000u, 46u}, // lee -> Latn
+    {0xB08B0000u, 46u}, // lem -> Latn
+    {0xBC8B0000u, 47u}, // lep -> Lepc
+    {0xC08B0000u, 46u}, // leq -> Latn
+    {0xD08B0000u, 46u}, // leu -> Latn
+    {0xE48B0000u, 17u}, // lez -> Cyrl
+    {0x6C670000u, 46u}, // lg -> Latn
+    {0x98CB0000u, 46u}, // lgg -> Latn
+    {0x6C690000u, 46u}, // li -> Latn
+    {0x810B0000u, 46u}, // lia -> Latn
+    {0x8D0B0000u, 46u}, // lid -> Latn
+    {0x950B0000u, 18u}, // lif -> Deva
+    {0x990B0000u, 46u}, // lig -> Latn
+    {0x9D0B0000u, 46u}, // lih -> Latn
+    {0xA50B0000u, 46u}, // lij -> Latn
+    {0xC90B0000u, 49u}, // lis -> Lisu
+    {0xBD2B0000u, 46u}, // ljp -> Latn
     {0xA14B0000u,  1u}, // lki -> Arab
-    {0xCD4B0000u, 40u}, // lkt -> Latn
-    {0x916B0000u, 40u}, // lle -> Latn
-    {0xB56B0000u, 40u}, // lln -> Latn
-    {0xB58B0000u, 77u}, // lmn -> Telu
-    {0xB98B0000u, 40u}, // lmo -> Latn
-    {0xBD8B0000u, 40u}, // lmp -> Latn
-    {0x6C6E0000u, 40u}, // ln -> Latn
-    {0xC9AB0000u, 40u}, // lns -> Latn
-    {0xD1AB0000u, 40u}, // lnu -> Latn
-    {0x6C6F0000u, 39u}, // lo -> Laoo
-    {0xA5CB0000u, 40u}, // loj -> Latn
-    {0xA9CB0000u, 40u}, // lok -> Latn
-    {0xADCB0000u, 40u}, // lol -> Latn
-    {0xC5CB0000u, 40u}, // lor -> Latn
-    {0xC9CB0000u, 40u}, // los -> Latn
-    {0xE5CB0000u, 40u}, // loz -> Latn
+    {0xCD4B0000u, 46u}, // lkt -> Latn
+    {0x916B0000u, 46u}, // lle -> Latn
+    {0xB56B0000u, 46u}, // lln -> Latn
+    {0xB58B0000u, 86u}, // lmn -> Telu
+    {0xB98B0000u, 46u}, // lmo -> Latn
+    {0xBD8B0000u, 46u}, // lmp -> Latn
+    {0x6C6E0000u, 46u}, // ln -> Latn
+    {0xC9AB0000u, 46u}, // lns -> Latn
+    {0xD1AB0000u, 46u}, // lnu -> Latn
+    {0x6C6F0000u, 45u}, // lo -> Laoo
+    {0xA5CB0000u, 46u}, // loj -> Latn
+    {0xA9CB0000u, 46u}, // lok -> Latn
+    {0xADCB0000u, 46u}, // lol -> Latn
+    {0xC5CB0000u, 46u}, // lor -> Latn
+    {0xC9CB0000u, 46u}, // los -> Latn
+    {0xE5CB0000u, 46u}, // loz -> Latn
     {0x8A2B0000u,  1u}, // lrc -> Arab
-    {0x6C740000u, 40u}, // lt -> Latn
-    {0x9A6B0000u, 40u}, // ltg -> Latn
-    {0x6C750000u, 40u}, // lu -> Latn
-    {0x828B0000u, 40u}, // lua -> Latn
-    {0xBA8B0000u, 40u}, // luo -> Latn
-    {0xE28B0000u, 40u}, // luy -> Latn
+    {0x6C740000u, 46u}, // lt -> Latn
+    {0x9A6B0000u, 46u}, // ltg -> Latn
+    {0x6C750000u, 46u}, // lu -> Latn
+    {0x828B0000u, 46u}, // lua -> Latn
+    {0xBA8B0000u, 46u}, // luo -> Latn
+    {0xE28B0000u, 46u}, // luy -> Latn
     {0xE68B0000u,  1u}, // luz -> Arab
-    {0x6C760000u, 40u}, // lv -> Latn
-    {0xAECB0000u, 80u}, // lwl -> Thai
-    {0x9F2B0000u, 24u}, // lzh -> Hans
-    {0xE72B0000u, 40u}, // lzz -> Latn
-    {0x8C0C0000u, 40u}, // mad -> Latn
-    {0x940C0000u, 40u}, // maf -> Latn
-    {0x980C0000u, 16u}, // mag -> Deva
-    {0xA00C0000u, 16u}, // mai -> Deva
-    {0xA80C0000u, 40u}, // mak -> Latn
-    {0xB40C0000u, 40u}, // man -> Latn
-    {0xB40C474Eu, 54u}, // man-GN -> Nkoo
-    {0xC80C0000u, 40u}, // mas -> Latn
-    {0xD80C0000u, 40u}, // maw -> Latn
-    {0xE40C0000u, 40u}, // maz -> Latn
-    {0x9C2C0000u, 40u}, // mbh -> Latn
-    {0xB82C0000u, 40u}, // mbo -> Latn
-    {0xC02C0000u, 40u}, // mbq -> Latn
-    {0xD02C0000u, 40u}, // mbu -> Latn
-    {0xD82C0000u, 40u}, // mbw -> Latn
-    {0xA04C0000u, 40u}, // mci -> Latn
-    {0xBC4C0000u, 40u}, // mcp -> Latn
-    {0xC04C0000u, 40u}, // mcq -> Latn
-    {0xC44C0000u, 40u}, // mcr -> Latn
-    {0xD04C0000u, 40u}, // mcu -> Latn
-    {0x806C0000u, 40u}, // mda -> Latn
+    {0x6C760000u, 46u}, // lv -> Latn
+    {0xAECB0000u, 89u}, // lwl -> Thai
+    {0x9F2B0000u, 28u}, // lzh -> Hans
+    {0xE72B0000u, 46u}, // lzz -> Latn
+    {0x8C0C0000u, 46u}, // mad -> Latn
+    {0x940C0000u, 46u}, // maf -> Latn
+    {0x980C0000u, 18u}, // mag -> Deva
+    {0xA00C0000u, 18u}, // mai -> Deva
+    {0xA80C0000u, 46u}, // mak -> Latn
+    {0xB40C0000u, 46u}, // man -> Latn
+    {0xB40C474Eu, 60u}, // man-GN -> Nkoo
+    {0xC80C0000u, 46u}, // mas -> Latn
+    {0xD80C0000u, 46u}, // maw -> Latn
+    {0xE40C0000u, 46u}, // maz -> Latn
+    {0x9C2C0000u, 46u}, // mbh -> Latn
+    {0xB82C0000u, 46u}, // mbo -> Latn
+    {0xC02C0000u, 46u}, // mbq -> Latn
+    {0xD02C0000u, 46u}, // mbu -> Latn
+    {0xD82C0000u, 46u}, // mbw -> Latn
+    {0xA04C0000u, 46u}, // mci -> Latn
+    {0xBC4C0000u, 46u}, // mcp -> Latn
+    {0xC04C0000u, 46u}, // mcq -> Latn
+    {0xC44C0000u, 46u}, // mcr -> Latn
+    {0xD04C0000u, 46u}, // mcu -> Latn
+    {0x806C0000u, 46u}, // mda -> Latn
     {0x906C0000u,  1u}, // mde -> Arab
-    {0x946C0000u, 15u}, // mdf -> Cyrl
-    {0x9C6C0000u, 40u}, // mdh -> Latn
-    {0xA46C0000u, 40u}, // mdj -> Latn
-    {0xC46C0000u, 40u}, // mdr -> Latn
-    {0xDC6C0000u, 18u}, // mdx -> Ethi
-    {0x8C8C0000u, 40u}, // med -> Latn
-    {0x908C0000u, 40u}, // mee -> Latn
-    {0xA88C0000u, 40u}, // mek -> Latn
-    {0xB48C0000u, 40u}, // men -> Latn
-    {0xC48C0000u, 40u}, // mer -> Latn
-    {0xCC8C0000u, 40u}, // met -> Latn
-    {0xD08C0000u, 40u}, // meu -> Latn
+    {0x946C0000u, 17u}, // mdf -> Cyrl
+    {0x9C6C0000u, 46u}, // mdh -> Latn
+    {0xA46C0000u, 46u}, // mdj -> Latn
+    {0xC46C0000u, 46u}, // mdr -> Latn
+    {0xDC6C0000u, 20u}, // mdx -> Ethi
+    {0x8C8C0000u, 46u}, // med -> Latn
+    {0x908C0000u, 46u}, // mee -> Latn
+    {0xA88C0000u, 46u}, // mek -> Latn
+    {0xB48C0000u, 46u}, // men -> Latn
+    {0xC48C0000u, 46u}, // mer -> Latn
+    {0xCC8C0000u, 46u}, // met -> Latn
+    {0xD08C0000u, 46u}, // meu -> Latn
     {0x80AC0000u,  1u}, // mfa -> Arab
-    {0x90AC0000u, 40u}, // mfe -> Latn
-    {0xB4AC0000u, 40u}, // mfn -> Latn
-    {0xB8AC0000u, 40u}, // mfo -> Latn
-    {0xC0AC0000u, 40u}, // mfq -> Latn
-    {0x6D670000u, 40u}, // mg -> Latn
-    {0x9CCC0000u, 40u}, // mgh -> Latn
-    {0xACCC0000u, 40u}, // mgl -> Latn
-    {0xB8CC0000u, 40u}, // mgo -> Latn
-    {0xBCCC0000u, 16u}, // mgp -> Deva
-    {0xE0CC0000u, 40u}, // mgy -> Latn
-    {0x6D680000u, 40u}, // mh -> Latn
-    {0xA0EC0000u, 40u}, // mhi -> Latn
-    {0xACEC0000u, 40u}, // mhl -> Latn
-    {0x6D690000u, 40u}, // mi -> Latn
-    {0x950C0000u, 40u}, // mif -> Latn
-    {0xB50C0000u, 40u}, // min -> Latn
-    {0xC90C0000u, 26u}, // mis -> Hatr
-    {0xD90C0000u, 40u}, // miw -> Latn
-    {0x6D6B0000u, 15u}, // mk -> Cyrl
+    {0x90AC0000u, 46u}, // mfe -> Latn
+    {0xB4AC0000u, 46u}, // mfn -> Latn
+    {0xB8AC0000u, 46u}, // mfo -> Latn
+    {0xC0AC0000u, 46u}, // mfq -> Latn
+    {0x6D670000u, 46u}, // mg -> Latn
+    {0x9CCC0000u, 46u}, // mgh -> Latn
+    {0xACCC0000u, 46u}, // mgl -> Latn
+    {0xB8CC0000u, 46u}, // mgo -> Latn
+    {0xBCCC0000u, 18u}, // mgp -> Deva
+    {0xE0CC0000u, 46u}, // mgy -> Latn
+    {0x6D680000u, 46u}, // mh -> Latn
+    {0xA0EC0000u, 46u}, // mhi -> Latn
+    {0xACEC0000u, 46u}, // mhl -> Latn
+    {0x6D690000u, 46u}, // mi -> Latn
+    {0x950C0000u, 46u}, // mif -> Latn
+    {0xB50C0000u, 46u}, // min -> Latn
+    {0xC90C0000u, 30u}, // mis -> Hatr
+    {0xD90C0000u, 46u}, // miw -> Latn
+    {0x6D6B0000u, 17u}, // mk -> Cyrl
     {0xA14C0000u,  1u}, // mki -> Arab
-    {0xAD4C0000u, 40u}, // mkl -> Latn
-    {0xBD4C0000u, 40u}, // mkp -> Latn
-    {0xD94C0000u, 40u}, // mkw -> Latn
-    {0x6D6C0000u, 49u}, // ml -> Mlym
-    {0x916C0000u, 40u}, // mle -> Latn
-    {0xBD6C0000u, 40u}, // mlp -> Latn
-    {0xC96C0000u, 40u}, // mls -> Latn
-    {0xB98C0000u, 40u}, // mmo -> Latn
-    {0xD18C0000u, 40u}, // mmu -> Latn
-    {0xDD8C0000u, 40u}, // mmx -> Latn
-    {0x6D6E0000u, 15u}, // mn -> Cyrl
-    {0x6D6E434Eu, 50u}, // mn-CN -> Mong
-    {0x81AC0000u, 40u}, // mna -> Latn
-    {0x95AC0000u, 40u}, // mnf -> Latn
+    {0xAD4C0000u, 46u}, // mkl -> Latn
+    {0xBD4C0000u, 46u}, // mkp -> Latn
+    {0xD94C0000u, 46u}, // mkw -> Latn
+    {0x6D6C0000u, 55u}, // ml -> Mlym
+    {0x916C0000u, 46u}, // mle -> Latn
+    {0xBD6C0000u, 46u}, // mlp -> Latn
+    {0xC96C0000u, 46u}, // mls -> Latn
+    {0xB98C0000u, 46u}, // mmo -> Latn
+    {0xD18C0000u, 46u}, // mmu -> Latn
+    {0xDD8C0000u, 46u}, // mmx -> Latn
+    {0x6D6E0000u, 17u}, // mn -> Cyrl
+    {0x6D6E434Eu, 56u}, // mn-CN -> Mong
+    {0x81AC0000u, 46u}, // mna -> Latn
+    {0x95AC0000u, 46u}, // mnf -> Latn
     {0xA1AC0000u,  7u}, // mni -> Beng
-    {0xD9AC0000u, 52u}, // mnw -> Mymr
-    {0x81CC0000u, 40u}, // moa -> Latn
-    {0x91CC0000u, 40u}, // moe -> Latn
-    {0x9DCC0000u, 40u}, // moh -> Latn
-    {0xC9CC0000u, 40u}, // mos -> Latn
-    {0xDDCC0000u, 40u}, // mox -> Latn
-    {0xBDEC0000u, 40u}, // mpp -> Latn
-    {0xC9EC0000u, 40u}, // mps -> Latn
-    {0xCDEC0000u, 40u}, // mpt -> Latn
-    {0xDDEC0000u, 40u}, // mpx -> Latn
-    {0xAE0C0000u, 40u}, // mql -> Latn
-    {0x6D720000u, 16u}, // mr -> Deva
-    {0x8E2C0000u, 16u}, // mrd -> Deva
-    {0xA62C0000u, 15u}, // mrj -> Cyrl
-    {0xBA2C0000u, 51u}, // mro -> Mroo
-    {0x6D730000u, 40u}, // ms -> Latn
+    {0xD9AC0000u, 58u}, // mnw -> Mymr
+    {0x6D6F0000u, 46u}, // mo -> Latn
+    {0x81CC0000u, 46u}, // moa -> Latn
+    {0x91CC0000u, 46u}, // moe -> Latn
+    {0x9DCC0000u, 46u}, // moh -> Latn
+    {0xC9CC0000u, 46u}, // mos -> Latn
+    {0xDDCC0000u, 46u}, // mox -> Latn
+    {0xBDEC0000u, 46u}, // mpp -> Latn
+    {0xC9EC0000u, 46u}, // mps -> Latn
+    {0xCDEC0000u, 46u}, // mpt -> Latn
+    {0xDDEC0000u, 46u}, // mpx -> Latn
+    {0xAE0C0000u, 46u}, // mql -> Latn
+    {0x6D720000u, 18u}, // mr -> Deva
+    {0x8E2C0000u, 18u}, // mrd -> Deva
+    {0xA62C0000u, 17u}, // mrj -> Cyrl
+    {0xBA2C0000u, 57u}, // mro -> Mroo
+    {0x6D730000u, 46u}, // ms -> Latn
     {0x6D734343u,  1u}, // ms-CC -> Arab
     {0x6D734944u,  1u}, // ms-ID -> Arab
-    {0x6D740000u, 40u}, // mt -> Latn
-    {0x8A6C0000u, 40u}, // mtc -> Latn
-    {0x966C0000u, 40u}, // mtf -> Latn
-    {0xA26C0000u, 40u}, // mti -> Latn
-    {0xC66C0000u, 16u}, // mtr -> Deva
-    {0x828C0000u, 40u}, // mua -> Latn
-    {0xC68C0000u, 40u}, // mur -> Latn
-    {0xCA8C0000u, 40u}, // mus -> Latn
-    {0x82AC0000u, 40u}, // mva -> Latn
-    {0xB6AC0000u, 40u}, // mvn -> Latn
+    {0x6D740000u, 46u}, // mt -> Latn
+    {0x8A6C0000u, 46u}, // mtc -> Latn
+    {0x966C0000u, 46u}, // mtf -> Latn
+    {0xA26C0000u, 46u}, // mti -> Latn
+    {0xC66C0000u, 18u}, // mtr -> Deva
+    {0x828C0000u, 46u}, // mua -> Latn
+    {0xC68C0000u, 46u}, // mur -> Latn
+    {0xCA8C0000u, 46u}, // mus -> Latn
+    {0x82AC0000u, 46u}, // mva -> Latn
+    {0xB6AC0000u, 46u}, // mvn -> Latn
     {0xE2AC0000u,  1u}, // mvy -> Arab
-    {0xAACC0000u, 40u}, // mwk -> Latn
-    {0xC6CC0000u, 16u}, // mwr -> Deva
-    {0xD6CC0000u, 40u}, // mwv -> Latn
-    {0x8AEC0000u, 40u}, // mxc -> Latn
-    {0xB2EC0000u, 40u}, // mxm -> Latn
-    {0x6D790000u, 52u}, // my -> Mymr
-    {0xAB0C0000u, 40u}, // myk -> Latn
-    {0xB30C0000u, 18u}, // mym -> Ethi
-    {0xD70C0000u, 15u}, // myv -> Cyrl
-    {0xDB0C0000u, 40u}, // myw -> Latn
-    {0xDF0C0000u, 40u}, // myx -> Latn
-    {0xE70C0000u, 46u}, // myz -> Mand
-    {0xAB2C0000u, 40u}, // mzk -> Latn
-    {0xB32C0000u, 40u}, // mzm -> Latn
+    {0xAACC0000u, 46u}, // mwk -> Latn
+    {0xC6CC0000u, 18u}, // mwr -> Deva
+    {0xD6CC0000u, 46u}, // mwv -> Latn
+    {0xDACC0000u, 34u}, // mww -> Hmnp
+    {0x8AEC0000u, 46u}, // mxc -> Latn
+    {0xB2EC0000u, 46u}, // mxm -> Latn
+    {0x6D790000u, 58u}, // my -> Mymr
+    {0xAB0C0000u, 46u}, // myk -> Latn
+    {0xB30C0000u, 20u}, // mym -> Ethi
+    {0xD70C0000u, 17u}, // myv -> Cyrl
+    {0xDB0C0000u, 46u}, // myw -> Latn
+    {0xDF0C0000u, 46u}, // myx -> Latn
+    {0xE70C0000u, 52u}, // myz -> Mand
+    {0xAB2C0000u, 46u}, // mzk -> Latn
+    {0xB32C0000u, 46u}, // mzm -> Latn
     {0xB72C0000u,  1u}, // mzn -> Arab
-    {0xBF2C0000u, 40u}, // mzp -> Latn
-    {0xDB2C0000u, 40u}, // mzw -> Latn
-    {0xE72C0000u, 40u}, // mzz -> Latn
-    {0x6E610000u, 40u}, // na -> Latn
-    {0x880D0000u, 40u}, // nac -> Latn
-    {0x940D0000u, 40u}, // naf -> Latn
-    {0xA80D0000u, 40u}, // nak -> Latn
-    {0xB40D0000u, 24u}, // nan -> Hans
-    {0xBC0D0000u, 40u}, // nap -> Latn
-    {0xC00D0000u, 40u}, // naq -> Latn
-    {0xC80D0000u, 40u}, // nas -> Latn
-    {0x6E620000u, 40u}, // nb -> Latn
-    {0x804D0000u, 40u}, // nca -> Latn
-    {0x904D0000u, 40u}, // nce -> Latn
-    {0x944D0000u, 40u}, // ncf -> Latn
-    {0x9C4D0000u, 40u}, // nch -> Latn
-    {0xB84D0000u, 40u}, // nco -> Latn
-    {0xD04D0000u, 40u}, // ncu -> Latn
-    {0x6E640000u, 40u}, // nd -> Latn
-    {0x886D0000u, 40u}, // ndc -> Latn
-    {0xC86D0000u, 40u}, // nds -> Latn
-    {0x6E650000u, 16u}, // ne -> Deva
-    {0x848D0000u, 40u}, // neb -> Latn
-    {0xD88D0000u, 16u}, // new -> Deva
-    {0xDC8D0000u, 40u}, // nex -> Latn
-    {0xC4AD0000u, 40u}, // nfr -> Latn
-    {0x6E670000u, 40u}, // ng -> Latn
-    {0x80CD0000u, 40u}, // nga -> Latn
-    {0x84CD0000u, 40u}, // ngb -> Latn
-    {0xACCD0000u, 40u}, // ngl -> Latn
-    {0x84ED0000u, 40u}, // nhb -> Latn
-    {0x90ED0000u, 40u}, // nhe -> Latn
-    {0xD8ED0000u, 40u}, // nhw -> Latn
-    {0x950D0000u, 40u}, // nif -> Latn
-    {0xA10D0000u, 40u}, // nii -> Latn
-    {0xA50D0000u, 40u}, // nij -> Latn
-    {0xB50D0000u, 40u}, // nin -> Latn
-    {0xD10D0000u, 40u}, // niu -> Latn
-    {0xE10D0000u, 40u}, // niy -> Latn
-    {0xE50D0000u, 40u}, // niz -> Latn
-    {0xB92D0000u, 40u}, // njo -> Latn
-    {0x994D0000u, 40u}, // nkg -> Latn
-    {0xB94D0000u, 40u}, // nko -> Latn
-    {0x6E6C0000u, 40u}, // nl -> Latn
-    {0x998D0000u, 40u}, // nmg -> Latn
-    {0xE58D0000u, 40u}, // nmz -> Latn
-    {0x6E6E0000u, 40u}, // nn -> Latn
-    {0x95AD0000u, 40u}, // nnf -> Latn
-    {0x9DAD0000u, 40u}, // nnh -> Latn
-    {0xA9AD0000u, 40u}, // nnk -> Latn
-    {0xB1AD0000u, 40u}, // nnm -> Latn
-    {0x6E6F0000u, 40u}, // no -> Latn
-    {0x8DCD0000u, 38u}, // nod -> Lana
-    {0x91CD0000u, 16u}, // noe -> Deva
-    {0xB5CD0000u, 64u}, // non -> Runr
-    {0xBDCD0000u, 40u}, // nop -> Latn
-    {0xD1CD0000u, 40u}, // nou -> Latn
-    {0xBA0D0000u, 54u}, // nqo -> Nkoo
-    {0x6E720000u, 40u}, // nr -> Latn
-    {0x862D0000u, 40u}, // nrb -> Latn
-    {0xAA4D0000u,  9u}, // nsk -> Cans
-    {0xB64D0000u, 40u}, // nsn -> Latn
-    {0xBA4D0000u, 40u}, // nso -> Latn
-    {0xCA4D0000u, 40u}, // nss -> Latn
-    {0xB26D0000u, 40u}, // ntm -> Latn
-    {0xC66D0000u, 40u}, // ntr -> Latn
-    {0xA28D0000u, 40u}, // nui -> Latn
-    {0xBE8D0000u, 40u}, // nup -> Latn
-    {0xCA8D0000u, 40u}, // nus -> Latn
-    {0xD68D0000u, 40u}, // nuv -> Latn
-    {0xDE8D0000u, 40u}, // nux -> Latn
-    {0x6E760000u, 40u}, // nv -> Latn
-    {0x86CD0000u, 40u}, // nwb -> Latn
-    {0xC2ED0000u, 40u}, // nxq -> Latn
-    {0xC6ED0000u, 40u}, // nxr -> Latn
-    {0x6E790000u, 40u}, // ny -> Latn
-    {0xB30D0000u, 40u}, // nym -> Latn
-    {0xB70D0000u, 40u}, // nyn -> Latn
-    {0xA32D0000u, 40u}, // nzi -> Latn
-    {0x6F630000u, 40u}, // oc -> Latn
-    {0x88CE0000u, 40u}, // ogc -> Latn
-    {0xC54E0000u, 40u}, // okr -> Latn
-    {0xD54E0000u, 40u}, // okv -> Latn
-    {0x6F6D0000u, 40u}, // om -> Latn
-    {0x99AE0000u, 40u}, // ong -> Latn
-    {0xB5AE0000u, 40u}, // onn -> Latn
-    {0xC9AE0000u, 40u}, // ons -> Latn
-    {0xB1EE0000u, 40u}, // opm -> Latn
-    {0x6F720000u, 57u}, // or -> Orya
-    {0xBA2E0000u, 40u}, // oro -> Latn
+    {0xBF2C0000u, 46u}, // mzp -> Latn
+    {0xDB2C0000u, 46u}, // mzw -> Latn
+    {0xE72C0000u, 46u}, // mzz -> Latn
+    {0x6E610000u, 46u}, // na -> Latn
+    {0x880D0000u, 46u}, // nac -> Latn
+    {0x940D0000u, 46u}, // naf -> Latn
+    {0xA80D0000u, 46u}, // nak -> Latn
+    {0xB40D0000u, 28u}, // nan -> Hans
+    {0xBC0D0000u, 46u}, // nap -> Latn
+    {0xC00D0000u, 46u}, // naq -> Latn
+    {0xC80D0000u, 46u}, // nas -> Latn
+    {0x6E620000u, 46u}, // nb -> Latn
+    {0x804D0000u, 46u}, // nca -> Latn
+    {0x904D0000u, 46u}, // nce -> Latn
+    {0x944D0000u, 46u}, // ncf -> Latn
+    {0x9C4D0000u, 46u}, // nch -> Latn
+    {0xB84D0000u, 46u}, // nco -> Latn
+    {0xD04D0000u, 46u}, // ncu -> Latn
+    {0x6E640000u, 46u}, // nd -> Latn
+    {0x886D0000u, 46u}, // ndc -> Latn
+    {0xC86D0000u, 46u}, // nds -> Latn
+    {0x6E650000u, 18u}, // ne -> Deva
+    {0x848D0000u, 46u}, // neb -> Latn
+    {0xD88D0000u, 18u}, // new -> Deva
+    {0xDC8D0000u, 46u}, // nex -> Latn
+    {0xC4AD0000u, 46u}, // nfr -> Latn
+    {0x6E670000u, 46u}, // ng -> Latn
+    {0x80CD0000u, 46u}, // nga -> Latn
+    {0x84CD0000u, 46u}, // ngb -> Latn
+    {0xACCD0000u, 46u}, // ngl -> Latn
+    {0x84ED0000u, 46u}, // nhb -> Latn
+    {0x90ED0000u, 46u}, // nhe -> Latn
+    {0xD8ED0000u, 46u}, // nhw -> Latn
+    {0x950D0000u, 46u}, // nif -> Latn
+    {0xA10D0000u, 46u}, // nii -> Latn
+    {0xA50D0000u, 46u}, // nij -> Latn
+    {0xB50D0000u, 46u}, // nin -> Latn
+    {0xD10D0000u, 46u}, // niu -> Latn
+    {0xE10D0000u, 46u}, // niy -> Latn
+    {0xE50D0000u, 46u}, // niz -> Latn
+    {0xB92D0000u, 46u}, // njo -> Latn
+    {0x994D0000u, 46u}, // nkg -> Latn
+    {0xB94D0000u, 46u}, // nko -> Latn
+    {0x6E6C0000u, 46u}, // nl -> Latn
+    {0x998D0000u, 46u}, // nmg -> Latn
+    {0xE58D0000u, 46u}, // nmz -> Latn
+    {0x6E6E0000u, 46u}, // nn -> Latn
+    {0x95AD0000u, 46u}, // nnf -> Latn
+    {0x9DAD0000u, 46u}, // nnh -> Latn
+    {0xA9AD0000u, 46u}, // nnk -> Latn
+    {0xB1AD0000u, 46u}, // nnm -> Latn
+    {0xBDAD0000u, 93u}, // nnp -> Wcho
+    {0x6E6F0000u, 46u}, // no -> Latn
+    {0x8DCD0000u, 44u}, // nod -> Lana
+    {0x91CD0000u, 18u}, // noe -> Deva
+    {0xB5CD0000u, 71u}, // non -> Runr
+    {0xBDCD0000u, 46u}, // nop -> Latn
+    {0xD1CD0000u, 46u}, // nou -> Latn
+    {0xBA0D0000u, 60u}, // nqo -> Nkoo
+    {0x6E720000u, 46u}, // nr -> Latn
+    {0x862D0000u, 46u}, // nrb -> Latn
+    {0xAA4D0000u, 10u}, // nsk -> Cans
+    {0xB64D0000u, 46u}, // nsn -> Latn
+    {0xBA4D0000u, 46u}, // nso -> Latn
+    {0xCA4D0000u, 46u}, // nss -> Latn
+    {0xB26D0000u, 46u}, // ntm -> Latn
+    {0xC66D0000u, 46u}, // ntr -> Latn
+    {0xA28D0000u, 46u}, // nui -> Latn
+    {0xBE8D0000u, 46u}, // nup -> Latn
+    {0xCA8D0000u, 46u}, // nus -> Latn
+    {0xD68D0000u, 46u}, // nuv -> Latn
+    {0xDE8D0000u, 46u}, // nux -> Latn
+    {0x6E760000u, 46u}, // nv -> Latn
+    {0x86CD0000u, 46u}, // nwb -> Latn
+    {0xC2ED0000u, 46u}, // nxq -> Latn
+    {0xC6ED0000u, 46u}, // nxr -> Latn
+    {0x6E790000u, 46u}, // ny -> Latn
+    {0xB30D0000u, 46u}, // nym -> Latn
+    {0xB70D0000u, 46u}, // nyn -> Latn
+    {0xA32D0000u, 46u}, // nzi -> Latn
+    {0x6F630000u, 46u}, // oc -> Latn
+    {0x88CE0000u, 46u}, // ogc -> Latn
+    {0xC54E0000u, 46u}, // okr -> Latn
+    {0xD54E0000u, 46u}, // okv -> Latn
+    {0x6F6D0000u, 46u}, // om -> Latn
+    {0x99AE0000u, 46u}, // ong -> Latn
+    {0xB5AE0000u, 46u}, // onn -> Latn
+    {0xC9AE0000u, 46u}, // ons -> Latn
+    {0xB1EE0000u, 46u}, // opm -> Latn
+    {0x6F720000u, 64u}, // or -> Orya
+    {0xBA2E0000u, 46u}, // oro -> Latn
     {0xD22E0000u,  1u}, // oru -> Arab
-    {0x6F730000u, 15u}, // os -> Cyrl
-    {0x824E0000u, 58u}, // osa -> Osge
+    {0x6F730000u, 17u}, // os -> Cyrl
+    {0x824E0000u, 65u}, // osa -> Osge
     {0x826E0000u,  1u}, // ota -> Arab
-    {0xAA6E0000u, 56u}, // otk -> Orkh
-    {0xB32E0000u, 40u}, // ozm -> Latn
-    {0x70610000u, 23u}, // pa -> Guru
+    {0xAA6E0000u, 63u}, // otk -> Orkh
+    {0xB32E0000u, 46u}, // ozm -> Latn
+    {0x70610000u, 27u}, // pa -> Guru
     {0x7061504Bu,  1u}, // pa-PK -> Arab
-    {0x980F0000u, 40u}, // pag -> Latn
-    {0xAC0F0000u, 60u}, // pal -> Phli
-    {0xB00F0000u, 40u}, // pam -> Latn
-    {0xBC0F0000u, 40u}, // pap -> Latn
-    {0xD00F0000u, 40u}, // pau -> Latn
-    {0xA02F0000u, 40u}, // pbi -> Latn
-    {0x8C4F0000u, 40u}, // pcd -> Latn
-    {0xB04F0000u, 40u}, // pcm -> Latn
-    {0x886F0000u, 40u}, // pdc -> Latn
-    {0xCC6F0000u, 40u}, // pdt -> Latn
-    {0x8C8F0000u, 40u}, // ped -> Latn
-    {0xB88F0000u, 84u}, // peo -> Xpeo
-    {0xDC8F0000u, 40u}, // pex -> Latn
-    {0xACAF0000u, 40u}, // pfl -> Latn
+    {0x980F0000u, 46u}, // pag -> Latn
+    {0xAC0F0000u, 67u}, // pal -> Phli
+    {0xB00F0000u, 46u}, // pam -> Latn
+    {0xBC0F0000u, 46u}, // pap -> Latn
+    {0xD00F0000u, 46u}, // pau -> Latn
+    {0xA02F0000u, 46u}, // pbi -> Latn
+    {0x8C4F0000u, 46u}, // pcd -> Latn
+    {0xB04F0000u, 46u}, // pcm -> Latn
+    {0x886F0000u, 46u}, // pdc -> Latn
+    {0xCC6F0000u, 46u}, // pdt -> Latn
+    {0x8C8F0000u, 46u}, // ped -> Latn
+    {0xB88F0000u, 94u}, // peo -> Xpeo
+    {0xDC8F0000u, 46u}, // pex -> Latn
+    {0xACAF0000u, 46u}, // pfl -> Latn
     {0xACEF0000u,  1u}, // phl -> Arab
-    {0xB4EF0000u, 61u}, // phn -> Phnx
-    {0xAD0F0000u, 40u}, // pil -> Latn
-    {0xBD0F0000u, 40u}, // pip -> Latn
+    {0xB4EF0000u, 68u}, // phn -> Phnx
+    {0xAD0F0000u, 46u}, // pil -> Latn
+    {0xBD0F0000u, 46u}, // pip -> Latn
     {0x814F0000u,  8u}, // pka -> Brah
-    {0xB94F0000u, 40u}, // pko -> Latn
-    {0x706C0000u, 40u}, // pl -> Latn
-    {0x816F0000u, 40u}, // pla -> Latn
-    {0xC98F0000u, 40u}, // pms -> Latn
-    {0x99AF0000u, 40u}, // png -> Latn
-    {0xB5AF0000u, 40u}, // pnn -> Latn
-    {0xCDAF0000u, 21u}, // pnt -> Grek
-    {0xB5CF0000u, 40u}, // pon -> Latn
-    {0xB9EF0000u, 40u}, // ppo -> Latn
-    {0x822F0000u, 34u}, // pra -> Khar
+    {0xB94F0000u, 46u}, // pko -> Latn
+    {0x706C0000u, 46u}, // pl -> Latn
+    {0x816F0000u, 46u}, // pla -> Latn
+    {0xC98F0000u, 46u}, // pms -> Latn
+    {0x99AF0000u, 46u}, // png -> Latn
+    {0xB5AF0000u, 46u}, // pnn -> Latn
+    {0xCDAF0000u, 25u}, // pnt -> Grek
+    {0xB5CF0000u, 46u}, // pon -> Latn
+    {0x81EF0000u, 18u}, // ppa -> Deva
+    {0xB9EF0000u, 46u}, // ppo -> Latn
+    {0x822F0000u, 39u}, // pra -> Khar
     {0x8E2F0000u,  1u}, // prd -> Arab
-    {0x9A2F0000u, 40u}, // prg -> Latn
+    {0x9A2F0000u, 46u}, // prg -> Latn
     {0x70730000u,  1u}, // ps -> Arab
-    {0xCA4F0000u, 40u}, // pss -> Latn
-    {0x70740000u, 40u}, // pt -> Latn
-    {0xBE6F0000u, 40u}, // ptp -> Latn
-    {0xD28F0000u, 40u}, // puu -> Latn
-    {0x82CF0000u, 40u}, // pwa -> Latn
-    {0x71750000u, 40u}, // qu -> Latn
-    {0x8A900000u, 40u}, // quc -> Latn
-    {0x9A900000u, 40u}, // qug -> Latn
-    {0xA0110000u, 40u}, // rai -> Latn
-    {0xA4110000u, 16u}, // raj -> Deva
-    {0xB8110000u, 40u}, // rao -> Latn
-    {0x94510000u, 40u}, // rcf -> Latn
-    {0xA4910000u, 40u}, // rej -> Latn
-    {0xAC910000u, 40u}, // rel -> Latn
-    {0xC8910000u, 40u}, // res -> Latn
-    {0xB4D10000u, 40u}, // rgn -> Latn
+    {0xCA4F0000u, 46u}, // pss -> Latn
+    {0x70740000u, 46u}, // pt -> Latn
+    {0xBE6F0000u, 46u}, // ptp -> Latn
+    {0xD28F0000u, 46u}, // puu -> Latn
+    {0x82CF0000u, 46u}, // pwa -> Latn
+    {0x71750000u, 46u}, // qu -> Latn
+    {0x8A900000u, 46u}, // quc -> Latn
+    {0x9A900000u, 46u}, // qug -> Latn
+    {0xA0110000u, 46u}, // rai -> Latn
+    {0xA4110000u, 18u}, // raj -> Deva
+    {0xB8110000u, 46u}, // rao -> Latn
+    {0x94510000u, 46u}, // rcf -> Latn
+    {0xA4910000u, 46u}, // rej -> Latn
+    {0xAC910000u, 46u}, // rel -> Latn
+    {0xC8910000u, 46u}, // res -> Latn
+    {0xB4D10000u, 46u}, // rgn -> Latn
     {0x98F10000u,  1u}, // rhg -> Arab
-    {0x81110000u, 40u}, // ria -> Latn
-    {0x95110000u, 78u}, // rif -> Tfng
-    {0x95114E4Cu, 40u}, // rif-NL -> Latn
-    {0xC9310000u, 16u}, // rjs -> Deva
+    {0x81110000u, 46u}, // ria -> Latn
+    {0x95110000u, 87u}, // rif -> Tfng
+    {0x95114E4Cu, 46u}, // rif-NL -> Latn
+    {0xC9310000u, 18u}, // rjs -> Deva
     {0xCD510000u,  7u}, // rkt -> Beng
-    {0x726D0000u, 40u}, // rm -> Latn
-    {0x95910000u, 40u}, // rmf -> Latn
-    {0xB9910000u, 40u}, // rmo -> Latn
+    {0x726D0000u, 46u}, // rm -> Latn
+    {0x95910000u, 46u}, // rmf -> Latn
+    {0xB9910000u, 46u}, // rmo -> Latn
     {0xCD910000u,  1u}, // rmt -> Arab
-    {0xD1910000u, 40u}, // rmu -> Latn
-    {0x726E0000u, 40u}, // rn -> Latn
-    {0x81B10000u, 40u}, // rna -> Latn
-    {0x99B10000u, 40u}, // rng -> Latn
-    {0x726F0000u, 40u}, // ro -> Latn
-    {0x85D10000u, 40u}, // rob -> Latn
-    {0x95D10000u, 40u}, // rof -> Latn
-    {0xB9D10000u, 40u}, // roo -> Latn
-    {0xBA310000u, 40u}, // rro -> Latn
-    {0xB2710000u, 40u}, // rtm -> Latn
-    {0x72750000u, 15u}, // ru -> Cyrl
-    {0x92910000u, 15u}, // rue -> Cyrl
-    {0x9A910000u, 40u}, // rug -> Latn
-    {0x72770000u, 40u}, // rw -> Latn
-    {0xAAD10000u, 40u}, // rwk -> Latn
-    {0xBAD10000u, 40u}, // rwo -> Latn
-    {0xD3110000u, 33u}, // ryu -> Kana
-    {0x73610000u, 16u}, // sa -> Deva
-    {0x94120000u, 40u}, // saf -> Latn
-    {0x9C120000u, 15u}, // sah -> Cyrl
-    {0xC0120000u, 40u}, // saq -> Latn
-    {0xC8120000u, 40u}, // sas -> Latn
-    {0xCC120000u, 40u}, // sat -> Latn
-    {0xE4120000u, 67u}, // saz -> Saur
-    {0x80320000u, 40u}, // sba -> Latn
-    {0x90320000u, 40u}, // sbe -> Latn
-    {0xBC320000u, 40u}, // sbp -> Latn
-    {0x73630000u, 40u}, // sc -> Latn
-    {0xA8520000u, 16u}, // sck -> Deva
+    {0xD1910000u, 46u}, // rmu -> Latn
+    {0x726E0000u, 46u}, // rn -> Latn
+    {0x81B10000u, 46u}, // rna -> Latn
+    {0x99B10000u, 46u}, // rng -> Latn
+    {0x726F0000u, 46u}, // ro -> Latn
+    {0x85D10000u, 46u}, // rob -> Latn
+    {0x95D10000u, 46u}, // rof -> Latn
+    {0xB9D10000u, 46u}, // roo -> Latn
+    {0xBA310000u, 46u}, // rro -> Latn
+    {0xB2710000u, 46u}, // rtm -> Latn
+    {0x72750000u, 17u}, // ru -> Cyrl
+    {0x92910000u, 17u}, // rue -> Cyrl
+    {0x9A910000u, 46u}, // rug -> Latn
+    {0x72770000u, 46u}, // rw -> Latn
+    {0xAAD10000u, 46u}, // rwk -> Latn
+    {0xBAD10000u, 46u}, // rwo -> Latn
+    {0xD3110000u, 38u}, // ryu -> Kana
+    {0x73610000u, 18u}, // sa -> Deva
+    {0x94120000u, 46u}, // saf -> Latn
+    {0x9C120000u, 17u}, // sah -> Cyrl
+    {0xC0120000u, 46u}, // saq -> Latn
+    {0xC8120000u, 46u}, // sas -> Latn
+    {0xCC120000u, 46u}, // sat -> Latn
+    {0xD4120000u, 46u}, // sav -> Latn
+    {0xE4120000u, 74u}, // saz -> Saur
+    {0x80320000u, 46u}, // sba -> Latn
+    {0x90320000u, 46u}, // sbe -> Latn
+    {0xBC320000u, 46u}, // sbp -> Latn
+    {0x73630000u, 46u}, // sc -> Latn
+    {0xA8520000u, 18u}, // sck -> Deva
     {0xAC520000u,  1u}, // scl -> Arab
-    {0xB4520000u, 40u}, // scn -> Latn
-    {0xB8520000u, 40u}, // sco -> Latn
-    {0xC8520000u, 40u}, // scs -> Latn
+    {0xB4520000u, 46u}, // scn -> Latn
+    {0xB8520000u, 46u}, // sco -> Latn
+    {0xC8520000u, 46u}, // scs -> Latn
     {0x73640000u,  1u}, // sd -> Arab
-    {0x88720000u, 40u}, // sdc -> Latn
+    {0x88720000u, 46u}, // sdc -> Latn
     {0x9C720000u,  1u}, // sdh -> Arab
-    {0x73650000u, 40u}, // se -> Latn
-    {0x94920000u, 40u}, // sef -> Latn
-    {0x9C920000u, 40u}, // seh -> Latn
-    {0xA0920000u, 40u}, // sei -> Latn
-    {0xC8920000u, 40u}, // ses -> Latn
-    {0x73670000u, 40u}, // sg -> Latn
-    {0x80D20000u, 55u}, // sga -> Ogam
-    {0xC8D20000u, 40u}, // sgs -> Latn
-    {0xD8D20000u, 18u}, // sgw -> Ethi
-    {0xE4D20000u, 40u}, // sgz -> Latn
-    {0x73680000u, 40u}, // sh -> Latn
-    {0xA0F20000u, 78u}, // shi -> Tfng
-    {0xA8F20000u, 40u}, // shk -> Latn
-    {0xB4F20000u, 52u}, // shn -> Mymr
+    {0x73650000u, 46u}, // se -> Latn
+    {0x94920000u, 46u}, // sef -> Latn
+    {0x9C920000u, 46u}, // seh -> Latn
+    {0xA0920000u, 46u}, // sei -> Latn
+    {0xC8920000u, 46u}, // ses -> Latn
+    {0x73670000u, 46u}, // sg -> Latn
+    {0x80D20000u, 62u}, // sga -> Ogam
+    {0xC8D20000u, 46u}, // sgs -> Latn
+    {0xD8D20000u, 20u}, // sgw -> Ethi
+    {0xE4D20000u, 46u}, // sgz -> Latn
+    {0x73680000u, 46u}, // sh -> Latn
+    {0xA0F20000u, 87u}, // shi -> Tfng
+    {0xA8F20000u, 46u}, // shk -> Latn
+    {0xB4F20000u, 58u}, // shn -> Mymr
     {0xD0F20000u,  1u}, // shu -> Arab
-    {0x73690000u, 69u}, // si -> Sinh
-    {0x8D120000u, 40u}, // sid -> Latn
-    {0x99120000u, 40u}, // sig -> Latn
-    {0xAD120000u, 40u}, // sil -> Latn
-    {0xB1120000u, 40u}, // sim -> Latn
-    {0xC5320000u, 40u}, // sjr -> Latn
-    {0x736B0000u, 40u}, // sk -> Latn
-    {0x89520000u, 40u}, // skc -> Latn
+    {0x73690000u, 76u}, // si -> Sinh
+    {0x8D120000u, 46u}, // sid -> Latn
+    {0x99120000u, 46u}, // sig -> Latn
+    {0xAD120000u, 46u}, // sil -> Latn
+    {0xB1120000u, 46u}, // sim -> Latn
+    {0xC5320000u, 46u}, // sjr -> Latn
+    {0x736B0000u, 46u}, // sk -> Latn
+    {0x89520000u, 46u}, // skc -> Latn
     {0xC5520000u,  1u}, // skr -> Arab
-    {0xC9520000u, 40u}, // sks -> Latn
-    {0x736C0000u, 40u}, // sl -> Latn
-    {0x8D720000u, 40u}, // sld -> Latn
-    {0xA1720000u, 40u}, // sli -> Latn
-    {0xAD720000u, 40u}, // sll -> Latn
-    {0xE1720000u, 40u}, // sly -> Latn
-    {0x736D0000u, 40u}, // sm -> Latn
-    {0x81920000u, 40u}, // sma -> Latn
-    {0xA5920000u, 40u}, // smj -> Latn
-    {0xB5920000u, 40u}, // smn -> Latn
-    {0xBD920000u, 65u}, // smp -> Samr
-    {0xC1920000u, 40u}, // smq -> Latn
-    {0xC9920000u, 40u}, // sms -> Latn
-    {0x736E0000u, 40u}, // sn -> Latn
-    {0x89B20000u, 40u}, // snc -> Latn
-    {0xA9B20000u, 40u}, // snk -> Latn
-    {0xBDB20000u, 40u}, // snp -> Latn
-    {0xDDB20000u, 40u}, // snx -> Latn
-    {0xE1B20000u, 40u}, // sny -> Latn
-    {0x736F0000u, 40u}, // so -> Latn
-    {0xA9D20000u, 40u}, // sok -> Latn
-    {0xC1D20000u, 40u}, // soq -> Latn
-    {0xD1D20000u, 80u}, // sou -> Thai
-    {0xE1D20000u, 40u}, // soy -> Latn
-    {0x8DF20000u, 40u}, // spd -> Latn
-    {0xADF20000u, 40u}, // spl -> Latn
-    {0xC9F20000u, 40u}, // sps -> Latn
-    {0x73710000u, 40u}, // sq -> Latn
-    {0x73720000u, 15u}, // sr -> Cyrl
-    {0x73724D45u, 40u}, // sr-ME -> Latn
-    {0x7372524Fu, 40u}, // sr-RO -> Latn
-    {0x73725255u, 40u}, // sr-RU -> Latn
-    {0x73725452u, 40u}, // sr-TR -> Latn
-    {0x86320000u, 70u}, // srb -> Sora
-    {0xB6320000u, 40u}, // srn -> Latn
-    {0xC6320000u, 40u}, // srr -> Latn
-    {0xDE320000u, 16u}, // srx -> Deva
-    {0x73730000u, 40u}, // ss -> Latn
-    {0x8E520000u, 40u}, // ssd -> Latn
-    {0x9A520000u, 40u}, // ssg -> Latn
-    {0xE2520000u, 40u}, // ssy -> Latn
-    {0x73740000u, 40u}, // st -> Latn
-    {0xAA720000u, 40u}, // stk -> Latn
-    {0xC2720000u, 40u}, // stq -> Latn
-    {0x73750000u, 40u}, // su -> Latn
-    {0x82920000u, 40u}, // sua -> Latn
-    {0x92920000u, 40u}, // sue -> Latn
-    {0xAA920000u, 40u}, // suk -> Latn
-    {0xC6920000u, 40u}, // sur -> Latn
-    {0xCA920000u, 40u}, // sus -> Latn
-    {0x73760000u, 40u}, // sv -> Latn
-    {0x73770000u, 40u}, // sw -> Latn
+    {0xC9520000u, 46u}, // sks -> Latn
+    {0x736C0000u, 46u}, // sl -> Latn
+    {0x8D720000u, 46u}, // sld -> Latn
+    {0xA1720000u, 46u}, // sli -> Latn
+    {0xAD720000u, 46u}, // sll -> Latn
+    {0xE1720000u, 46u}, // sly -> Latn
+    {0x736D0000u, 46u}, // sm -> Latn
+    {0x81920000u, 46u}, // sma -> Latn
+    {0xA5920000u, 46u}, // smj -> Latn
+    {0xB5920000u, 46u}, // smn -> Latn
+    {0xBD920000u, 72u}, // smp -> Samr
+    {0xC1920000u, 46u}, // smq -> Latn
+    {0xC9920000u, 46u}, // sms -> Latn
+    {0x736E0000u, 46u}, // sn -> Latn
+    {0x89B20000u, 46u}, // snc -> Latn
+    {0xA9B20000u, 46u}, // snk -> Latn
+    {0xBDB20000u, 46u}, // snp -> Latn
+    {0xDDB20000u, 46u}, // snx -> Latn
+    {0xE1B20000u, 46u}, // sny -> Latn
+    {0x736F0000u, 46u}, // so -> Latn
+    {0x99D20000u, 77u}, // sog -> Sogd
+    {0xA9D20000u, 46u}, // sok -> Latn
+    {0xC1D20000u, 46u}, // soq -> Latn
+    {0xD1D20000u, 89u}, // sou -> Thai
+    {0xE1D20000u, 46u}, // soy -> Latn
+    {0x8DF20000u, 46u}, // spd -> Latn
+    {0xADF20000u, 46u}, // spl -> Latn
+    {0xC9F20000u, 46u}, // sps -> Latn
+    {0x73710000u, 46u}, // sq -> Latn
+    {0x73720000u, 17u}, // sr -> Cyrl
+    {0x73724D45u, 46u}, // sr-ME -> Latn
+    {0x7372524Fu, 46u}, // sr-RO -> Latn
+    {0x73725255u, 46u}, // sr-RU -> Latn
+    {0x73725452u, 46u}, // sr-TR -> Latn
+    {0x86320000u, 78u}, // srb -> Sora
+    {0xB6320000u, 46u}, // srn -> Latn
+    {0xC6320000u, 46u}, // srr -> Latn
+    {0xDE320000u, 18u}, // srx -> Deva
+    {0x73730000u, 46u}, // ss -> Latn
+    {0x8E520000u, 46u}, // ssd -> Latn
+    {0x9A520000u, 46u}, // ssg -> Latn
+    {0xE2520000u, 46u}, // ssy -> Latn
+    {0x73740000u, 46u}, // st -> Latn
+    {0xAA720000u, 46u}, // stk -> Latn
+    {0xC2720000u, 46u}, // stq -> Latn
+    {0x73750000u, 46u}, // su -> Latn
+    {0x82920000u, 46u}, // sua -> Latn
+    {0x92920000u, 46u}, // sue -> Latn
+    {0xAA920000u, 46u}, // suk -> Latn
+    {0xC6920000u, 46u}, // sur -> Latn
+    {0xCA920000u, 46u}, // sus -> Latn
+    {0x73760000u, 46u}, // sv -> Latn
+    {0x73770000u, 46u}, // sw -> Latn
     {0x86D20000u,  1u}, // swb -> Arab
-    {0x8AD20000u, 40u}, // swc -> Latn
-    {0x9AD20000u, 40u}, // swg -> Latn
-    {0xBED20000u, 40u}, // swp -> Latn
-    {0xD6D20000u, 16u}, // swv -> Deva
-    {0xB6F20000u, 40u}, // sxn -> Latn
-    {0xDAF20000u, 40u}, // sxw -> Latn
+    {0x8AD20000u, 46u}, // swc -> Latn
+    {0x9AD20000u, 46u}, // swg -> Latn
+    {0xBED20000u, 46u}, // swp -> Latn
+    {0xD6D20000u, 18u}, // swv -> Deva
+    {0xB6F20000u, 46u}, // sxn -> Latn
+    {0xDAF20000u, 46u}, // sxw -> Latn
     {0xAF120000u,  7u}, // syl -> Beng
-    {0xC7120000u, 71u}, // syr -> Syrc
-    {0xAF320000u, 40u}, // szl -> Latn
-    {0x74610000u, 74u}, // ta -> Taml
-    {0xA4130000u, 16u}, // taj -> Deva
-    {0xAC130000u, 40u}, // tal -> Latn
-    {0xB4130000u, 40u}, // tan -> Latn
-    {0xC0130000u, 40u}, // taq -> Latn
-    {0x88330000u, 40u}, // tbc -> Latn
-    {0x8C330000u, 40u}, // tbd -> Latn
-    {0x94330000u, 40u}, // tbf -> Latn
-    {0x98330000u, 40u}, // tbg -> Latn
-    {0xB8330000u, 40u}, // tbo -> Latn
-    {0xD8330000u, 40u}, // tbw -> Latn
-    {0xE4330000u, 40u}, // tbz -> Latn
-    {0xA0530000u, 40u}, // tci -> Latn
-    {0xE0530000u, 36u}, // tcy -> Knda
-    {0x8C730000u, 72u}, // tdd -> Tale
-    {0x98730000u, 16u}, // tdg -> Deva
-    {0x9C730000u, 16u}, // tdh -> Deva
-    {0x74650000u, 77u}, // te -> Telu
-    {0x8C930000u, 40u}, // ted -> Latn
-    {0xB0930000u, 40u}, // tem -> Latn
-    {0xB8930000u, 40u}, // teo -> Latn
-    {0xCC930000u, 40u}, // tet -> Latn
-    {0xA0B30000u, 40u}, // tfi -> Latn
-    {0x74670000u, 15u}, // tg -> Cyrl
+    {0xC7120000u, 80u}, // syr -> Syrc
+    {0xAF320000u, 46u}, // szl -> Latn
+    {0x74610000u, 83u}, // ta -> Taml
+    {0xA4130000u, 18u}, // taj -> Deva
+    {0xAC130000u, 46u}, // tal -> Latn
+    {0xB4130000u, 46u}, // tan -> Latn
+    {0xC0130000u, 46u}, // taq -> Latn
+    {0x88330000u, 46u}, // tbc -> Latn
+    {0x8C330000u, 46u}, // tbd -> Latn
+    {0x94330000u, 46u}, // tbf -> Latn
+    {0x98330000u, 46u}, // tbg -> Latn
+    {0xB8330000u, 46u}, // tbo -> Latn
+    {0xD8330000u, 46u}, // tbw -> Latn
+    {0xE4330000u, 46u}, // tbz -> Latn
+    {0xA0530000u, 46u}, // tci -> Latn
+    {0xE0530000u, 42u}, // tcy -> Knda
+    {0x8C730000u, 81u}, // tdd -> Tale
+    {0x98730000u, 18u}, // tdg -> Deva
+    {0x9C730000u, 18u}, // tdh -> Deva
+    {0xD0730000u, 46u}, // tdu -> Latn
+    {0x74650000u, 86u}, // te -> Telu
+    {0x8C930000u, 46u}, // ted -> Latn
+    {0xB0930000u, 46u}, // tem -> Latn
+    {0xB8930000u, 46u}, // teo -> Latn
+    {0xCC930000u, 46u}, // tet -> Latn
+    {0xA0B30000u, 46u}, // tfi -> Latn
+    {0x74670000u, 17u}, // tg -> Cyrl
     {0x7467504Bu,  1u}, // tg-PK -> Arab
-    {0x88D30000u, 40u}, // tgc -> Latn
-    {0xB8D30000u, 40u}, // tgo -> Latn
-    {0xD0D30000u, 40u}, // tgu -> Latn
-    {0x74680000u, 80u}, // th -> Thai
-    {0xACF30000u, 16u}, // thl -> Deva
-    {0xC0F30000u, 16u}, // thq -> Deva
-    {0xC4F30000u, 16u}, // thr -> Deva
-    {0x74690000u, 18u}, // ti -> Ethi
-    {0x95130000u, 40u}, // tif -> Latn
-    {0x99130000u, 18u}, // tig -> Ethi
-    {0xA9130000u, 40u}, // tik -> Latn
-    {0xB1130000u, 40u}, // tim -> Latn
-    {0xB9130000u, 40u}, // tio -> Latn
-    {0xD5130000u, 40u}, // tiv -> Latn
-    {0x746B0000u, 40u}, // tk -> Latn
-    {0xAD530000u, 40u}, // tkl -> Latn
-    {0xC5530000u, 40u}, // tkr -> Latn
-    {0xCD530000u, 16u}, // tkt -> Deva
-    {0x746C0000u, 40u}, // tl -> Latn
-    {0x95730000u, 40u}, // tlf -> Latn
-    {0xDD730000u, 40u}, // tlx -> Latn
-    {0xE1730000u, 40u}, // tly -> Latn
-    {0x9D930000u, 40u}, // tmh -> Latn
-    {0xE1930000u, 40u}, // tmy -> Latn
-    {0x746E0000u, 40u}, // tn -> Latn
-    {0x9DB30000u, 40u}, // tnh -> Latn
-    {0x746F0000u, 40u}, // to -> Latn
-    {0x95D30000u, 40u}, // tof -> Latn
-    {0x99D30000u, 40u}, // tog -> Latn
-    {0xC1D30000u, 40u}, // toq -> Latn
-    {0xA1F30000u, 40u}, // tpi -> Latn
-    {0xB1F30000u, 40u}, // tpm -> Latn
-    {0xE5F30000u, 40u}, // tpz -> Latn
-    {0xBA130000u, 40u}, // tqo -> Latn
-    {0x74720000u, 40u}, // tr -> Latn
-    {0xD2330000u, 40u}, // tru -> Latn
-    {0xD6330000u, 40u}, // trv -> Latn
+    {0x88D30000u, 46u}, // tgc -> Latn
+    {0xB8D30000u, 46u}, // tgo -> Latn
+    {0xD0D30000u, 46u}, // tgu -> Latn
+    {0x74680000u, 89u}, // th -> Thai
+    {0xACF30000u, 18u}, // thl -> Deva
+    {0xC0F30000u, 18u}, // thq -> Deva
+    {0xC4F30000u, 18u}, // thr -> Deva
+    {0x74690000u, 20u}, // ti -> Ethi
+    {0x95130000u, 46u}, // tif -> Latn
+    {0x99130000u, 20u}, // tig -> Ethi
+    {0xA9130000u, 46u}, // tik -> Latn
+    {0xB1130000u, 46u}, // tim -> Latn
+    {0xB9130000u, 46u}, // tio -> Latn
+    {0xD5130000u, 46u}, // tiv -> Latn
+    {0x746B0000u, 46u}, // tk -> Latn
+    {0xAD530000u, 46u}, // tkl -> Latn
+    {0xC5530000u, 46u}, // tkr -> Latn
+    {0xCD530000u, 18u}, // tkt -> Deva
+    {0x746C0000u, 46u}, // tl -> Latn
+    {0x95730000u, 46u}, // tlf -> Latn
+    {0xDD730000u, 46u}, // tlx -> Latn
+    {0xE1730000u, 46u}, // tly -> Latn
+    {0x9D930000u, 46u}, // tmh -> Latn
+    {0xE1930000u, 46u}, // tmy -> Latn
+    {0x746E0000u, 46u}, // tn -> Latn
+    {0x9DB30000u, 46u}, // tnh -> Latn
+    {0x746F0000u, 46u}, // to -> Latn
+    {0x95D30000u, 46u}, // tof -> Latn
+    {0x99D30000u, 46u}, // tog -> Latn
+    {0xC1D30000u, 46u}, // toq -> Latn
+    {0xA1F30000u, 46u}, // tpi -> Latn
+    {0xB1F30000u, 46u}, // tpm -> Latn
+    {0xE5F30000u, 46u}, // tpz -> Latn
+    {0xBA130000u, 46u}, // tqo -> Latn
+    {0x74720000u, 46u}, // tr -> Latn
+    {0xD2330000u, 46u}, // tru -> Latn
+    {0xD6330000u, 46u}, // trv -> Latn
     {0xDA330000u,  1u}, // trw -> Arab
-    {0x74730000u, 40u}, // ts -> Latn
-    {0x8E530000u, 21u}, // tsd -> Grek
-    {0x96530000u, 16u}, // tsf -> Deva
-    {0x9A530000u, 40u}, // tsg -> Latn
-    {0xA6530000u, 81u}, // tsj -> Tibt
-    {0xDA530000u, 40u}, // tsw -> Latn
-    {0x74740000u, 15u}, // tt -> Cyrl
-    {0x8E730000u, 40u}, // ttd -> Latn
-    {0x92730000u, 40u}, // tte -> Latn
-    {0xA6730000u, 40u}, // ttj -> Latn
-    {0xC6730000u, 40u}, // ttr -> Latn
-    {0xCA730000u, 80u}, // tts -> Thai
-    {0xCE730000u, 40u}, // ttt -> Latn
-    {0x9E930000u, 40u}, // tuh -> Latn
-    {0xAE930000u, 40u}, // tul -> Latn
-    {0xB2930000u, 40u}, // tum -> Latn
-    {0xC2930000u, 40u}, // tuq -> Latn
-    {0x8EB30000u, 40u}, // tvd -> Latn
-    {0xAEB30000u, 40u}, // tvl -> Latn
-    {0xD2B30000u, 40u}, // tvu -> Latn
-    {0x9ED30000u, 40u}, // twh -> Latn
-    {0xC2D30000u, 40u}, // twq -> Latn
-    {0x9AF30000u, 75u}, // txg -> Tang
-    {0x74790000u, 40u}, // ty -> Latn
-    {0x83130000u, 40u}, // tya -> Latn
-    {0xD7130000u, 15u}, // tyv -> Cyrl
-    {0xB3330000u, 40u}, // tzm -> Latn
-    {0xD0340000u, 40u}, // ubu -> Latn
-    {0xB0740000u, 15u}, // udm -> Cyrl
+    {0x74730000u, 46u}, // ts -> Latn
+    {0x8E530000u, 25u}, // tsd -> Grek
+    {0x96530000u, 18u}, // tsf -> Deva
+    {0x9A530000u, 46u}, // tsg -> Latn
+    {0xA6530000u, 90u}, // tsj -> Tibt
+    {0xDA530000u, 46u}, // tsw -> Latn
+    {0x74740000u, 17u}, // tt -> Cyrl
+    {0x8E730000u, 46u}, // ttd -> Latn
+    {0x92730000u, 46u}, // tte -> Latn
+    {0xA6730000u, 46u}, // ttj -> Latn
+    {0xC6730000u, 46u}, // ttr -> Latn
+    {0xCA730000u, 89u}, // tts -> Thai
+    {0xCE730000u, 46u}, // ttt -> Latn
+    {0x9E930000u, 46u}, // tuh -> Latn
+    {0xAE930000u, 46u}, // tul -> Latn
+    {0xB2930000u, 46u}, // tum -> Latn
+    {0xC2930000u, 46u}, // tuq -> Latn
+    {0x8EB30000u, 46u}, // tvd -> Latn
+    {0xAEB30000u, 46u}, // tvl -> Latn
+    {0xD2B30000u, 46u}, // tvu -> Latn
+    {0x9ED30000u, 46u}, // twh -> Latn
+    {0xC2D30000u, 46u}, // twq -> Latn
+    {0x9AF30000u, 84u}, // txg -> Tang
+    {0x74790000u, 46u}, // ty -> Latn
+    {0x83130000u, 46u}, // tya -> Latn
+    {0xD7130000u, 17u}, // tyv -> Cyrl
+    {0xB3330000u, 46u}, // tzm -> Latn
+    {0xD0340000u, 46u}, // ubu -> Latn
+    {0xB0740000u, 17u}, // udm -> Cyrl
     {0x75670000u,  1u}, // ug -> Arab
-    {0x75674B5Au, 15u}, // ug-KZ -> Cyrl
-    {0x75674D4Eu, 15u}, // ug-MN -> Cyrl
-    {0x80D40000u, 82u}, // uga -> Ugar
-    {0x756B0000u, 15u}, // uk -> Cyrl
-    {0xA1740000u, 40u}, // uli -> Latn
-    {0x85940000u, 40u}, // umb -> Latn
+    {0x75674B5Au, 17u}, // ug-KZ -> Cyrl
+    {0x75674D4Eu, 17u}, // ug-MN -> Cyrl
+    {0x80D40000u, 91u}, // uga -> Ugar
+    {0x756B0000u, 17u}, // uk -> Cyrl
+    {0xA1740000u, 46u}, // uli -> Latn
+    {0x85940000u, 46u}, // umb -> Latn
     {0xC5B40000u,  7u}, // unr -> Beng
-    {0xC5B44E50u, 16u}, // unr-NP -> Deva
+    {0xC5B44E50u, 18u}, // unr-NP -> Deva
     {0xDDB40000u,  7u}, // unx -> Beng
+    {0xA9D40000u, 46u}, // uok -> Latn
     {0x75720000u,  1u}, // ur -> Arab
-    {0xA2340000u, 40u}, // uri -> Latn
-    {0xCE340000u, 40u}, // urt -> Latn
-    {0xDA340000u, 40u}, // urw -> Latn
-    {0x82540000u, 40u}, // usa -> Latn
-    {0xC6740000u, 40u}, // utr -> Latn
-    {0x9EB40000u, 40u}, // uvh -> Latn
-    {0xAEB40000u, 40u}, // uvl -> Latn
-    {0x757A0000u, 40u}, // uz -> Latn
+    {0xA2340000u, 46u}, // uri -> Latn
+    {0xCE340000u, 46u}, // urt -> Latn
+    {0xDA340000u, 46u}, // urw -> Latn
+    {0x82540000u, 46u}, // usa -> Latn
+    {0xC6740000u, 46u}, // utr -> Latn
+    {0x9EB40000u, 46u}, // uvh -> Latn
+    {0xAEB40000u, 46u}, // uvl -> Latn
+    {0x757A0000u, 46u}, // uz -> Latn
     {0x757A4146u,  1u}, // uz-AF -> Arab
-    {0x757A434Eu, 15u}, // uz-CN -> Cyrl
-    {0x98150000u, 40u}, // vag -> Latn
-    {0xA0150000u, 83u}, // vai -> Vaii
-    {0xB4150000u, 40u}, // van -> Latn
-    {0x76650000u, 40u}, // ve -> Latn
-    {0x88950000u, 40u}, // vec -> Latn
-    {0xBC950000u, 40u}, // vep -> Latn
-    {0x76690000u, 40u}, // vi -> Latn
-    {0x89150000u, 40u}, // vic -> Latn
-    {0xD5150000u, 40u}, // viv -> Latn
-    {0xC9750000u, 40u}, // vls -> Latn
-    {0x95950000u, 40u}, // vmf -> Latn
-    {0xD9950000u, 40u}, // vmw -> Latn
-    {0x766F0000u, 40u}, // vo -> Latn
-    {0xCDD50000u, 40u}, // vot -> Latn
-    {0xBA350000u, 40u}, // vro -> Latn
-    {0xB6950000u, 40u}, // vun -> Latn
-    {0xCE950000u, 40u}, // vut -> Latn
-    {0x77610000u, 40u}, // wa -> Latn
-    {0x90160000u, 40u}, // wae -> Latn
-    {0xA4160000u, 40u}, // waj -> Latn
-    {0xAC160000u, 18u}, // wal -> Ethi
-    {0xB4160000u, 40u}, // wan -> Latn
-    {0xC4160000u, 40u}, // war -> Latn
-    {0xBC360000u, 40u}, // wbp -> Latn
-    {0xC0360000u, 77u}, // wbq -> Telu
-    {0xC4360000u, 16u}, // wbr -> Deva
-    {0xA0560000u, 40u}, // wci -> Latn
-    {0xC4960000u, 40u}, // wer -> Latn
-    {0xA0D60000u, 40u}, // wgi -> Latn
-    {0x98F60000u, 40u}, // whg -> Latn
-    {0x85160000u, 40u}, // wib -> Latn
-    {0xD1160000u, 40u}, // wiu -> Latn
-    {0xD5160000u, 40u}, // wiv -> Latn
-    {0x81360000u, 40u}, // wja -> Latn
-    {0xA1360000u, 40u}, // wji -> Latn
-    {0xC9760000u, 40u}, // wls -> Latn
-    {0xB9960000u, 40u}, // wmo -> Latn
-    {0x89B60000u, 40u}, // wnc -> Latn
+    {0x757A434Eu, 17u}, // uz-CN -> Cyrl
+    {0x98150000u, 46u}, // vag -> Latn
+    {0xA0150000u, 92u}, // vai -> Vaii
+    {0xB4150000u, 46u}, // van -> Latn
+    {0x76650000u, 46u}, // ve -> Latn
+    {0x88950000u, 46u}, // vec -> Latn
+    {0xBC950000u, 46u}, // vep -> Latn
+    {0x76690000u, 46u}, // vi -> Latn
+    {0x89150000u, 46u}, // vic -> Latn
+    {0xD5150000u, 46u}, // viv -> Latn
+    {0xC9750000u, 46u}, // vls -> Latn
+    {0x95950000u, 46u}, // vmf -> Latn
+    {0xD9950000u, 46u}, // vmw -> Latn
+    {0x766F0000u, 46u}, // vo -> Latn
+    {0xCDD50000u, 46u}, // vot -> Latn
+    {0xBA350000u, 46u}, // vro -> Latn
+    {0xB6950000u, 46u}, // vun -> Latn
+    {0xCE950000u, 46u}, // vut -> Latn
+    {0x77610000u, 46u}, // wa -> Latn
+    {0x90160000u, 46u}, // wae -> Latn
+    {0xA4160000u, 46u}, // waj -> Latn
+    {0xAC160000u, 20u}, // wal -> Ethi
+    {0xB4160000u, 46u}, // wan -> Latn
+    {0xC4160000u, 46u}, // war -> Latn
+    {0xBC360000u, 46u}, // wbp -> Latn
+    {0xC0360000u, 86u}, // wbq -> Telu
+    {0xC4360000u, 18u}, // wbr -> Deva
+    {0xA0560000u, 46u}, // wci -> Latn
+    {0xC4960000u, 46u}, // wer -> Latn
+    {0xA0D60000u, 46u}, // wgi -> Latn
+    {0x98F60000u, 46u}, // whg -> Latn
+    {0x85160000u, 46u}, // wib -> Latn
+    {0xD1160000u, 46u}, // wiu -> Latn
+    {0xD5160000u, 46u}, // wiv -> Latn
+    {0x81360000u, 46u}, // wja -> Latn
+    {0xA1360000u, 46u}, // wji -> Latn
+    {0xC9760000u, 46u}, // wls -> Latn
+    {0xB9960000u, 46u}, // wmo -> Latn
+    {0x89B60000u, 46u}, // wnc -> Latn
     {0xA1B60000u,  1u}, // wni -> Arab
-    {0xD1B60000u, 40u}, // wnu -> Latn
-    {0x776F0000u, 40u}, // wo -> Latn
-    {0x85D60000u, 40u}, // wob -> Latn
-    {0xC9D60000u, 40u}, // wos -> Latn
-    {0xCA360000u, 40u}, // wrs -> Latn
-    {0xAA560000u, 40u}, // wsk -> Latn
-    {0xB2760000u, 16u}, // wtm -> Deva
-    {0xD2960000u, 24u}, // wuu -> Hans
-    {0xD6960000u, 40u}, // wuv -> Latn
-    {0x82D60000u, 40u}, // wwa -> Latn
-    {0xD4170000u, 40u}, // xav -> Latn
-    {0xA0370000u, 40u}, // xbi -> Latn
-    {0xC4570000u, 10u}, // xcr -> Cari
-    {0xC8970000u, 40u}, // xes -> Latn
-    {0x78680000u, 40u}, // xh -> Latn
-    {0x81770000u, 40u}, // xla -> Latn
-    {0x89770000u, 44u}, // xlc -> Lyci
-    {0x8D770000u, 45u}, // xld -> Lydi
-    {0x95970000u, 19u}, // xmf -> Geor
-    {0xB5970000u, 47u}, // xmn -> Mani
-    {0xC5970000u, 48u}, // xmr -> Merc
-    {0x81B70000u, 53u}, // xna -> Narb
-    {0xC5B70000u, 16u}, // xnr -> Deva
-    {0x99D70000u, 40u}, // xog -> Latn
-    {0xB5D70000u, 40u}, // xon -> Latn
-    {0xC5F70000u, 63u}, // xpr -> Prti
-    {0x86370000u, 40u}, // xrb -> Latn
-    {0x82570000u, 66u}, // xsa -> Sarb
-    {0xA2570000u, 40u}, // xsi -> Latn
-    {0xB2570000u, 40u}, // xsm -> Latn
-    {0xC6570000u, 16u}, // xsr -> Deva
-    {0x92D70000u, 40u}, // xwe -> Latn
-    {0xB0180000u, 40u}, // yam -> Latn
-    {0xB8180000u, 40u}, // yao -> Latn
-    {0xBC180000u, 40u}, // yap -> Latn
-    {0xC8180000u, 40u}, // yas -> Latn
-    {0xCC180000u, 40u}, // yat -> Latn
-    {0xD4180000u, 40u}, // yav -> Latn
-    {0xE0180000u, 40u}, // yay -> Latn
-    {0xE4180000u, 40u}, // yaz -> Latn
-    {0x80380000u, 40u}, // yba -> Latn
-    {0x84380000u, 40u}, // ybb -> Latn
-    {0xE0380000u, 40u}, // yby -> Latn
-    {0xC4980000u, 40u}, // yer -> Latn
-    {0xC4D80000u, 40u}, // ygr -> Latn
-    {0xD8D80000u, 40u}, // ygw -> Latn
-    {0x79690000u, 27u}, // yi -> Hebr
-    {0xB9580000u, 40u}, // yko -> Latn
-    {0x91780000u, 40u}, // yle -> Latn
-    {0x99780000u, 40u}, // ylg -> Latn
-    {0xAD780000u, 40u}, // yll -> Latn
-    {0xAD980000u, 40u}, // yml -> Latn
-    {0x796F0000u, 40u}, // yo -> Latn
-    {0xB5D80000u, 40u}, // yon -> Latn
-    {0x86380000u, 40u}, // yrb -> Latn
-    {0x92380000u, 40u}, // yre -> Latn
-    {0xAE380000u, 40u}, // yrl -> Latn
-    {0xCA580000u, 40u}, // yss -> Latn
-    {0x82980000u, 40u}, // yua -> Latn
-    {0x92980000u, 25u}, // yue -> Hant
-    {0x9298434Eu, 24u}, // yue-CN -> Hans
-    {0xA6980000u, 40u}, // yuj -> Latn
-    {0xCE980000u, 40u}, // yut -> Latn
-    {0xDA980000u, 40u}, // yuw -> Latn
-    {0x7A610000u, 40u}, // za -> Latn
-    {0x98190000u, 40u}, // zag -> Latn
+    {0xD1B60000u, 46u}, // wnu -> Latn
+    {0x776F0000u, 46u}, // wo -> Latn
+    {0x85D60000u, 46u}, // wob -> Latn
+    {0xC9D60000u, 46u}, // wos -> Latn
+    {0xCA360000u, 46u}, // wrs -> Latn
+    {0x9A560000u, 22u}, // wsg -> Gong
+    {0xAA560000u, 46u}, // wsk -> Latn
+    {0xB2760000u, 18u}, // wtm -> Deva
+    {0xD2960000u, 28u}, // wuu -> Hans
+    {0xD6960000u, 46u}, // wuv -> Latn
+    {0x82D60000u, 46u}, // wwa -> Latn
+    {0xD4170000u, 46u}, // xav -> Latn
+    {0xA0370000u, 46u}, // xbi -> Latn
+    {0xB8570000u, 14u}, // xco -> Chrs
+    {0xC4570000u, 11u}, // xcr -> Cari
+    {0xC8970000u, 46u}, // xes -> Latn
+    {0x78680000u, 46u}, // xh -> Latn
+    {0x81770000u, 46u}, // xla -> Latn
+    {0x89770000u, 50u}, // xlc -> Lyci
+    {0x8D770000u, 51u}, // xld -> Lydi
+    {0x95970000u, 21u}, // xmf -> Geor
+    {0xB5970000u, 53u}, // xmn -> Mani
+    {0xC5970000u, 54u}, // xmr -> Merc
+    {0x81B70000u, 59u}, // xna -> Narb
+    {0xC5B70000u, 18u}, // xnr -> Deva
+    {0x99D70000u, 46u}, // xog -> Latn
+    {0xB5D70000u, 46u}, // xon -> Latn
+    {0xC5F70000u, 70u}, // xpr -> Prti
+    {0x86370000u, 46u}, // xrb -> Latn
+    {0x82570000u, 73u}, // xsa -> Sarb
+    {0xA2570000u, 46u}, // xsi -> Latn
+    {0xB2570000u, 46u}, // xsm -> Latn
+    {0xC6570000u, 18u}, // xsr -> Deva
+    {0x92D70000u, 46u}, // xwe -> Latn
+    {0xB0180000u, 46u}, // yam -> Latn
+    {0xB8180000u, 46u}, // yao -> Latn
+    {0xBC180000u, 46u}, // yap -> Latn
+    {0xC8180000u, 46u}, // yas -> Latn
+    {0xCC180000u, 46u}, // yat -> Latn
+    {0xD4180000u, 46u}, // yav -> Latn
+    {0xE0180000u, 46u}, // yay -> Latn
+    {0xE4180000u, 46u}, // yaz -> Latn
+    {0x80380000u, 46u}, // yba -> Latn
+    {0x84380000u, 46u}, // ybb -> Latn
+    {0xE0380000u, 46u}, // yby -> Latn
+    {0xC4980000u, 46u}, // yer -> Latn
+    {0xC4D80000u, 46u}, // ygr -> Latn
+    {0xD8D80000u, 46u}, // ygw -> Latn
+    {0x79690000u, 31u}, // yi -> Hebr
+    {0xB9580000u, 46u}, // yko -> Latn
+    {0x91780000u, 46u}, // yle -> Latn
+    {0x99780000u, 46u}, // ylg -> Latn
+    {0xAD780000u, 46u}, // yll -> Latn
+    {0xAD980000u, 46u}, // yml -> Latn
+    {0x796F0000u, 46u}, // yo -> Latn
+    {0xB5D80000u, 46u}, // yon -> Latn
+    {0x86380000u, 46u}, // yrb -> Latn
+    {0x92380000u, 46u}, // yre -> Latn
+    {0xAE380000u, 46u}, // yrl -> Latn
+    {0xCA580000u, 46u}, // yss -> Latn
+    {0x82980000u, 46u}, // yua -> Latn
+    {0x92980000u, 29u}, // yue -> Hant
+    {0x9298434Eu, 28u}, // yue-CN -> Hans
+    {0xA6980000u, 46u}, // yuj -> Latn
+    {0xCE980000u, 46u}, // yut -> Latn
+    {0xDA980000u, 46u}, // yuw -> Latn
+    {0x7A610000u, 46u}, // za -> Latn
+    {0x98190000u, 46u}, // zag -> Latn
     {0xA4790000u,  1u}, // zdj -> Arab
-    {0x80990000u, 40u}, // zea -> Latn
-    {0x9CD90000u, 78u}, // zgh -> Tfng
-    {0x7A680000u, 24u}, // zh -> Hans
-    {0x7A684155u, 25u}, // zh-AU -> Hant
-    {0x7A68424Eu, 25u}, // zh-BN -> Hant
-    {0x7A684742u, 25u}, // zh-GB -> Hant
-    {0x7A684746u, 25u}, // zh-GF -> Hant
-    {0x7A68484Bu, 25u}, // zh-HK -> Hant
-    {0x7A684944u, 25u}, // zh-ID -> Hant
-    {0x7A684D4Fu, 25u}, // zh-MO -> Hant
-    {0x7A684D59u, 25u}, // zh-MY -> Hant
-    {0x7A685041u, 25u}, // zh-PA -> Hant
-    {0x7A685046u, 25u}, // zh-PF -> Hant
-    {0x7A685048u, 25u}, // zh-PH -> Hant
-    {0x7A685352u, 25u}, // zh-SR -> Hant
-    {0x7A685448u, 25u}, // zh-TH -> Hant
-    {0x7A685457u, 25u}, // zh-TW -> Hant
-    {0x7A685553u, 25u}, // zh-US -> Hant
-    {0x7A68564Eu, 25u}, // zh-VN -> Hant
-    {0x81190000u, 40u}, // zia -> Latn
-    {0xB1790000u, 40u}, // zlm -> Latn
-    {0xA1990000u, 40u}, // zmi -> Latn
-    {0x91B90000u, 40u}, // zne -> Latn
-    {0x7A750000u, 40u}, // zu -> Latn
-    {0x83390000u, 40u}, // zza -> Latn
+    {0x80990000u, 46u}, // zea -> Latn
+    {0x9CD90000u, 87u}, // zgh -> Tfng
+    {0x7A680000u, 28u}, // zh -> Hans
+    {0x7A684155u, 29u}, // zh-AU -> Hant
+    {0x7A68424Eu, 29u}, // zh-BN -> Hant
+    {0x7A684742u, 29u}, // zh-GB -> Hant
+    {0x7A684746u, 29u}, // zh-GF -> Hant
+    {0x7A68484Bu, 29u}, // zh-HK -> Hant
+    {0x7A684944u, 29u}, // zh-ID -> Hant
+    {0x7A684D4Fu, 29u}, // zh-MO -> Hant
+    {0x7A684D59u, 29u}, // zh-MY -> Hant
+    {0x7A685041u, 29u}, // zh-PA -> Hant
+    {0x7A685046u, 29u}, // zh-PF -> Hant
+    {0x7A685048u, 29u}, // zh-PH -> Hant
+    {0x7A685352u, 29u}, // zh-SR -> Hant
+    {0x7A685448u, 29u}, // zh-TH -> Hant
+    {0x7A685457u, 29u}, // zh-TW -> Hant
+    {0x7A685553u, 29u}, // zh-US -> Hant
+    {0x7A68564Eu, 29u}, // zh-VN -> Hant
+    {0xDCF90000u, 61u}, // zhx -> Nshu
+    {0x81190000u, 46u}, // zia -> Latn
+    {0xCD590000u, 41u}, // zkt -> Kits
+    {0xB1790000u, 46u}, // zlm -> Latn
+    {0xA1990000u, 46u}, // zmi -> Latn
+    {0x91B90000u, 46u}, // zne -> Latn
+    {0x7A750000u, 46u}, // zu -> Latn
+    {0x83390000u, 46u}, // zza -> Latn
 });
 
 std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
@@ -1452,6 +1496,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x904049444C61746ELLU, // ace_Latn_ID
     0x9C4055474C61746ELLU, // ach_Latn_UG
     0x806047484C61746ELLU, // ada_Latn_GH
+    0xBC60425454696274LLU, // adp_Tibt_BT
     0xE06052554379726CLLU, // ady_Cyrl_RU
     0x6165495241767374LLU, // ae_Avst_IR
     0x8480544E41726162LLU, // aeb_Arab_TN
@@ -1464,6 +1509,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xCD6052554379726CLLU, // alt_Cyrl_RU
     0x616D455445746869LLU, // am_Ethi_ET
     0xB9804E474C61746ELLU, // amo_Latn_NG
+    0x616E45534C61746ELLU, // an_Latn_ES
     0xE5C049444C61746ELLU, // aoz_Latn_ID
     0x8DE0544741726162LLU, // apd_Arab_TG
     0x6172454741726162LLU, // ar_Arab_EG
@@ -1473,6 +1519,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xB620434C4C61746ELLU, // arn_Latn_CL
     0xBA20424F4C61746ELLU, // aro_Latn_BO
     0xC220445A41726162LLU, // arq_Arab_DZ
+    0xCA20534141726162LLU, // ars_Arab_SA
     0xE2204D4141726162LLU, // ary_Arab_MA
     0xE620454741726162LLU, // arz_Arab_EG
     0x6173494E42656E67LLU, // as_Beng_IN
@@ -1510,13 +1557,13 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xDCC154524772656BLLU, // bgx_Grek_TR
     0x84E1494E44657661LLU, // bhb_Deva_IN
     0xA0E1494E44657661LLU, // bhi_Deva_IN
-    0xA8E150484C61746ELLU, // bhk_Latn_PH
     0xB8E1494E44657661LLU, // bho_Deva_IN
     0x626956554C61746ELLU, // bi_Latn_VU
     0xA90150484C61746ELLU, // bik_Latn_PH
     0xB5014E474C61746ELLU, // bin_Latn_NG
     0xA521494E44657661LLU, // bjj_Deva_IN
     0xB52149444C61746ELLU, // bjn_Latn_ID
+    0xCD21534E4C61746ELLU, // bjt_Latn_SN
     0xB141434D4C61746ELLU, // bkm_Latn_CM
     0xD14150484C61746ELLU, // bku_Latn_PH
     0xCD61564E54617674LLU, // blt_Tavt_VN
@@ -1546,7 +1593,6 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x93214D4C4C61746ELLU, // bze_Latn_ML
     0x636145534C61746ELLU, // ca_Latn_ES
     0x9C424E474C61746ELLU, // cch_Latn_NG
-    0xBC42494E42656E67LLU, // ccp_Beng_IN
     0xBC42424443616B6DLLU, // ccp_Cakm_BD
     0x636552554379726CLLU, // ce_Cyrl_RU
     0x848250484C61746ELLU, // ceb_Latn_PH
@@ -1557,13 +1603,16 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xB8E255534C61746ELLU, // cho_Latn_US
     0xBCE243414C61746ELLU, // chp_Latn_CA
     0xC4E2555343686572LLU, // chr_Cher_US
+    0x890255534C61746ELLU, // cic_Latn_US
     0x81224B4841726162LLU, // cja_Arab_KH
     0xB122564E4368616DLLU, // cjm_Cham_VN
     0x8542495141726162LLU, // ckb_Arab_IQ
+    0x99824D4E536F796FLLU, // cmg_Soyo_MN
     0x636F46524C61746ELLU, // co_Latn_FR
     0xBDC24547436F7074LLU, // cop_Copt_EG
     0xC9E250484C61746ELLU, // cps_Latn_PH
     0x6372434143616E73LLU, // cr_Cans_CA
+    0x9E2255414379726CLLU, // crh_Cyrl_UA
     0xA622434143616E73LLU, // crj_Cans_CA
     0xAA22434143616E73LLU, // crk_Cans_CA
     0xAE22434143616E73LLU, // crl_Cans_CA
@@ -1588,6 +1637,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x91234E454C61746ELLU, // dje_Latn_NE
     0xA5A343494C61746ELLU, // dnj_Latn_CI
     0xA1C3494E41726162LLU, // doi_Arab_IN
+    0x9E23434E4D6F6E67LLU, // drh_Mong_CN
     0x864344454C61746ELLU, // dsb_Latn_DE
     0xB2634D4C4C61746ELLU, // dtm_Latn_ML
     0xBE634D594C61746ELLU, // dtp_Latn_MY
@@ -1610,6 +1660,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x657345534C61746ELLU, // es_Latn_ES
     0x65734D584C61746ELLU, // es_Latn_MX
     0x657355534C61746ELLU, // es_Latn_US
+    0x9A44494E476F6E6DLLU, // esg_Gonm_IN
     0xD24455534C61746ELLU, // esu_Latn_US
     0x657445454C61746ELLU, // et_Latn_EE
     0xCE6449544974616CLLU, // ett_Ital_IT
@@ -1700,10 +1751,10 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x687548554C61746ELLU, // hu_Latn_HU
     0x6879414D41726D6ELLU, // hy_Armn_AM
     0x687A4E414C61746ELLU, // hz_Latn_NA
-    0x696146524C61746ELLU, // ia_Latn_FR
     0x80284D594C61746ELLU, // iba_Latn_MY
     0x84284E474C61746ELLU, // ibb_Latn_NG
     0x696449444C61746ELLU, // id_Latn_ID
+    0x90A854474C61746ELLU, // ife_Latn_TG
     0x69674E474C61746ELLU, // ig_Latn_NG
     0x6969434E59696969LLU, // ii_Yiii_CN
     0x696B55534C61746ELLU, // ik_Latn_US
@@ -1764,6 +1815,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x6B6D4B484B686D72LLU, // km_Khmr_KH
     0x858A414F4C61746ELLU, // kmb_Latn_AO
     0x6B6E494E4B6E6461LLU, // kn_Knda_IN
+    0x95AA47574C61746ELLU, // knf_Latn_GW
     0x6B6F4B524B6F7265LLU, // ko_Kore_KR
     0xA1CA52554379726CLLU, // koi_Cyrl_RU
     0xA9CA494E44657661LLU, // kok_Deva_IN
@@ -1778,8 +1830,10 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x864A545A4C61746ELLU, // ksb_Latn_TZ
     0x964A434D4C61746ELLU, // ksf_Latn_CM
     0x9E4A44454C61746ELLU, // ksh_Latn_DE
+    0xC66A4D594C61746ELLU, // ktr_Latn_MY
     0x6B75495141726162LLU, // ku_Arab_IQ
     0x6B7554524C61746ELLU, // ku_Latn_TR
+    0x6B75474559657A69LLU, // ku_Yezi_GE
     0xB28A52554379726CLLU, // kum_Cyrl_RU
     0x6B7652554379726CLLU, // kv_Cyrl_RU
     0xC6AA49444C61746ELLU, // kvr_Latn_ID
@@ -1790,6 +1844,8 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x6B79434E41726162LLU, // ky_Arab_CN
     0x6B794B474379726CLLU, // ky_Cyrl_KG
     0x6B7954524C61746ELLU, // ky_Latn_TR
+    0xA72A4D594C61746ELLU, // kzj_Latn_MY
+    0xCF2A4D594C61746ELLU, // kzt_Latn_MY
     0x6C6156414C61746ELLU, // la_Latn_VA
     0x840B47524C696E61LLU, // lab_Lina_GR
     0x8C0B494C48656272LLU, // lad_Hebr_IL
@@ -1854,6 +1910,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x6D694E5A4C61746ELLU, // mi_Latn_NZ
     0xB50C49444C61746ELLU, // min_Latn_ID
     0xC90C495148617472LLU, // mis_Hatr_IQ
+    0xC90C4E474D656466LLU, // mis_Medf_NG
     0x6D6B4D4B4379726CLLU, // mk_Cyrl_MK
     0x6D6C494E4D6C796DLLU, // ml_Mlym_IN
     0xC96C53444C61746ELLU, // mls_Latn_SD
@@ -1861,6 +1918,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x6D6E434E4D6F6E67LLU, // mn_Mong_CN
     0xA1AC494E42656E67LLU, // mni_Beng_IN
     0xD9AC4D4D4D796D72LLU, // mnw_Mymr_MM
+    0x6D6F524F4C61746ELLU, // mo_Latn_RO
     0x91CC43414C61746ELLU, // moe_Latn_CA
     0x9DCC43414C61746ELLU, // moh_Latn_CA
     0xC9CC42464C61746ELLU, // mos_Latn_BF
@@ -1877,6 +1935,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xAACC4D4C4C61746ELLU, // mwk_Latn_ML
     0xC6CC494E44657661LLU, // mwr_Deva_IN
     0xD6CC49444C61746ELLU, // mwv_Latn_ID
+    0xDACC5553486D6E70LLU, // mww_Hmnp_US
     0x8AEC5A574C61746ELLU, // mxc_Latn_ZW
     0x6D794D4D4D796D72LLU, // my_Mymr_MM
     0xD70C52554379726CLLU, // myv_Cyrl_RU
@@ -1905,6 +1964,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x998D434D4C61746ELLU, // nmg_Latn_CM
     0x6E6E4E4F4C61746ELLU, // nn_Latn_NO
     0x9DAD434D4C61746ELLU, // nnh_Latn_CM
+    0xBDAD494E5763686FLLU, // nnp_Wcho_IN
     0x6E6F4E4F4C61746ELLU, // no_Latn_NO
     0x8DCD54484C616E61LLU, // nod_Lana_TH
     0x91CD494E44657661LLU, // noe_Deva_IN
@@ -1947,6 +2007,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xC98F49544C61746ELLU, // pms_Latn_IT
     0xCDAF47524772656BLLU, // pnt_Grek_GR
     0xB5CF464D4C61746ELLU, // pon_Latn_FM
+    0x81EF494E44657661LLU, // ppa_Deva_IN
     0x822F504B4B686172LLU, // pra_Khar_PK
     0x8E2F495241726162LLU, // prd_Arab_IR
     0x7073414641726162LLU, // ps_Arab_AF
@@ -1959,6 +2020,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x945152454C61746ELLU, // rcf_Latn_RE
     0xA49149444C61746ELLU, // rej_Latn_ID
     0xB4D149544C61746ELLU, // rgn_Latn_IT
+    0x98F14D4D41726162LLU, // rhg_Arab_MM
     0x8111494E4C61746ELLU, // ria_Latn_IN
     0x95114D4154666E67LLU, // rif_Tfng_MA
     0xC9314E5044657661LLU, // rjs_Deva_NP
@@ -1986,6 +2048,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xC0124B454C61746ELLU, // saq_Latn_KE
     0xC81249444C61746ELLU, // sas_Latn_ID
     0xCC12494E4C61746ELLU, // sat_Latn_IN
+    0xD412534E4C61746ELLU, // sav_Latn_SN
     0xE412494E53617572LLU, // saz_Saur_IN
     0xBC32545A4C61746ELLU, // sbp_Latn_TZ
     0x736349544C61746ELLU, // sc_Latn_IT
@@ -2025,6 +2088,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x736E5A574C61746ELLU, // sn_Latn_ZW
     0xA9B24D4C4C61746ELLU, // snk_Latn_ML
     0x736F534F4C61746ELLU, // so_Latn_SO
+    0x99D2555A536F6764LLU, // sog_Sogd_UZ
     0xD1D2544854686169LLU, // sou_Thai_TH
     0x7371414C4C61746ELLU, // sq_Latn_AL
     0x737252534379726CLLU, // sr_Cyrl_RS
@@ -2057,6 +2121,7 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x8C73434E54616C65LLU, // tdd_Tale_CN
     0x98734E5044657661LLU, // tdg_Deva_NP
     0x9C734E5044657661LLU, // tdh_Deva_NP
+    0xD0734D594C61746ELLU, // tdu_Latn_MY
     0x7465494E54656C75LLU, // te_Telu_IN
     0xB093534C4C61746ELLU, // tem_Latn_SL
     0xB89355474C61746ELLU, // teo_Latn_UG
@@ -2135,9 +2200,11 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0xC97657464C61746ELLU, // wls_Latn_WF
     0xA1B64B4D41726162LLU, // wni_Arab_KM
     0x776F534E4C61746ELLU, // wo_Latn_SN
+    0x9A56494E476F6E67LLU, // wsg_Gong_IN
     0xB276494E44657661LLU, // wtm_Deva_IN
     0xD296434E48616E73LLU, // wuu_Hans_CN
     0xD41742524C61746ELLU, // xav_Latn_BR
+    0xB857555A43687273LLU, // xco_Chrs_UZ
     0xC457545243617269LLU, // xcr_Cari_TR
     0x78685A414C61746ELLU, // xh_Latn_ZA
     0x897754524C796369LLU, // xlc_Lyci_TR
@@ -2169,6 +2236,8 @@ std::unordered_set<uint64_t> REPRESENTATIVE_LOCALES({
     0x7A68545748616E62LLU, // zh_Hanb_TW
     0x7A68434E48616E73LLU, // zh_Hans_CN
     0x7A68545748616E74LLU, // zh_Hant_TW
+    0xDCF9434E4E736875LLU, // zhx_Nshu_CN
+    0xCD59434E4B697473LLU, // zkt_Kits_CN
     0xB17954474C61746ELLU, // zlm_Latn_TG
     0xA1994D594C61746ELLU, // zmi_Latn_MY
     0x7A755A414C61746ELLU, // zu_Latn_ZA
@@ -2194,7 +2263,7 @@ const std::unordered_map<uint32_t, uint32_t> LATN_PARENTS({
     {0x656E4154u, 0x656E80A1u}, // en-AT -> en-150
     {0x656E4155u, 0x656E8400u}, // en-AU -> en-001
     {0x656E4242u, 0x656E8400u}, // en-BB -> en-001
-    {0x656E4245u, 0x656E8400u}, // en-BE -> en-001
+    {0x656E4245u, 0x656E80A1u}, // en-BE -> en-150
     {0x656E424Du, 0x656E8400u}, // en-BM -> en-001
     {0x656E4253u, 0x656E8400u}, // en-BS -> en-001
     {0x656E4257u, 0x656E8400u}, // en-BW -> en-001
@@ -2285,6 +2354,7 @@ const std::unordered_map<uint32_t, uint32_t> LATN_PARENTS({
     {0x65734152u, 0x6573A424u}, // es-AR -> es-419
     {0x6573424Fu, 0x6573A424u}, // es-BO -> es-419
     {0x65734252u, 0x6573A424u}, // es-BR -> es-419
+    {0x6573425Au, 0x6573A424u}, // es-BZ -> es-419
     {0x6573434Cu, 0x6573A424u}, // es-CL -> es-419
     {0x6573434Fu, 0x6573A424u}, // es-CO -> es-419
     {0x65734352u, 0x6573A424u}, // es-CR -> es-419
@@ -2315,6 +2385,10 @@ const std::unordered_map<uint32_t, uint32_t> LATN_PARENTS({
     {0x7074544Cu, 0x70745054u}, // pt-TL -> pt-PT
 });
 
+const std::unordered_map<uint32_t, uint32_t> ___B_PARENTS({
+    {0x61725842u, 0x61729420u}, // ar-XB -> ar-015
+});
+
 const struct {
     const char script[4];
     const std::unordered_map<uint32_t, uint32_t>* map;
@@ -2322,6 +2396,7 @@ const struct {
     {{'A', 'r', 'a', 'b'}, &ARAB_PARENTS},
     {{'H', 'a', 'n', 't'}, &HANT_PARENTS},
     {{'L', 'a', 't', 'n'}, &LATN_PARENTS},
+    {{'~', '~', '~', 'B'}, &___B_PARENTS},
 };
 
 const size_t MAX_PARENT_DEPTH = 3;

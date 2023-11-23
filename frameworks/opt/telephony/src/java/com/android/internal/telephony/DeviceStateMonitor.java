@@ -20,30 +20,36 @@ import static android.hardware.radio.V1_0.DeviceStateType.CHARGING_STATE;
 import static android.hardware.radio.V1_0.DeviceStateType.LOW_DATA_EXPECTED;
 import static android.hardware.radio.V1_0.DeviceStateType.POWER_SAVE_MODE;
 
+import android.app.UiModeManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
-import android.hardware.radio.V1_2.IndicationFilter;
+import android.hardware.radio.V1_5.IndicationFilter;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.TetheringManager;
 import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
+import android.os.Registrant;
+import android.os.RegistrantList;
+import android.provider.Settings;
 import android.telephony.AccessNetworkConstants.AccessNetworkType;
 import android.telephony.CarrierConfigManager;
-import android.telephony.Rlog;
-import android.telephony.TelephonyManager;
+import android.telephony.NetworkRegistrationInfo;
+import android.telephony.SignalThresholdInfo;
 import android.util.LocalLog;
-import android.util.SparseIntArray;
 import android.view.Display;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.telephony.Rlog;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -65,7 +71,7 @@ public class DeviceStateMonitor extends Handler {
     protected static final String TAG = DeviceStateMonitor.class.getSimpleName();
 
     static final int EVENT_RIL_CONNECTED                = 0;
-    static final int EVENT_UPDATE_MODE_CHANGED          = 1;
+    static final int EVENT_CAR_MODE_CHANGED             = 1;
     @VisibleForTesting
     static final int EVENT_SCREEN_STATE_CHANGED         = 2;
     static final int EVENT_POWER_SAVE_MODE_CHANGED      = 3;
@@ -75,16 +81,20 @@ public class DeviceStateMonitor extends Handler {
     static final int EVENT_RADIO_AVAILABLE              = 6;
     @VisibleForTesting
     static final int EVENT_WIFI_CONNECTION_CHANGED      = 7;
-
-    // TODO(b/74006656) load hysteresis values from a property when DeviceStateMonitor starts
-    private static final int HYSTERESIS_KBPS = 50;
+    static final int EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH = 8;
 
     private static final int WIFI_UNAVAILABLE = 0;
     private static final int WIFI_AVAILABLE = 1;
 
+    private static final int NR_NSA_TRACKING_INDICATIONS_OFF = 0;
+    private static final int NR_NSA_TRACKING_INDICATIONS_EXTENDED = 1;
+    private static final int NR_NSA_TRACKING_INDICATIONS_ALWAYS_ON = 2;
+
     private final Phone mPhone;
 
     private final LocalLog mLocalLog = new LocalLog(100);
+
+    private final RegistrantList mPhysicalChannelConfigRegistrants = new RegistrantList();
 
     private final NetworkRequest mWifiNetworkRequest =
             new NetworkRequest.Builder()
@@ -162,6 +172,18 @@ public class DeviceStateMonitor extends Handler {
      */
     private boolean mIsWifiConnected;
 
+    /**
+     * Car mode is on. True means the device is currently connected to Android Auto. This should be
+     * handled by mIsScreenOn, but the Android Auto display is private and not accessible by
+     * DeviceStateMonitor from DisplayMonitor.
+     */
+    private boolean mIsCarModeOn;
+
+    /**
+     * True indicates we should always enable the signal strength reporting from radio.
+     */
+    private boolean mIsAlwaysSignalStrengthReportingEnabled;
+
     @VisibleForTesting
     static final int CELL_INFO_INTERVAL_SHORT_MS = 2000;
     @VisibleForTesting
@@ -169,9 +191,6 @@ public class DeviceStateMonitor extends Handler {
 
     /** The minimum required wait time between cell info requests to the modem */
     private int mCellInfoMinInterval = CELL_INFO_INTERVAL_SHORT_MS;
-
-
-    private SparseIntArray mUpdateModes = new SparseIntArray();
 
     /**
      * The unsolicited response filter. See IndicationFilter defined in types.hal for the definition
@@ -219,15 +238,23 @@ public class DeviceStateMonitor extends Handler {
                     msg = obtainMessage(EVENT_CHARGING_STATE_CHANGED);
                     msg.arg1 = 0;   // not charging
                     break;
-                case ConnectivityManager.ACTION_TETHER_STATE_CHANGED:
+                case TetheringManager.ACTION_TETHER_STATE_CHANGED:
                     ArrayList<String> activeTetherIfaces = intent.getStringArrayListExtra(
-                            ConnectivityManager.EXTRA_ACTIVE_TETHER);
+                            TetheringManager.EXTRA_ACTIVE_TETHER);
 
                     boolean isTetheringOn = activeTetherIfaces != null
                             && activeTetherIfaces.size() > 0;
                     log("Tethering " + (isTetheringOn ? "on" : "off"), true);
                     msg = obtainMessage(EVENT_TETHERING_STATE_CHANGED);
                     msg.arg1 = isTetheringOn ? 1 : 0;
+                    break;
+                case UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED:
+                    msg = obtainMessage(EVENT_CAR_MODE_CHANGED);
+                    msg.arg1 = 1; // car mode on
+                    break;
+                case UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED:
+                    msg = obtainMessage(EVENT_CAR_MODE_CHANGED);
+                    msg.arg1 = 0; // car mode off
                     break;
                 default:
                     log("Unexpected broadcast intent: " + intent, false);
@@ -252,18 +279,28 @@ public class DeviceStateMonitor extends Handler {
         mIsPowerSaveOn = isPowerSaveModeOn();
         mIsCharging = isDeviceCharging();
         mIsScreenOn = isScreenOn();
+        mIsCarModeOn = isCarModeOn();
         // Assuming tethering is always off after boot up.
         mIsTetheringOn = false;
         mIsLowDataExpected = false;
 
-        log("DeviceStateMonitor mIsPowerSaveOn=" + mIsPowerSaveOn + ",mIsScreenOn="
-                + mIsScreenOn + ",mIsCharging=" + mIsCharging, false);
+        log("DeviceStateMonitor mIsTetheringOn=" + mIsTetheringOn
+                + ", mIsScreenOn=" + mIsScreenOn
+                + ", mIsCharging=" + mIsCharging
+                + ", mIsPowerSaveOn=" + mIsPowerSaveOn
+                + ", mIsLowDataExpected=" + mIsLowDataExpected
+                + ", mIsCarModeOn=" + mIsCarModeOn
+                + ", mIsWifiConnected=" + mIsWifiConnected
+                + ", mIsAlwaysSignalStrengthReportingEnabled="
+                + mIsAlwaysSignalStrengthReportingEnabled, false);
 
         final IntentFilter filter = new IntentFilter();
         filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
         filter.addAction(BatteryManager.ACTION_CHARGING);
         filter.addAction(BatteryManager.ACTION_DISCHARGING);
         filter.addAction(ConnectivityManager.ACTION_TETHER_STATE_CHANGED);
+        filter.addAction(UiModeManager.ACTION_ENTER_CAR_MODE_PRIORITIZED);
+        filter.addAction(UiModeManager.ACTION_EXIT_CAR_MODE_PRIORITIZED);
         mPhone.getContext().registerReceiver(mBroadcastReceiver, filter, null, mPhone);
 
         mPhone.mCi.registerForRilConnected(this, EVENT_RIL_CONNECTED, null);
@@ -303,128 +340,104 @@ public class DeviceStateMonitor extends Handler {
     }
 
     /**
-     * @return True if signal strength update should be turned off.
+     * @return True if signal strength update should be enabled. See details in
+     *         android.hardware.radio@1.2::IndicationFilter::SIGNAL_STRENGTH.
      */
-    private boolean shouldTurnOffSignalStrength() {
-        // We should not turn off signal strength update if one of the following condition is true.
+    private boolean shouldEnableSignalStrengthReports() {
+        // We should enable signal strength update if one of the following condition is true.
         // 1. The device is charging.
         // 2. When the screen is on.
-        // 3. When the update mode is IGNORE_SCREEN_OFF. This mode is used in some corner cases like
-        //    when Bluetooth carkit is connected, we still want to update signal strength even
-        //    when screen is off.
-        if (mIsCharging || mIsScreenOn
-                || mUpdateModes.get(TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH)
-                == TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF) {
-            return false;
-        }
-
-        // In all other cases, we turn off signal strength update.
-        return true;
+        // 3. Any of system services is registrating to always listen to signal strength changes
+        return mIsAlwaysSignalStrengthReportingEnabled || mIsCharging || mIsScreenOn;
     }
 
     /**
-     * @return True if full network update should be turned off. Only significant changes will
-     * trigger the network update unsolicited response.
+     * @return True if full network state update should be enabled. When off, only significant
+     *         changes will trigger the network update unsolicited response. See details in
+     *         android.hardware.radio@1.2::IndicationFilter::FULL_NETWORK_STATE.
      */
-    private boolean shouldTurnOffFullNetworkUpdate() {
-        // We should not turn off full network update if one of the following condition is true.
-        // 1. The device is charging.
-        // 2. When the screen is on.
-        // 3. When data tethering is on.
-        // 4. When the update mode is IGNORE_SCREEN_OFF.
-        if (mIsCharging || mIsScreenOn || mIsTetheringOn
-                || mUpdateModes.get(TelephonyManager.INDICATION_FILTER_FULL_NETWORK_STATE)
-                == TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF) {
-            return false;
-        }
-
-        // In all other cases, we turn off full network state update.
-        return true;
+    private boolean shouldEnableFullNetworkStateReports() {
+        return shouldEnableNrTrackingIndications();
     }
 
     /**
-     * @return True if data dormancy status update should be turned off.
+     * @return True if data call dormancy changed update should be enabled. See details in
+     *         android.hardware.radio@1.2::IndicationFilter::DATA_CALL_DORMANCY_CHANGED.
      */
-    private boolean shouldTurnOffDormancyUpdate() {
-        // We should not turn off data dormancy update if one of the following condition is true.
-        // 1. The device is charging.
-        // 2. When the screen is on.
-        // 3. When data tethering is on.
-        // 4. When the update mode is IGNORE_SCREEN_OFF.
-        if (mIsCharging || mIsScreenOn || mIsTetheringOn
-                || mUpdateModes.get(TelephonyManager.INDICATION_FILTER_DATA_CALL_DORMANCY_CHANGED)
-                == TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF) {
-            return false;
-        }
-
-        // In all other cases, we turn off data dormancy update.
-        return true;
+    private boolean shouldEnableDataCallDormancyChangedReports() {
+        return shouldEnableNrTrackingIndications();
     }
 
     /**
-     * @return True if link capacity estimate update should be turned off.
+     * @return True if link capacity estimate update should be enabled. See details in
+     *         android.hardware.radio@1.2::IndicationFilter::LINK_CAPACITY_ESTIMATE.
      */
-    private boolean shouldTurnOffLinkCapacityEstimate() {
-        // We should not turn off link capacity update if one of the following condition is true.
-        // 1. The device is charging.
-        // 2. When the screen is on.
-        // 3. When data tethering is on.
-        // 4. When the update mode is IGNORE_SCREEN_OFF.
-        if (mIsCharging || mIsScreenOn || mIsTetheringOn
-                || mUpdateModes.get(TelephonyManager.INDICATION_FILTER_LINK_CAPACITY_ESTIMATE)
-                == TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF) {
-            return false;
-        }
-
-        // In all other cases, we turn off link capacity update.
-        return true;
+    private boolean shouldEnableLinkCapacityEstimateReports() {
+        return shouldEnableHighPowerConsumptionIndications();
     }
 
     /**
-     * @return True if physical channel config update should be turned off.
+     * @return True if physical channel config update should be enabled. See details in
+     *         android.hardware.radio@1.2::IndicationFilter::PHYSICAL_CHANNEL_CONFIG.
      */
-    private boolean shouldTurnOffPhysicalChannelConfig() {
-        // We should not turn off physical channel update if one of the following condition is true.
-        // 1. The device is charging.
-        // 2. When the screen is on.
-        // 3. When data tethering is on.
-        // 4. When the update mode is IGNORE_SCREEN_OFF.
-        if (mIsCharging || mIsScreenOn || mIsTetheringOn
-                || mUpdateModes.get(TelephonyManager.INDICATION_FILTER_PHYSICAL_CHANNEL_CONFIG)
-                == TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF) {
-            return false;
-        }
-
-        // In all other cases, we turn off physical channel config update.
-        return true;
+    private boolean shouldEnablePhysicalChannelConfigReports() {
+        return shouldEnableNrTrackingIndications();
     }
 
     /**
-     * Set indication update mode
+     * @return True if barring info update should be enabled. See details in
+     *         android.hardware.radio@1.5::IndicationFilter::BARRING_INFO.
+     */
+    private boolean shouldEnableBarringInfoReports() {
+        return shouldEnableHighPowerConsumptionIndications();
+    }
+
+    /**
+     * A common policy to determine if we should enable the necessary indications update,
+     * for power consumption's sake.
      *
-     * @param filters Indication filters. Should be a bitmask of INDICATION_FILTER_XXX.
-     * @param mode The voice activation state
+     * @return True if the response update should be enabled.
      */
-    public void setIndicationUpdateMode(int filters, int mode) {
-        sendMessage(obtainMessage(EVENT_UPDATE_MODE_CHANGED, filters, mode));
+    private boolean shouldEnableHighPowerConsumptionIndications() {
+        // We should enable indications reports if one of the following condition is true.
+        // 1. The device is charging.
+        // 2. When the screen is on.
+        // 3. When the tethering is on.
+        // 4. When car mode (Android Auto) is on.
+        return mIsCharging || mIsScreenOn || mIsTetheringOn || mIsCarModeOn;
     }
 
-    private void onSetIndicationUpdateMode(int filters, int mode) {
-        if ((filters & TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH) != 0) {
-            mUpdateModes.put(TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH, mode);
+    /**
+     * For 5G NSA devices, a policy to determine if we should enable NR tracking indications.
+     *
+     * @return True if the response update should be enabled.
+     */
+    private boolean shouldEnableNrTrackingIndications() {
+        int trackingMode = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
+                Settings.Global.NR_NSA_TRACKING_SCREEN_OFF_MODE, NR_NSA_TRACKING_INDICATIONS_OFF);
+        switch (trackingMode) {
+            case NR_NSA_TRACKING_INDICATIONS_ALWAYS_ON:
+                return true;
+            case NR_NSA_TRACKING_INDICATIONS_EXTENDED:
+                if (mPhone.getServiceState().getNrState()
+                        == NetworkRegistrationInfo.NR_STATE_CONNECTED) {
+                    return true;
+                }
+                // fallthrough
+            case NR_NSA_TRACKING_INDICATIONS_OFF:
+                return shouldEnableHighPowerConsumptionIndications();
+            default:
+                return shouldEnableHighPowerConsumptionIndications();
         }
-        if ((filters & TelephonyManager.INDICATION_FILTER_FULL_NETWORK_STATE) != 0) {
-            mUpdateModes.put(TelephonyManager.INDICATION_FILTER_FULL_NETWORK_STATE, mode);
-        }
-        if ((filters & TelephonyManager.INDICATION_FILTER_DATA_CALL_DORMANCY_CHANGED) != 0) {
-            mUpdateModes.put(TelephonyManager.INDICATION_FILTER_DATA_CALL_DORMANCY_CHANGED, mode);
-        }
-        if ((filters & TelephonyManager.INDICATION_FILTER_LINK_CAPACITY_ESTIMATE) != 0) {
-            mUpdateModes.put(TelephonyManager.INDICATION_FILTER_LINK_CAPACITY_ESTIMATE, mode);
-        }
-        if ((filters & TelephonyManager.INDICATION_FILTER_PHYSICAL_CHANNEL_CONFIG) != 0) {
-            mUpdateModes.put(TelephonyManager.INDICATION_FILTER_PHYSICAL_CHANNEL_CONFIG, mode);
-        }
+    }
+
+    /**
+     * Set if Telephony need always report signal strength.
+     *
+     * @param isEnable
+     */
+    public void setAlwaysReportSignalStrength(boolean isEnable) {
+        sendMessage(obtainMessage(EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH, isEnable ? 1 : 0));
     }
 
     /**
@@ -440,13 +453,12 @@ public class DeviceStateMonitor extends Handler {
             case EVENT_RADIO_AVAILABLE:
                 onReset();
                 break;
-            case EVENT_UPDATE_MODE_CHANGED:
-                onSetIndicationUpdateMode(msg.arg1, msg.arg2);
-                break;
             case EVENT_SCREEN_STATE_CHANGED:
             case EVENT_POWER_SAVE_MODE_CHANGED:
             case EVENT_CHARGING_STATE_CHANGED:
             case EVENT_TETHERING_STATE_CHANGED:
+            case EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH:
+            case EVENT_CAR_MODE_CHANGED:
                 onUpdateDeviceState(msg.what, msg.arg1 != 0);
                 break;
             case EVENT_WIFI_CONNECTION_CHANGED:
@@ -464,6 +476,7 @@ public class DeviceStateMonitor extends Handler {
      * @param state True if enabled/on, otherwise disabled/off.
      */
     private void onUpdateDeviceState(int eventType, boolean state) {
+        final boolean shouldEnableBarringInfoReportsOld = shouldEnableBarringInfoReports();
         switch (eventType) {
             case EVENT_SCREEN_STATE_CHANGED:
                 if (mIsScreenOn == state) return;
@@ -486,7 +499,14 @@ public class DeviceStateMonitor extends Handler {
             case EVENT_WIFI_CONNECTION_CHANGED:
                 if (mIsWifiConnected == state) return;
                 mIsWifiConnected = state;
-
+                break;
+            case EVENT_UPDATE_ALWAYS_REPORT_SIGNAL_STRENGTH:
+                if (mIsAlwaysSignalStrengthReportingEnabled == state) return;
+                mIsAlwaysSignalStrengthReportingEnabled = state;
+                break;
+            case EVENT_CAR_MODE_CHANGED:
+                if (mIsCarModeOn == state) return;
+                mIsCarModeOn = state;
                 break;
             default:
                 return;
@@ -504,28 +524,49 @@ public class DeviceStateMonitor extends Handler {
             sendDeviceState(LOW_DATA_EXPECTED, mIsLowDataExpected);
         }
 
-        int newFilter = 0;
-        if (!shouldTurnOffSignalStrength()) {
+        // Registration Failure is always reported.
+        int newFilter = IndicationFilter.REGISTRATION_FAILURE;
+
+        if (shouldEnableSignalStrengthReports()) {
             newFilter |= IndicationFilter.SIGNAL_STRENGTH;
         }
 
-        if (!shouldTurnOffFullNetworkUpdate()) {
+        if (shouldEnableFullNetworkStateReports()) {
             newFilter |= IndicationFilter.FULL_NETWORK_STATE;
         }
 
-        if (!shouldTurnOffDormancyUpdate()) {
+        if (shouldEnableDataCallDormancyChangedReports()) {
             newFilter |= IndicationFilter.DATA_CALL_DORMANCY_CHANGED;
         }
 
-        if (!shouldTurnOffLinkCapacityEstimate()) {
+        if (shouldEnableLinkCapacityEstimateReports()) {
             newFilter |= IndicationFilter.LINK_CAPACITY_ESTIMATE;
         }
 
-        if (!shouldTurnOffPhysicalChannelConfig()) {
+        if (shouldEnablePhysicalChannelConfigReports()) {
             newFilter |= IndicationFilter.PHYSICAL_CHANNEL_CONFIG;
         }
 
+        final boolean shouldEnableBarringInfoReports = shouldEnableBarringInfoReports();
+        if (shouldEnableBarringInfoReports) {
+            newFilter |= IndicationFilter.BARRING_INFO;
+        }
+
+        // notify PhysicalChannelConfig registrants if state changes
+        if ((newFilter & IndicationFilter.PHYSICAL_CHANNEL_CONFIG)
+                != (mUnsolicitedResponseFilter & IndicationFilter.PHYSICAL_CHANNEL_CONFIG)) {
+            mPhysicalChannelConfigRegistrants.notifyResult(
+                    (newFilter & IndicationFilter.PHYSICAL_CHANNEL_CONFIG) != 0);
+        }
+
         setUnsolResponseFilter(newFilter, false);
+
+        // Pull barring info AFTER setting filter, the order matters
+        if (shouldEnableBarringInfoReports && !shouldEnableBarringInfoReportsOld) {
+            if (DBG) log("Manually pull barring info...", true);
+            // use a null message since we don't care of receiving response
+            mPhone.mCi.getBarringInfo(null);
+        }
     }
 
     /**
@@ -587,14 +628,28 @@ public class DeviceStateMonitor extends Handler {
     }
 
     private void setSignalStrengthReportingCriteria() {
-        mPhone.setSignalStrengthReportingCriteria(
-                AccessNetworkThresholds.GERAN, AccessNetworkType.GERAN);
-        mPhone.setSignalStrengthReportingCriteria(
-                AccessNetworkThresholds.UTRAN, AccessNetworkType.UTRAN);
-        mPhone.setSignalStrengthReportingCriteria(
-                AccessNetworkThresholds.EUTRAN, AccessNetworkType.EUTRAN);
-        mPhone.setSignalStrengthReportingCriteria(
-                AccessNetworkThresholds.CDMA2000, AccessNetworkType.CDMA2000);
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSSI,
+                AccessNetworkThresholds.GERAN, AccessNetworkType.GERAN, true);
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSCP,
+                AccessNetworkThresholds.UTRAN, AccessNetworkType.UTRAN, true);
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSRP,
+                AccessNetworkThresholds.EUTRAN_RSRP, AccessNetworkType.EUTRAN, true);
+        mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSSI,
+                AccessNetworkThresholds.CDMA2000, AccessNetworkType.CDMA2000, true);
+        if (mPhone.getHalVersion().greaterOrEqual(RIL.RADIO_HAL_VERSION_1_5)) {
+            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSRQ,
+                    AccessNetworkThresholds.EUTRAN_RSRQ, AccessNetworkType.EUTRAN, false);
+            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_RSSNR,
+                    AccessNetworkThresholds.EUTRAN_RSSNR, AccessNetworkType.EUTRAN, true);
+
+            // Defaultly we only need SSRSRP for NGRAN signal criteria reporting
+            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_SSRSRP,
+                    AccessNetworkThresholds.NGRAN_RSRSRP, AccessNetworkType.NGRAN, true);
+            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_SSRSRQ,
+                    AccessNetworkThresholds.NGRAN_RSRSRQ, AccessNetworkType.NGRAN, false);
+            mPhone.setSignalStrengthReportingCriteria(SignalThresholdInfo.SIGNAL_SSSINR,
+                    AccessNetworkThresholds.NGRAN_SSSINR, AccessNetworkType.NGRAN, false);
+        }
     }
 
     private void setLinkCapacityReportingCriteria() {
@@ -606,6 +661,10 @@ public class DeviceStateMonitor extends Handler {
                 LINK_CAPACITY_UPLINK_THRESHOLDS, AccessNetworkType.EUTRAN);
         mPhone.setLinkCapacityReportingCriteria(LINK_CAPACITY_DOWNLINK_THRESHOLDS,
                 LINK_CAPACITY_UPLINK_THRESHOLDS, AccessNetworkType.CDMA2000);
+        if (mPhone.getHalVersion().greaterOrEqual(RIL.RADIO_HAL_VERSION_1_5)) {
+            mPhone.setLinkCapacityReportingCriteria(LINK_CAPACITY_DOWNLINK_THRESHOLDS,
+                    LINK_CAPACITY_UPLINK_THRESHOLDS, AccessNetworkType.NGRAN);
+        }
     }
 
     private void setCellInfoMinInterval(int rate) {
@@ -619,7 +678,9 @@ public class DeviceStateMonitor extends Handler {
     private boolean isPowerSaveModeOn() {
         final PowerManager pm = (PowerManager) mPhone.getContext().getSystemService(
                 Context.POWER_SERVICE);
-        return pm.isPowerSaveMode();
+        boolean retval = pm.isPowerSaveMode();
+        log("isPowerSaveModeOn=" + retval, true);
+        return retval;
     }
 
     /**
@@ -631,12 +692,14 @@ public class DeviceStateMonitor extends Handler {
     private boolean isDeviceCharging() {
         final BatteryManager bm = (BatteryManager) mPhone.getContext().getSystemService(
                 Context.BATTERY_SERVICE);
-        return bm.isCharging();
+        boolean retval = bm.isCharging();
+        log("isDeviceCharging=" + retval, true);
+        return retval;
     }
 
     /**
-     * @return True if one the device's screen (e.g. main screen, wifi display, HDMI display, or
-     *         Android auto, etc...) is on.
+     * @return True if one the device's screen (e.g. main screen, wifi display, HDMI display etc...)
+     * is on.
      */
     private boolean isScreenOn() {
         // Note that we don't listen to Intent.SCREEN_ON and Intent.SCREEN_OFF because they are no
@@ -651,7 +714,7 @@ public class DeviceStateMonitor extends Handler {
                 // Anything other than STATE_ON is treated as screen off, such as STATE_DOZE,
                 // STATE_DOZE_SUSPEND, etc...
                 if (display.getState() == Display.STATE_ON) {
-                    log("Screen " + Display.typeToString(display.getType()) + " on", true);
+                    log("Screen on for display=" + display, true);
                     return true;
                 }
             }
@@ -661,6 +724,40 @@ public class DeviceStateMonitor extends Handler {
 
         log("No displays found", true);
         return false;
+    }
+
+    /**
+     * @return True if car mode (Android Auto) is on.
+     */
+    private boolean isCarModeOn() {
+        final UiModeManager umm = (UiModeManager) mPhone.getContext().getSystemService(
+                Context.UI_MODE_SERVICE);
+        if (umm == null) return false;
+        boolean retval = umm.getCurrentModeType() == Configuration.UI_MODE_TYPE_CAR;
+        log("isCarModeOn=" + retval, true);
+        return retval;
+    }
+
+    /**
+     * Register for PhysicalChannelConfig notifications changed. On change, msg.obj will be an
+     * AsyncResult with a boolean result. AsyncResult.result is true if notifications are enabled
+     * and false if they are disabled.
+     *
+     * @param h Handler to notify
+     * @param what msg.what when the message is delivered
+     * @param obj AsyncResult.userObj when the message is delivered
+     */
+    public void registerForPhysicalChannelConfigNotifChanged(Handler h, int what, Object obj) {
+        Registrant r = new Registrant(h, what, obj);
+        mPhysicalChannelConfigRegistrants.add(r);
+    }
+
+    /**
+     * Unregister for PhysicalChannelConfig notifications changed.
+     * @param h Handler to notify
+     */
+    public void unregisterForPhysicalChannelConfigNotifChanged(Handler h) {
+        mPhysicalChannelConfigRegistrants.remove(h);
     }
 
     /**
@@ -689,8 +786,11 @@ public class DeviceStateMonitor extends Handler {
         ipw.println("mIsCharging=" + mIsCharging);
         ipw.println("mIsPowerSaveOn=" + mIsPowerSaveOn);
         ipw.println("mIsLowDataExpected=" + mIsLowDataExpected);
+        ipw.println("mIsCarModeOn=" + mIsCarModeOn);
         ipw.println("mUnsolicitedResponseFilter=" + mUnsolicitedResponseFilter);
         ipw.println("mIsWifiConnected=" + mIsWifiConnected);
+        ipw.println("mIsAlwaysSignalStrengthReportingEnabled="
+                + mIsAlwaysSignalStrengthReportingEnabled);
         ipw.println("Local logs:");
         ipw.increaseIndent();
         mLocalLog.dump(fd, ipw, args);
@@ -730,15 +830,39 @@ public class DeviceStateMonitor extends Handler {
         };
 
         /**
-         * List of default dBm thresholds for EUTRAN {@link AccessNetworkType}.
+         * List of default dBm RSRP thresholds for EUTRAN {@link AccessNetworkType}.
          *
          * These thresholds are taken from the LTE RSRP defaults in {@link CarrierConfigManager}.
          */
-        public static final int[] EUTRAN = new int[] {
+        public static final int[] EUTRAN_RSRP = new int[] {
             -128, /* SIGNAL_STRENGTH_POOR */
             -118, /* SIGNAL_STRENGTH_MODERATE */
             -108, /* SIGNAL_STRENGTH_GOOD */
             -98,  /* SIGNAL_STRENGTH_GREAT */
+        };
+
+        /**
+         * List of default dB RSRQ thresholds for EUTRAN {@link AccessNetworkType}.
+         *
+         * These thresholds are taken from the LTE RSRQ defaults in {@link CarrierConfigManager}.
+         */
+        public static final int[] EUTRAN_RSRQ = new int[] {
+            -20,  /* SIGNAL_STRENGTH_POOR */
+            -17,  /* SIGNAL_STRENGTH_MODERATE */
+            -14,  /* SIGNAL_STRENGTH_GOOD */
+            -11   /* SIGNAL_STRENGTH_GREAT */
+        };
+
+        /**
+         * List of default dB RSSNR thresholds for EUTRAN {@link AccessNetworkType}.
+         *
+         * These thresholds are taken from the LTE RSSNR defaults in {@link CarrierConfigManager}.
+         */
+        public static final int[] EUTRAN_RSSNR = new int[] {
+            -3,  /* SIGNAL_STRENGTH_POOR */
+            1,   /* SIGNAL_STRENGTH_MODERATE */
+            5,   /* SIGNAL_STRENGTH_GOOD */
+            13   /* SIGNAL_STRENGTH_GREAT */
         };
 
         /**
@@ -751,6 +875,36 @@ public class DeviceStateMonitor extends Handler {
             -90,
             -75,
             -65
+        };
+
+        /**
+         * List of dB thresholds for NGRAN {@link AccessNetworkType} RSRSRP
+         */
+        public static final int[] NGRAN_RSRSRP = new int[] {
+            -110, /* SIGNAL_STRENGTH_POOR */
+            -90, /* SIGNAL_STRENGTH_MODERATE */
+            -80, /* SIGNAL_STRENGTH_GOOD */
+            -65,  /* SIGNAL_STRENGTH_GREAT */
+        };
+
+        /**
+         * List of dB thresholds for NGRAN {@link AccessNetworkType} RSRSRP
+         */
+        public static final int[] NGRAN_RSRSRQ = new int[] {
+            -16, /* SIGNAL_STRENGTH_POOR */
+            -12, /* SIGNAL_STRENGTH_MODERATE */
+            -9, /* SIGNAL_STRENGTH_GOOD */
+            -6  /* SIGNAL_STRENGTH_GREAT */
+        };
+
+        /**
+         * List of dB thresholds for NGRAN {@link AccessNetworkType} SSSINR
+         */
+        public static final int[] NGRAN_SSSINR = new int[] {
+            -5, /* SIGNAL_STRENGTH_POOR */
+            5, /* SIGNAL_STRENGTH_MODERATE */
+            15, /* SIGNAL_STRENGTH_GOOD */
+            30  /* SIGNAL_STRENGTH_GREAT */
         };
     }
 
@@ -770,10 +924,13 @@ public class DeviceStateMonitor extends Handler {
             10000,  // file downloading
             20000,  // 4K video streaming
             50000,  // LTE-Advanced speeds
+            75000,
             100000,
             200000, // 5G speeds
             500000,
-            1000000
+            1000000,
+            1500000,
+            2000000
     };
 
     /** Uplink reporting thresholds in kbps */
@@ -785,7 +942,9 @@ public class DeviceStateMonitor extends Handler {
             10000,  // file uploading
             20000,  // 4K video calling
             50000,
+            75000,
             100000,
-            200000
+            200000,
+            500000
     };
 }

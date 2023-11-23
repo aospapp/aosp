@@ -16,6 +16,7 @@
 
 package com.android.server.wifi.aware;
 
+import android.hardware.wifi.V1_0.NanCipherSuiteType;
 import android.net.wifi.aware.Characteristics;
 import android.os.Bundle;
 
@@ -49,7 +50,22 @@ public class Capabilities {
         bundle.putInt(Characteristics.KEY_MAX_SERVICE_SPECIFIC_INFO_LENGTH,
                 maxServiceSpecificInfoLen);
         bundle.putInt(Characteristics.KEY_MAX_MATCH_FILTER_LENGTH, maxMatchFilterLen);
+        bundle.putInt(Characteristics.KEY_SUPPORTED_CIPHER_SUITES,
+                toPublicCipherSuites(supportedCipherSuites));
         return new Characteristics(bundle);
+    }
+
+    private int toPublicCipherSuites(int nativeCipherSuites) {
+        int publicCipherSuites = 0;
+
+        if ((nativeCipherSuites & NanCipherSuiteType.SHARED_KEY_128_MASK) != 0) {
+            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128;
+        }
+        if ((nativeCipherSuites & NanCipherSuiteType.SHARED_KEY_256_MASK) != 0) {
+            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
+        }
+
+        return publicCipherSuites;
     }
 
     @Override

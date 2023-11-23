@@ -20,13 +20,15 @@ import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.wifi.WifiBaseTest;
+
 import org.junit.Test;
 
 /**
  * Unit tests for {@link com.android.server.wifi.hotspot2.ANQPNetworkKey}.
  */
 @SmallTest
-public class ANQPNetworkKeyTest {
+public class ANQPNetworkKeyTest extends WifiBaseTest {
     private static final String SSID = "TestSSID";
     private static final long BSSID = 0x123456L;
     private static final long HESSID = 0x789012L;

@@ -46,12 +46,11 @@ enum {
 #define DEFAULT_BYTES_SIZE_LIMIT (96 * 1024 * 1024)        // 96MB
 #define DEFAULT_REFACTORY_PERIOD_MS (24 * 60 * 60 * 1000)  // 1 Day
 
-// Skip these sections for dumpstate only. Dumpstate allows 10s max for each service to dump.
+// Skip these sections (for dumpstate only)
 // Skip logs (1100 - 1108) and traces (1200 - 1202) because they are already in the bug report.
-// Skip 3018 because it takes too long.
-#define SKIPPED_SECTIONS { 1100, 1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108, /* Logs */ \
-                           1200, 1201, 1202, /* Native, hal, java traces */ \
-                           3018  /* "meminfo -a --proto" */ }
+#define SKIPPED_DUMPSTATE_SECTIONS { \
+            1100, 1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108, /* Logs */ \
+            1200, 1201, 1202, /* Native, hal, java traces */ }
 
 namespace android {
 namespace os {
@@ -124,14 +123,17 @@ static string build_uri(const string& pkg, const string& cls, const string& id) 
 
 // ================================================================================
 ReportHandler::ReportHandler(const sp<WorkDirectory>& workDirectory,
-            const sp<Broadcaster>& broadcaster, const sp<Looper>& handlerLooper,
-            const sp<Throttler>& throttler)
+                             const sp<Broadcaster>& broadcaster,
+                             const sp<Looper>& handlerLooper,
+                             const sp<Throttler>& throttler,
+                             const vector<BringYourOwnSection*>& registeredSections)
         :mLock(),
          mWorkDirectory(workDirectory),
          mBroadcaster(broadcaster),
          mHandlerLooper(handlerLooper),
          mBacklogDelay(DEFAULT_DELAY_NS),
          mThrottler(throttler),
+         mRegisteredSections(registeredSections),
          mBatch(new ReportBatch()) {
 }
 
@@ -150,6 +152,7 @@ void ReportHandler::handleMessage(const Message& message) {
 }
 
 void ReportHandler::schedulePersistedReport(const IncidentReportArgs& args) {
+    unique_lock<mutex> lock(mLock);
     mBatch->addPersistedReport(args);
     mHandlerLooper->removeMessages(this, WHAT_TAKE_REPORT);
     mHandlerLooper->sendMessage(this, Message(WHAT_TAKE_REPORT));
@@ -157,6 +160,7 @@ void ReportHandler::schedulePersistedReport(const IncidentReportArgs& args) {
 
 void ReportHandler::scheduleStreamingReport(const IncidentReportArgs& args,
         const sp<IIncidentReportStatusListener>& listener, int streamFd) {
+    unique_lock<mutex> lock(mLock);
     mBatch->addStreamingReport(args, listener, streamFd);
     mHandlerLooper->removeMessages(this, WHAT_TAKE_REPORT);
     mHandlerLooper->sendMessage(this, Message(WHAT_TAKE_REPORT));
@@ -186,7 +190,7 @@ void ReportHandler::take_report() {
         return;
     }
 
-    sp<Reporter> reporter = new Reporter(mWorkDirectory, batch);
+    sp<Reporter> reporter = new Reporter(mWorkDirectory, batch, mRegisteredSections);
 
     // Take the report, which might take a while. More requests might queue
     // up while we're doing this, and we'll handle them in their next batch.
@@ -238,7 +242,7 @@ IncidentService::IncidentService(const sp<Looper>& handlerLooper) {
     mWorkDirectory = new WorkDirectory();
     mBroadcaster = new Broadcaster(mWorkDirectory);
     mHandler = new ReportHandler(mWorkDirectory, mBroadcaster, handlerLooper,
-            mThrottler);
+            mThrottler, mRegisteredSections);
     mBroadcaster->setHandler(mHandler);
 }
 
@@ -280,7 +284,7 @@ Status IncidentService::reportIncident(const IncidentReportArgs& args) {
 
 Status IncidentService::reportIncidentToStream(const IncidentReportArgs& args,
                                                const sp<IIncidentReportStatusListener>& listener,
-                                               const unique_fd& stream) {
+                                               unique_fd stream) {
     IncidentReportArgs argsCopy(args);
 
     // Streaming reports can not also be broadcast.
@@ -305,6 +309,84 @@ Status IncidentService::reportIncidentToStream(const IncidentReportArgs& args,
     mHandler->scheduleStreamingReport(argsCopy, listener, fd);
 
     return Status::ok();
+}
+
+Status IncidentService::reportIncidentToDumpstate(unique_fd stream,
+        const sp<IIncidentReportStatusListener>& listener) {
+    uid_t caller = IPCThreadState::self()->getCallingUid();
+    if (caller != AID_ROOT && caller != AID_SHELL) {
+        ALOGW("Calling uid %d does not have permission: only ROOT or SHELL allowed", caller);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "Only ROOT or SHELL allowed");
+    }
+
+    ALOGD("Stream incident report to dumpstate");
+    IncidentReportArgs incidentArgs;
+    // Privacy policy for dumpstate incident reports is always EXPLICIT.
+    incidentArgs.setPrivacyPolicy(PRIVACY_POLICY_EXPLICIT);
+
+    int skipped[] = SKIPPED_DUMPSTATE_SECTIONS;
+    for (const Section** section = SECTION_LIST; *section; section++) {
+        const int id = (*section)->id;
+        if (std::find(std::begin(skipped), std::end(skipped), id) == std::end(skipped)
+                && !section_requires_specific_mention(id)) {
+            incidentArgs.addSection(id);
+        }
+    }
+    for (const Section* section : mRegisteredSections) {
+        if (!section_requires_specific_mention(section->id)) {
+            incidentArgs.addSection(section->id);
+        }
+    }
+
+    // The ReportRequest takes ownership of the fd, so we need to dup it.
+    int fd = dup(stream.get());
+    if (fd < 0) {
+        return Status::fromStatusT(-errno);
+    }
+
+    mHandler->scheduleStreamingReport(incidentArgs, listener, fd);
+
+    return Status::ok();
+}
+
+Status IncidentService::registerSection(const int id, const String16& name16,
+        const sp<IIncidentDumpCallback>& callback) {
+    const String8 name = String8(name16);
+    const uid_t callingUid = IPCThreadState::self()->getCallingUid();
+    ALOGI("Uid %d registers section %d '%s'", callingUid, id, name.c_str());
+    if (callback == nullptr) {
+        return Status::fromExceptionCode(Status::EX_NULL_POINTER);
+    }
+    for (int i = 0; i < mRegisteredSections.size(); i++) {
+        if (mRegisteredSections.at(i)->id == id) {
+            if (mRegisteredSections.at(i)->uid != callingUid) {
+                ALOGW("Error registering section %d: calling uid does not match", id);
+                return Status::fromExceptionCode(Status::EX_SECURITY);
+            }
+            mRegisteredSections.at(i) = new BringYourOwnSection(id, name.c_str(), callingUid, callback);
+            return Status::ok();
+        }
+    }
+    mRegisteredSections.push_back(new BringYourOwnSection(id, name.c_str(), callingUid, callback));
+    return Status::ok();
+}
+
+Status IncidentService::unregisterSection(const int id) {
+    uid_t callingUid = IPCThreadState::self()->getCallingUid();
+    ALOGI("Uid %d unregisters section %d", callingUid, id);
+
+    for (auto it = mRegisteredSections.begin(); it != mRegisteredSections.end(); it++) {
+        if ((*it)->id == id) {
+            if ((*it)->uid != callingUid) {
+                ALOGW("Error unregistering section %d: calling uid does not match", id);
+                return Status::fromExceptionCode(Status::EX_SECURITY);
+            }
+            mRegisteredSections.erase(it);
+            return Status::ok();
+        }
+    }
+    ALOGW("Section %d not found", id);
+    return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
 }
 
 Status IncidentService::systemRunning() {
@@ -548,43 +630,6 @@ status_t IncidentService::cmd_privacy(FILE* in, FILE* out, FILE* err, Vector<Str
     } else {
         return cmd_help(out);
     }
-    return NO_ERROR;
-}
-
-status_t IncidentService::dump(int fd, const Vector<String16>& args) {
-    if (std::find(args.begin(), args.end(), String16("--proto")) == args.end()) {
-        ALOGD("Skip dumping incident. Only proto format is supported.");
-        dprintf(fd, "Incident dump only supports proto version.\n");
-        return NO_ERROR;
-    }
-
-    ALOGD("Dump incident proto");
-    IncidentReportArgs incidentArgs;
-    incidentArgs.setPrivacyPolicy(PRIVACY_POLICY_EXPLICIT);
-    int skipped[] = SKIPPED_SECTIONS;
-    for (const Section** section = SECTION_LIST; *section; section++) {
-        const int id = (*section)->id;
-        if (std::find(std::begin(skipped), std::end(skipped), id) == std::end(skipped)
-                && !section_requires_specific_mention(id)) {
-            incidentArgs.addSection(id);
-        }
-    }
-
-    if (!checkIncidentPermissions(incidentArgs).isOk()) {
-        return PERMISSION_DENIED;
-    }
-
-    // The ReportRequest takes ownership of the fd, so we need to dup it.
-    int fd1 = dup(fd);
-    if (fd1 < 0) {
-        return -errno;
-    }
-
-    // TODO: Remove this.  Someone even dumpstate, wanting to get an incident report
-    // should use the API.  That will take making dumpstated call the API, which is a
-    // good thing.  It also means it won't be subject to the timeout.
-    mHandler->scheduleStreamingReport(incidentArgs, NULL, fd1);
-
     return NO_ERROR;
 }
 

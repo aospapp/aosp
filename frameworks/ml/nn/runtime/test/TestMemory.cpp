@@ -35,9 +35,8 @@ namespace {
 
 // Tests the various ways to pass weights and input/output data.
 class MemoryTest : public ::testing::Test {
-protected:
+   protected:
     void SetUp() override {}
-
 };
 
 TEST_F(MemoryTest, TestFd) {
